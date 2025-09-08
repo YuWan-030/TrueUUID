@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cn.alini.trueuuid.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "trueuuid.refmap.json",
+  "mixins": [
+    "server.ServerLoginMixin"
+  ],
+  "client": [
+    "client.ClientHandshakeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
