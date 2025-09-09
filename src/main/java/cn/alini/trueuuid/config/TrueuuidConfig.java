@@ -36,6 +36,7 @@ public final class TrueuuidConfig {
     public static boolean allowOfflineForUnknownOnly() { return COMMON.allowOfflineForUnknownOnly.get(); }
     public static boolean recentIpGraceEnabled() { return COMMON.recentIpGraceEnabled.get(); }
     public static int recentIpGraceTtlSeconds() { return COMMON.recentIpGraceTtlSeconds.get(); }
+    public static boolean debug() { return COMMON.debug.get(); }
 
     public static final class Common {
         public final ForgeConfigSpec.LongValue timeoutMs;
@@ -53,6 +54,7 @@ public final class TrueuuidConfig {
         public final ForgeConfigSpec.BooleanValue allowOfflineForUnknownOnly;
         public final ForgeConfigSpec.BooleanValue recentIpGraceEnabled;
         public final ForgeConfigSpec.IntValue recentIpGraceTtlSeconds;
+        public final ForgeConfigSpec.BooleanValue debug;
 
         Common(ForgeConfigSpec.Builder b) {
             b.push("auth");
@@ -80,7 +82,7 @@ public final class TrueuuidConfig {
                     .define("recentIpGrace.enabled", true);
             recentIpGraceTtlSeconds   = b.comment("“近期同 IP 成功”容错的 TTL 秒数。建议 60~600。")
                     .defineInRange("recentIpGrace.ttlSeconds", 300, 30, 3600);
-
+            debug = b.comment("启用调试日志输出").define("debug", false);
             b.pop();
         }
     }
