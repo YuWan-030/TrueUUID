@@ -40,20 +40,42 @@ public final class SessionCheck {
     public static Optional<HasJoinedResult> hasJoined(String username, String serverId, String ip) throws Exception {
         String url = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
                 + "?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
-                + "&serverId=" + URLEncoder.encode(serverId, StandardCharsets.UTF_8)
-                + (ip != null && !ip.isEmpty() ? "&ip=" + URLEncoder.encode(ip, StandardCharsets.UTF_8) : "");
+                + "&serverId=" + URLEncoder.encode(serverId, StandardCharsets.UTF_8);
+
+        if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID][DEBUG] 请求 Mojang 校验接口: " + url);
+        }
 
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 
-        if (resp.statusCode() != 200) return Optional.empty();
+        if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID][DEBUG] Mojang 响应状态码: " + resp.statusCode());
+            System.out.println("[TrueUUID][DEBUG] Mojang 响应内容: " + resp.body());
+        }
+
+        if (resp.statusCode() != 200) {
+            if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID][DEBUG] 校验失败，状态码非200，返回空");
+            }
+            return Optional.empty();
+        }
 
         HasJoinedJson dto = GSON.fromJson(resp.body(), HasJoinedJson.class);
-        if (dto == null || dto.id == null) return Optional.empty();
+        if (dto == null || dto.id == null) {
+            if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID][DEBUG] 解析JSON失败或未获取到UUID，返回空");
+            }
+            return Optional.empty();
+        }
 
         UUID uuid = UUID.fromString(dto.id.replaceFirst(
                 "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{12})",
                 "$1-$2-$3-$4-$5"));
+
+        if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID][DEBUG] 校验成功，UUID: " + uuid + "，玩家名: " + dto.name);
+        }
 
         List<Property> props = dto.properties == null ? List.of() :
                 dto.properties.stream()
