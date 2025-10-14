@@ -1,3 +1,4 @@
+// java
 package cn.alini.trueuuid.mixin.server;
 
 import cn.alini.trueuuid.config.TrueuuidConfig;
@@ -91,9 +92,11 @@ public abstract class ServerLoginMixin {
         if (this.trueuuid$txId == 0) return;
         if (packet.getTransactionId() != this.trueuuid$txId) return;
 
-        String ip = null;
+        String ip;
         if (this.connection.getRemoteAddress() instanceof InetSocketAddress isa) {
             ip = isa.getAddress().getHostAddress();
+        } else {
+            ip = null;
         }
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 收到客户端认证包, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip);
@@ -121,45 +124,70 @@ public abstract class ServerLoginMixin {
             reset(); ci.cancel(); return;
         }
 
+        // 关键：使用异步 API，不在主线程阻塞
         try {
-            var resOpt = SessionCheck.hasJoined(this.gameProfile.getName(), this.trueuuid$nonce, ip);
-            if (resOpt.isEmpty()) {
-                if (TrueuuidConfig.debug()) {
-                    System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 会话无效");
-                }
-                handleAuthFailure(ip, "会话无效");
-                reset(); ci.cancel(); return;
-            }
+            // 立即取消原始调用（以免继续执行原有逻辑），但不要 reset()，保留状态直到回调完成
+            ci.cancel();
 
-            var res = resOpt.get();
+            SessionCheck.hasJoinedAsync(this.gameProfile.getName(), this.trueuuid$nonce, ip)
+                    .whenComplete((resOpt, throwable) -> {
+                        // 始终在主线程处理后续逻辑
+                        server.execute(() -> {
+                            try {
+                                if (throwable != null) {
+                                    if (TrueuuidConfig.debug()) {
+                                        System.out.println("[TrueUUID] 认证异步回调发生异常: " + throwable);
+                                    }
+                                    handleAuthFailure(ip, "服务器异常");
+                                    return;
+                                }
 
-            // 成功：记录注册表/近期 IP；替换为正版 UUID + 名称大小写矫正 + 注入皮肤
-            TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip);
-            TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid());
+                                if (resOpt == null || resOpt.isEmpty()) {
+                                    if (TrueuuidConfig.debug()) {
+                                        System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 会话无效");
+                                    }
+                                    handleAuthFailure(ip, "会话无效");
+                                    return;
+                                }
 
-            GameProfile newProfile = new GameProfile(res.uuid(), res.name());
-            var propMap = newProfile.getProperties();
-            propMap.removeAll("textures");
-            for (var p : res.properties()) {
-                if (p.signature() != null) {
-                    propMap.put(p.name(), new Property(p.name(), p.value(), p.signature()));
-                } else {
-                    propMap.put(p.name(), new Property(p.name(), p.value()));
-                }
-            }
-            this.gameProfile = newProfile;
+                                var res = resOpt.get();
+
+                                // 成功：记录注册表/近期 IP；替换为正版 UUID + 名称大小写矫正 + 注入皮肤
+                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip);
+                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid());
+
+                                GameProfile newProfile = new GameProfile(res.uuid(), res.name());
+                                var propMap = newProfile.getProperties();
+                                propMap.removeAll("textures");
+                                for (var p : res.properties()) {
+                                    if (p.signature() != null) {
+                                        propMap.put(p.name(), new Property(p.name(), p.value(), p.signature()));
+                                    } else {
+                                        propMap.put(p.name(), new Property(p.name(), p.value()));
+                                    }
+                                }
+                                this.gameProfile = newProfile;
+                            } catch (Throwable t) {
+                                if (TrueuuidConfig.debug()) {
+                                    System.out.println("[TrueUUID] 认证异步处理时发生异常: " + t);
+                                }
+                                handleAuthFailure(ip, "服务器异常");
+                            } finally {
+                                if (TrueuuidConfig.debug()) {
+                                    System.out.println("[TrueUUID] 状态重置, txId: " + this.trueuuid$txId);
+                                }
+                                reset();
+                            }
+                        });
+                    });
 
         } catch (Throwable t) {
+            // 若构造异步调用时报错（极少见），则回退为失败处理并重置
             if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 服务器异常");
+                System.out.println("[TrueUUID] 启动异步认证时出错: " + t);
             }
             handleAuthFailure(ip, "服务器异常");
-        } finally {
-            if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 状态重置, txId: " + this.trueuuid$txId);
-            }
             reset();
-            ci.cancel();
         }
     }
 
@@ -200,15 +228,14 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void sendDisconnectWithReason(Component reason) {
-        // 同时发 login 与 common 的断开包，覆盖 Login/Configuration 两种状态
-        try {
-            this.connection.send(new ClientboundLoginDisconnectPacket(reason));
-        } catch (Throwable ignored) {}
-        try {
-            this.connection.send(new ClientboundDisconnectPacket(reason));
-        } catch (Throwable ignored) {}
-        // 然后再真正断开
-        this.connection.disconnect(reason);
+        // 异步断开，避免主线程卡死
+        new Thread(() -> {
+            try {
+                this.connection.send(new ClientboundLoginDisconnectPacket(reason));
+                this.connection.send(new ClientboundDisconnectPacket(reason));
+            } catch (Throwable ignored) {}
+            this.connection.disconnect(reason);
+        }, "TrueUUID-AsyncDisconnect").start();
     }
 
     @Unique
