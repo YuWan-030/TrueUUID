@@ -1,8 +1,10 @@
 package cn.alini.trueuuid.command;
 
 import cn.alini.trueuuid.Trueuuid;
+import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.server.NameRegistry;
 import cn.alini.trueuuid.server.TrueuuidRuntime;
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
@@ -31,6 +33,7 @@ import java.io.Reader;
 import java.io.Writer;
 
 import com.google.gson.*;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 @Mod.EventBusSubscriber(modid = Trueuuid.MODID)
 public class TrueuuidCommands {
@@ -40,6 +43,29 @@ public class TrueuuidCommands {
         CommandDispatcher<CommandSourceStack> d = e.getDispatcher();
         d.register(Commands.literal("trueuuid")
                 .requires(src -> src.hasPermission(3))
+                // 新增：/trueuuid mojang status
+                .then(Commands.literal("config")
+                        .requires(src -> src.hasPermission(3))
+                        .then(Commands.literal("nomojang")
+                                .then(Commands.literal("status")
+                                        .executes(ctx -> cmdNomojangStatus(ctx.getSource()))
+                                )
+                                .then(Commands.literal("on")
+                                        .executes(ctx -> cmdNomojangSet(ctx.getSource(), true))
+                                )
+                                .then(Commands.literal("off")
+                                        .executes(ctx -> cmdNomojangSet(ctx.getSource(), false))
+                                )
+                                .then(Commands.literal("toggle")
+                                        .executes(ctx -> cmdNomojangToggle(ctx.getSource()))
+                                )
+                        )
+                )
+                .then(Commands.literal("mojang")
+                        .then(Commands.literal("status")
+                                .executes(ctx -> mojangStatus(ctx.getSource()))
+                        )
+                )
                 .then(Commands.literal("link")
                         .then(Commands.argument("name", StringArgumentType.word())
                                 .executes(ctx -> run(ctx.getSource(),
@@ -55,7 +81,138 @@ public class TrueuuidCommands {
                                         .executes(ctx -> run(ctx.getSource(),
                                                 StringArgumentType.getString(ctx, "name"),
                                                 true, true, true, true, true))))
-                ));
+                )
+                .then(Commands.literal("reload")
+                        .executes(ctx -> cmdConfigReload(ctx.getSource()))
+                )
+        );
+
+
+
+    }
+
+    // 新增方法：runtime 从磁盘重载配置并将值写入 TrueuuidConfig.COMMON
+    private static int cmdConfigReload(CommandSourceStack src) {
+        try {
+            Path cfgPath = FMLPaths.CONFIGDIR.get().resolve("trueuuid-common.toml");
+            CommentedFileConfig cfg = CommentedFileConfig.builder(cfgPath)
+                    .sync() // 与磁盘保持同步
+                    .autosave()
+                    .build();
+            cfg.load();
+
+            // 辅助读取函数：优先读取 auth.xxx，其次尝试不带 auth 前缀的样式（兼容不同定义位置）
+            java.util.function.BiFunction<String, String, Object> getVal = (authKey, altKey) -> {
+                if (cfg.contains(authKey)) return cfg.get(authKey);
+                if (altKey != null && cfg.contains(altKey)) return cfg.get(altKey);
+                return null;
+            };
+
+            // 布尔项
+            Object v;
+            v = getVal.apply("auth.nomojang.enabled", "nomojang.enabled");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.nomojangEnabled.set((Boolean) v);
+
+            v = getVal.apply("auth.debug", "debug");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.debug.set((Boolean) v);
+
+            v = getVal.apply("auth.recentIpGrace.enabled", "recentIpGrace.enabled");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.recentIpGraceEnabled.set((Boolean) v);
+
+            v = getVal.apply("auth.knownPremiumDenyOffline", "knownPremiumDenyOffline");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.knownPremiumDenyOffline.set((Boolean) v);
+
+            v = getVal.apply("auth.allowOfflineForUnknownOnly", "allowOfflineForUnknownOnly");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.allowOfflineForUnknownOnly.set((Boolean) v);
+
+            v = getVal.apply("auth.allowOfflineOnTimeout", "allowOfflineOnTimeout");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.allowOfflineOnTimeout.set((Boolean) v);
+
+            v = getVal.apply("auth.allowOfflineOnFailure", "allowOfflineOnFailure");
+            if (v instanceof Boolean) TrueuuidConfig.COMMON.allowOfflineOnFailure.set((Boolean) v);
+
+            // 数值项
+            v = getVal.apply("auth.timeoutMs", "timeoutMs");
+            if (v instanceof Number) TrueuuidConfig.COMMON.timeoutMs.set(((Number) v).longValue());
+
+            v = getVal.apply("auth.recentIpGrace.ttlSeconds", "recentIpGrace.ttlSeconds");
+            if (v instanceof Number) TrueuuidConfig.COMMON.recentIpGraceTtlSeconds.set(((Number) v).intValue());
+
+            // 字符串项
+            v = getVal.apply("auth.timeoutKickMessage", "timeoutKickMessage");
+            if (v != null) TrueuuidConfig.COMMON.timeoutKickMessage.set(String.valueOf(v));
+
+            v = getVal.apply("auth.offlineFallbackMessage", "offlineFallbackMessage");
+            if (v != null) TrueuuidConfig.COMMON.offlineFallbackMessage.set(String.valueOf(v));
+
+            v = getVal.apply("auth.offlineShortSubtitle", "offlineShortSubtitle");
+            if (v != null) TrueuuidConfig.COMMON.offlineShortSubtitle.set(String.valueOf(v));
+
+            v = getVal.apply("auth.onlineShortSubtitle", "onlineShortSubtitle");
+            if (v != null) TrueuuidConfig.COMMON.onlineShortSubtitle.set(String.valueOf(v));
+
+            // 完成反馈
+            src.sendSuccess(() -> Component.literal("[TrueUUID] 配置已从磁盘重载").withStyle(net.minecraft.ChatFormatting.GREEN), false);
+            return 1;
+        } catch (Exception ex) {
+            src.sendFailure(Component.literal("[TrueUUID] 重载配置失败: " + ex.getMessage()).withStyle(net.minecraft.ChatFormatting.RED));
+            return 0;
+        }
+    }
+
+    // 以下方法加入到 `TrueuuidCommands` 类中（同一文件）
+    private static int cmdNomojangStatus(CommandSourceStack src) {
+        boolean enabled = TrueuuidConfig.nomojangEnabled();
+        if (enabled) {
+            src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang: 已启用").withStyle(net.minecraft.ChatFormatting.GREEN), false);
+        } else {
+            src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang: 已禁用").withStyle(net.minecraft.ChatFormatting.RED), false);
+        }
+        return 1;
+    }
+
+    private static int cmdNomojangSet(CommandSourceStack src, boolean value) {
+        try {
+            TrueuuidConfig.COMMON.nomojangEnabled.set(value);
+            // 运行时也可记录日志
+            src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang 已" + (value ? "启用" : "禁用"))
+                    .withStyle(value ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED), false);
+            return 1;
+        } catch (Throwable t) {
+            src.sendFailure(Component.literal("[TrueUUID] 无法设置 NoMojang: " + t.getMessage()).withStyle(net.minecraft.ChatFormatting.RED));
+            return 0;
+        }
+    }
+
+    private static int cmdNomojangToggle(CommandSourceStack src) {
+        boolean current = TrueuuidConfig.nomojangEnabled();
+        return cmdNomojangSet(src, !current);
+    }
+
+    private static int mojangStatus(CommandSourceStack src) {
+        try {
+            String testUrl = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=Mojang&serverId=test";
+            java.net.URL url = new java.net.URL(testUrl);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+            conn.connect();
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200 || responseCode == 204 || responseCode == 403) {
+                src.sendSuccess(() -> Component.literal("[TrueUUID] Mojang 会话服务器可访问，响应码: " + responseCode)
+                        .withStyle(net.minecraft.ChatFormatting.GREEN), false);
+            } else {
+                src.sendFailure(Component.literal("[TrueUUID] Mojang 会话服务器响应异常，响应码: " + responseCode)
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+            }
+            return 1;
+        } catch (Exception e) {
+            src.sendFailure(Component.literal("[TrueUUID] 无法连接到 Mojang 会话服务器: " + e.getMessage())
+                    .withStyle(net.minecraft.ChatFormatting.RED));
+            return 0;
+        }
     }
 
     private static int run(CommandSourceStack src, String name,
@@ -146,7 +303,8 @@ public class TrueuuidCommands {
         try {
             var f = NameRegistry.class.getDeclaredField("map");
             f.setAccessible(true);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
         // 简化：复用 getPremiumUuid，并构造一个 Entry
         return TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).map(u -> {
             NameRegistry.Entry e = new NameRegistry.Entry();
@@ -196,7 +354,7 @@ public class TrueuuidCommands {
         Set<Integer> premSlots = new HashSet<>();
         for (int i = 0; i < premList.size(); ++i) {
             CompoundTag tag = premList.getCompound(i);
-            if (tag.contains("Slot")) premSlots.add((int)tag.getByte("Slot"));
+            if (tag.contains("Slot")) premSlots.add((int) tag.getByte("Slot"));
         }
         boolean changed = false;
         for (int i = 0; i < offList.size(); ++i) {
@@ -239,7 +397,7 @@ public class TrueuuidCommands {
         }
     }
 
-    // --- stats 合并：数值累加，字符串类以 premium 为准 ---
+    // 更健壮的 mergeStatsJson 实现，处理 JsonElement 类型差异，避免 ClassCastException
     private static void mergeStatsJson(Path premStats, Path offStats) throws Exception {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonObject prem, off;
@@ -250,32 +408,74 @@ public class TrueuuidCommands {
             off = gson.fromJson(r, JsonObject.class);
         }
         boolean changed = false;
+
         for (String cat : off.keySet()) {
-            JsonObject offCat = off.getAsJsonObject(cat);
-            JsonObject premCat = prem.has(cat) ? prem.getAsJsonObject(cat) : new JsonObject();
-            for (String key : offCat.keySet()) {
-                if (!premCat.has(key)) {
-                    premCat.add(key, offCat.get(key));
-                    changed = true;
-                } else {
-                    // 累加数值
-                    try {
-                        long a = premCat.get(key).getAsLong();
-                        long b = offCat.get(key).getAsLong();
-                        long sum = a + b;
-                        premCat.addProperty(key, sum);
+            JsonElement offElem = off.get(cat);
+            // 如果 premium 中没有该分类，直接拷贝整个元素（无论类型）
+            if (!prem.has(cat)) {
+                prem.add(cat, offElem);
+                changed = true;
+                continue;
+            }
+
+            JsonElement premElem = prem.get(cat);
+
+            // 两边都是对象 -> 逐条合并（数值累加，非数值保留 premium）
+            if (offElem.isJsonObject() && premElem.isJsonObject()) {
+                JsonObject offCat = offElem.getAsJsonObject();
+                JsonObject premCat = premElem.getAsJsonObject();
+                for (String key : offCat.keySet()) {
+                    JsonElement offVal = offCat.get(key);
+                    if (!premCat.has(key)) {
+                        premCat.add(key, offVal);
                         changed = true;
-                    } catch (Exception ex) {
-                        // 非数值则优先保留 premium
+                    } else {
+                        JsonElement premVal = premCat.get(key);
+                        // 尝试对原语数值做累加
+                        if (premVal.isJsonPrimitive() && offVal.isJsonPrimitive()) {
+                            JsonPrimitive pPri = premVal.getAsJsonPrimitive();
+                            JsonPrimitive oPri = offVal.getAsJsonPrimitive();
+                            if (pPri.isNumber() && oPri.isNumber()) {
+                                try {
+                                    long a = pPri.getAsLong();
+                                    long b = oPri.getAsLong();
+                                    premCat.addProperty(key, a + b);
+                                    changed = true;
+                                } catch (Exception ignored) {
+                                    // 若不能以 long 累加则保持 premium 原值
+                                }
+                            }
+                        }
+                        // 其他类型（数组/对象/非数值原语）优先保留 prem，不覆盖
                     }
                 }
+                prem.add(cat, premCat);
+            } else {
+                // 类型不一致或都不是对象：
+                // 若两边都是原语且为数字，则尝试累加（例如少见的数值统计）
+                if (premElem.isJsonPrimitive() && offElem.isJsonPrimitive()) {
+                    JsonPrimitive pPri = premElem.getAsJsonPrimitive();
+                    JsonPrimitive oPri = offElem.getAsJsonPrimitive();
+                    if (pPri.isNumber() && oPri.isNumber()) {
+                        try {
+                            long a = pPri.getAsLong();
+                            long b = oPri.getAsLong();
+                            prem.addProperty(cat, a + b);
+                            changed = true;
+                        } catch (Exception ignored) {
+                            // 不可累加则保留 prem
+                        }
+                    }
+                }
+                // 其余情况（类型不一致且 prem 已存在）保持 prem，不覆盖
             }
-            prem.add(cat, premCat);
         }
+
         if (changed) {
             try (Writer w = Files.newBufferedWriter(premStats, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
                 gson.toJson(prem, w);
             }
         }
+
     }
 }
