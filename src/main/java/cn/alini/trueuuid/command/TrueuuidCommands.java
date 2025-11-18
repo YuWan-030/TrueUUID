@@ -9,12 +9,10 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -33,9 +31,12 @@ import java.io.Reader;
 import java.io.Writer;
 
 import com.google.gson.*;
-import net.minecraftforge.fml.loading.FMLPaths;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-@Mod.EventBusSubscriber(modid = Trueuuid.MODID)
+@EventBusSubscriber(modid = Trueuuid.MODID)
 public class TrueuuidCommands {
 
     @SubscribeEvent
@@ -324,10 +325,10 @@ public class TrueuuidCommands {
     private static void mergePlayerDatNBT(Path premDat, Path offDat, boolean mergeInv, boolean mergeEnder) throws Exception {
         CompoundTag prem, off;
         try (InputStream is = Files.newInputStream(premDat)) {
-            prem = NbtIo.readCompressed(is);
+            prem = NbtIo.readCompressed(is, NbtAccounter.unlimitedHeap());
         }
         try (InputStream is = Files.newInputStream(offDat)) {
-            off = NbtIo.readCompressed(is);
+            off = NbtIo.readCompressed(is, NbtAccounter.unlimitedHeap());
         }
 
         boolean changed = false;

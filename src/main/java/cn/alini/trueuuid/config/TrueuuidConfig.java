@@ -1,21 +1,22 @@
 package cn.alini.trueuuid.config;
 
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.config.ModConfig;
+
+import net.neoforged.fml.ModLoadingContext;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class TrueuuidConfig {
-    public static final ForgeConfigSpec COMMON_SPEC;
+    public static final ModConfigSpec COMMON_SPEC;
     public static final Common COMMON;
 
     static {
-        ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
+        ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         COMMON = new Common(b);
         COMMON_SPEC = b.build();
     }
 
     public static void register() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
+        ModLoadingContext.get().getActiveContainer().registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
     }
 
     public static long timeoutMs() { return COMMON.timeoutMs.get(); }
@@ -41,27 +42,27 @@ public final class TrueuuidConfig {
     public static boolean nomojangEnabled() { return COMMON.nomojangEnabled.get(); }
 
     public static final class Common {
-        public final ForgeConfigSpec.LongValue timeoutMs;
-        public final ForgeConfigSpec.BooleanValue allowOfflineOnTimeout;
-        public final ForgeConfigSpec.BooleanValue allowOfflineOnFailure;
-        public final ForgeConfigSpec.ConfigValue<String> timeoutKickMessage;
-        public final ForgeConfigSpec.ConfigValue<String> offlineFallbackMessage;
+        public final ModConfigSpec.LongValue timeoutMs;
+        public final ModConfigSpec.BooleanValue allowOfflineOnTimeout;
+        public final ModConfigSpec.BooleanValue allowOfflineOnFailure;
+        public final ModConfigSpec.ConfigValue<String> timeoutKickMessage;
+        public final ModConfigSpec.ConfigValue<String> offlineFallbackMessage;
 
         // 新增
-        public final ForgeConfigSpec.ConfigValue<String> offlineShortSubtitle;
-        public final ForgeConfigSpec.ConfigValue<String> onlineShortSubtitle;
+        public final ModConfigSpec.ConfigValue<String> offlineShortSubtitle;
+        public final ModConfigSpec.ConfigValue<String> onlineShortSubtitle;
 
         // 新增 nomojang 配置
-        public final ForgeConfigSpec.BooleanValue nomojangEnabled;
+        public final ModConfigSpec.BooleanValue nomojangEnabled;
 
         // 新增：策略相关
-        public final ForgeConfigSpec.BooleanValue knownPremiumDenyOffline;
-        public final ForgeConfigSpec.BooleanValue allowOfflineForUnknownOnly;
-        public final ForgeConfigSpec.BooleanValue recentIpGraceEnabled;
-        public final ForgeConfigSpec.IntValue recentIpGraceTtlSeconds;
-        public final ForgeConfigSpec.BooleanValue debug;
+        public final ModConfigSpec.BooleanValue knownPremiumDenyOffline;
+        public final ModConfigSpec.BooleanValue allowOfflineForUnknownOnly;
+        public final ModConfigSpec.BooleanValue recentIpGraceEnabled;
+        public final ModConfigSpec.IntValue recentIpGraceTtlSeconds;
+        public final ModConfigSpec.BooleanValue debug;
 
-        Common(ForgeConfigSpec.Builder b) {
+        Common(ModConfigSpec.Builder b) {
             b.push("auth");
 
             timeoutMs = b.defineInRange("timeoutMs", 10_000L, 1_000L, 600_000L);
