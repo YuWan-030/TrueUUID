@@ -113,9 +113,10 @@ public abstract class ServerLoginMixin {
         this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, auth));
     }
 
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onTick(CallbackInfo ci) {
         if (this.trueuuid$txId == 0 || this.trueuuid$sentAt == 0L) return;
+        ci.cancel(); // 阻止原版 tick 推进登录状
         long timeoutMs = TrueuuidConfig.timeoutMs();
         if (timeoutMs <= 0) return;
 
