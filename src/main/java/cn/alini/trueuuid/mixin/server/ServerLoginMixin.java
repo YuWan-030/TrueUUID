@@ -2,6 +2,9 @@
 package cn.alini.trueuuid.mixin.server;
 
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.net.AuthAnswerPayload;
+import cn.alini.trueuuid.net.AuthPayload;
+import cn.alini.trueuuid.net.AuthQueryTracker;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.server.*;
 import com.mojang.authlib.GameProfile;
@@ -106,21 +109,8 @@ public abstract class ServerLoginMixin {
             System.out.println("[TrueUUID] 握手 nonce: " + this.trueuuid$nonce + ", txId: " + this.trueuuid$txId);
         }
 
-        // 创建匿名 payload，包装你的 nonce
-        final String nonce = this.trueuuid$nonce;
-        CustomQueryPayload payload = new CustomQueryPayload() {
-            @Override
-            public ResourceLocation id() {
-                return NetIds.AUTH;
-            }
-
-            @Override
-            public void write(FriendlyByteBuf buf) {
-                buf.writeUtf(nonce);
-            }
-        };
-
-        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, payload));
+        AuthQueryTracker.mark(this.trueuuid$txId);
+        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, new AuthPayload(this.trueuuid$nonce)));
     }
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -165,7 +155,7 @@ public abstract class ServerLoginMixin {
             System.out.println("[TrueUUID] 收到客户端认证包, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip);
         }
 
-        CustomQueryAnswerPayload payload = packet.payload();
+        AuthAnswerPayload payload = (AuthAnswerPayload) packet.payload();
         if (payload == null) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 缺少数据");
@@ -174,16 +164,7 @@ public abstract class ServerLoginMixin {
             reset(); ci.cancel(); return;
         }
 
-        boolean ackOk = false;
-        try {
-            // 从 payload 中读取 boolean
-            FriendlyByteBuf tempBuf = new FriendlyByteBuf(Unpooled.buffer());
-            payload.write(tempBuf);
-            ackOk = tempBuf.readBoolean();
-            tempBuf.release();} catch (Throwable ignored) {}
-        if (TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID] 客户端认证包ackOk: " + ackOk);
-        }
+        boolean ackOk =  payload.ok();
         if (!ackOk) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");

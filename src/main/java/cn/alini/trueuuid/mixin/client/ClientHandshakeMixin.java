@@ -1,5 +1,8 @@
 package cn.alini.trueuuid.mixin.client;
 
+import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.net.AuthAnswerPayload;
+import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.net.NetIds;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
@@ -23,30 +26,9 @@ public abstract class ClientHandshakeMixin {
 
     @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
-        if (!NetIds.AUTH.equals(packet.payload().id())) return;
-        String serverId = null;
-
-        try {
-            CustomQueryPayload payload = packet.payload();
-
-            // 创建临时 buffer 来读取数据
-            FriendlyByteBuf tempBuf = new FriendlyByteBuf(Unpooled.buffer());
-            payload.write(tempBuf); // 写入
-            serverId = tempBuf.readUtf(); // 读取
-            tempBuf.release(); // 释放
-
-        } catch (Exception e) {
-            if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 读取 serverId 失败: " + e);
-            }
-            ci.cancel();
-            return;
-        }
-
-        if (serverId.isEmpty()) {
-            ci.cancel();
-            return;
-        }
+        CustomQueryPayload payload = packet.payload();
+        if (!NetIds.AUTH.equals(payload.id())) return;
+        if(!(payload instanceof AuthPayload(String serverId))) return;
 
         boolean ok;
         try {
@@ -62,16 +44,9 @@ public abstract class ClientHandshakeMixin {
             ok = false;
         }
 
-        // 创建响应 payload
-        final boolean finalOk = ok;
-        CustomQueryAnswerPayload answerPayload = new CustomQueryAnswerPayload() {
-            @Override
-            public void write(FriendlyByteBuf buf) {
-                buf.writeBoolean(finalOk);
-            }
-        };
+        AuthAnswerPayload answer = new AuthAnswerPayload(ok);
 
-        this.connection.send(new ServerboundCustomQueryAnswerPacket(packet.transactionId(), answerPayload));
+        this.connection.send(new ServerboundCustomQueryAnswerPacket(packet.transactionId(), answer));
         ci.cancel();
     }
 }
