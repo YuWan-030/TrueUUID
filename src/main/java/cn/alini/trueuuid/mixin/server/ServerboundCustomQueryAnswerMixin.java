@@ -13,34 +13,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ServerboundCustomQueryAnswerPacket.class)
 public abstract class ServerboundCustomQueryAnswerMixin {
     @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true)
-    private static void trueuuid$decodeAuthAnswer(int txId,
-                                                  FriendlyByteBuf buf,
-                                                  CallbackInfoReturnable<CustomQueryAnswerPayload> cir) {
-        // 先检查是否是TrueUUID的事务ID，但不立即消费
-        if (AuthQueryTracker.contains(txId)) {
-            try {
-                // 备份当前读取位置
-                int readerIndex = buf.readerIndex();
-                
-                // 尝试读取并验证数据格式（AuthAnswerPayload: boolean + int + long = 1 + 4 + 8 = 13字节）
-                if (buf.readableBytes() >= 13) {
-                    buf.readBoolean(); // boolean ok
-                    buf.readInt();     // int version  
-                    buf.readLong();    // long timestamp
-                    
-                    // 如果成功读取，重置读取位置并消费txId
-                    buf.readerIndex(readerIndex);
-                    if (AuthQueryTracker.consume(txId)) {
-                        cir.setReturnValue(new AuthAnswerPayload(buf));
-                        return;
-                    }
-                }
-                
-                // 如果失败，重置读取位置
-                buf.readerIndex(readerIndex);
-            } catch (Exception e) {
-                // 读取失败，可能不是TrueUUID包，不处理
-            }
+    private static void trueuuid$decodeAuthAnswer(
+            int txId,
+            FriendlyByteBuf buf,
+            CallbackInfoReturnable<CustomQueryAnswerPayload> cir
+    ) {
+        // 只处理 trueuuid 发起的那一次查询
+        if (!AuthQueryTracker.consume(txId)) {
+            return;
         }
+
+        // 1. 按原版协议先读 hasPayload
+        boolean hasPayload = buf.readBoolean();
+        if (!hasPayload) {
+            // 客户端说没有 payload，这里你自己决定怎么处理
+            // 比如直接当作失败：
+            cir.setReturnValue(new AuthAnswerPayload(false));
+            return;
+        }
+
+        // 2. 剩下的就是你真正的 payload 内容（一个 boolean ok）
+        cir.setReturnValue(new AuthAnswerPayload(buf));
+        // 对 CallbackInfoReturnable 调用 setReturnValue 会自动标记为已处理，无需再显式 ci.cancel()
     }
 }

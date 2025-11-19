@@ -14,6 +14,7 @@ import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import net.minecraft.network.protocol.login.custom.CustomQueryAnswerPayload;
 import net.minecraft.network.protocol.login.custom.CustomQueryPayload;
+import net.minecraft.network.protocol.login.custom.DiscardedQueryAnswerPayload;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -43,9 +44,7 @@ public abstract class ClientHandshakeMixin {
         } catch (Throwable t) {
             ok = false;
         }
-
         AuthAnswerPayload answer = new AuthAnswerPayload(ok);
-
         this.connection.send(new ServerboundCustomQueryAnswerPacket(packet.transactionId(), answer));
         ci.cancel();
     }

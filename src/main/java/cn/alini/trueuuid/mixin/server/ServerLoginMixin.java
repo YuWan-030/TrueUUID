@@ -18,13 +18,12 @@ import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ClientboundLoginDisconnectPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
-import net.minecraft.network.protocol.login.custom.CustomQueryAnswerPayload;
-import net.minecraft.network.protocol.login.custom.CustomQueryPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -34,7 +33,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Mixin(targets = "net.minecraft.server.network.ServerLoginPacketListenerImpl")
+@Mixin(ServerLoginPacketListenerImpl.class)
 public abstract class ServerLoginMixin {
     @Shadow private GameProfile authenticatedProfile;
     @Shadow private MinecraftServer server;
@@ -110,7 +109,8 @@ public abstract class ServerLoginMixin {
         }
 
         AuthQueryTracker.mark(this.trueuuid$txId);
-        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, new AuthPayload(this.trueuuid$nonce)));
+        AuthPayload auth =new AuthPayload(this.trueuuid$nonce);
+        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, auth));
     }
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -225,11 +225,8 @@ public abstract class ServerLoginMixin {
                                         propMap.put(p.name(), new Property(p.name(), p.value()));
                                     }
                                 }
-                                this.authenticatedProfile = newProfile;
                                 try {
-                                    Method method = this.getClass().getDeclaredMethod("m_10055_");
-                                    method.setAccessible(true);
-                                    method.invoke(this);
+                                    trueuuid$startClientVerification(newProfile);
                                 } catch (Exception e) {
                                     if (TrueuuidConfig.debug()) {
                                         System.out.println("[TrueUUID] 调用失败: " + e);
@@ -314,4 +311,7 @@ public abstract class ServerLoginMixin {
         this.trueuuid$nonce = null;
         this.trueuuid$sentAt = 0L;
     }
+
+    @Invoker("startClientVerification")
+    protected abstract void trueuuid$startClientVerification(GameProfile profile);
 }
