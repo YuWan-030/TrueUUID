@@ -1,7 +1,7 @@
 package cn.alini.trueuuid.server;
 
 import com.google.gson.*;
-import net.minecraftforge.fml.loading.FMLPaths;
+import net.neoforged.fml.loading.FMLPaths;
 
 import java.io.Reader;
 import java.io.Writer;

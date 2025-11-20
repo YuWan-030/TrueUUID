@@ -3,7 +3,9 @@ package cn.alini.trueuuid;
 import com.mojang.logging.LogUtils;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.server.TrueuuidRuntime;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import org.slf4j.Logger;
 
 @Mod(Trueuuid.MODID)
@@ -11,13 +13,19 @@ public class Trueuuid {
     public static final String MODID = "trueuuid";
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public Trueuuid() {
+    public Trueuuid(IEventBus modBus) {
         // 注册并生成 config/trueuuid-common.toml
         TrueuuidConfig.register();
 
         // 初始化运行时单例（注册表、最近 IP 容错缓存等）
         TrueuuidRuntime.init();
 
+        modBus.addListener(this::onConfigLoad);
+
+        LOGGER.info("TrueUUID 已经加载");
+    }
+
+    private void onConfigLoad(ModConfigEvent.Loading event) {
         // =====MoJang网络连通性测试=====
         // 若开启 nomojang，则跳过启动时的 Mojang 网络连通性检测
         if (TrueuuidConfig.nomojangEnabled()) {
@@ -43,7 +51,5 @@ public class Trueuuid {
                 LOGGER.error("无法连接到 Mojang 会话服务器 (sessionserver.mojang.com)，请检查网络连接或防火墙设置。", e);
             }
         }
-
-        LOGGER.info("TrueUUID 已经加载");
     }
 }

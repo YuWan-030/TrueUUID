@@ -1,10 +1,13 @@
 {
   "required": true,
+  "priority": 900,
   "minVersion": "0.8",
   "package": "cn.alini.trueuuid.mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "trueuuid.refmap.json",
   "mixins": [
+    "client.ClientboundCustomQueryMixin",
+    "server.ServerboundCustomQueryAnswerMixin",
     "server.ServerLoginMixin"
   ],
   "client": [

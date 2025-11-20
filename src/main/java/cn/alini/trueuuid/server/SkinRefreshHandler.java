@@ -10,17 +10,17 @@ import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.List;
 
 /**
  * 登录后刷新外观，并在“离线放行”时提示玩家；同时显示屏幕标题提示当前模式。
  */
-@Mod.EventBusSubscriber(modid = Trueuuid.MODID)
+@EventBusSubscriber(modid = Trueuuid.MODID)
 public class SkinRefreshHandler {
     private static final int SUBTITLE_MAX_CHARS = 64; // 保护：过长截断，避免越界
 
@@ -38,7 +38,7 @@ public class SkinRefreshHandler {
         });
 
         // 2) 判断是否离线放行，并发送聊天提示 + 屏幕标题（副标题使用短文案）
-        var netConn = sp.connection.connection; // ServerGamePacketListenerImpl.connection
+        var netConn = sp.connection.getConnection(); // ServerGamePacketListenerImpl.connection
         var fallbackOpt = AuthState.consume(netConn);
 
         if (fallbackOpt.isPresent()) {

@@ -2,6 +2,9 @@
 package cn.alini.trueuuid.mixin.server;
 
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.net.AuthAnswerPayload;
+import cn.alini.trueuuid.net.AuthPayload;
+import cn.alini.trueuuid.net.AuthQueryTracker;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.server.*;
 import com.mojang.authlib.GameProfile;
@@ -10,15 +13,17 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundDisconnectPacket;
+import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ClientboundLoginDisconnectPacket;
-import net.minecraft.network.protocol.login.ServerboundCustomQueryPacket;
+import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -28,11 +33,11 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Mixin(targets = "net.minecraft.server.network.ServerLoginPacketListenerImpl")
+@Mixin(ServerLoginPacketListenerImpl.class)
 public abstract class ServerLoginMixin {
-    @Shadow private GameProfile gameProfile;
+    @Shadow private GameProfile authenticatedProfile;
     @Shadow private MinecraftServer server;
-    @Shadow private Connection connection; // 1.20.1 是字段
+    @Shadow private Connection connection;
 
     @Shadow public abstract void disconnect(Component reason);
 
@@ -48,11 +53,11 @@ public abstract class ServerLoginMixin {
 
     @Inject(method = "handleHello", at = @At("TAIL"))
     private void trueuuid$afterHello(ServerboundHelloPacket pkt, CallbackInfo ci) {
-        if (this.server.usesAuthentication() || this.gameProfile == null) return;
+        if (this.server.usesAuthentication() || this.authenticatedProfile == null) return;
 
         // 若开启 nomojang，则直接使用本地策略，不向客户端发送会话认证包
         if (TrueuuidConfig.nomojangEnabled()) {
-            String name = this.gameProfile.getName();
+            String name = this.authenticatedProfile.getName();
             String ip;
             if (this.connection.getRemoteAddress() instanceof InetSocketAddress isa) {
                 ip = isa.getAddress().getHostAddress();
@@ -73,7 +78,7 @@ public abstract class ServerLoginMixin {
                             System.out.println("[TrueUUID] nomojang: 找到同IP正版记录，按正版处理, uuid=" + premium);
                         }
                         GameProfile newProfile = new GameProfile(premium, name);
-                        this.gameProfile = newProfile;
+                        this.authenticatedProfile = newProfile;
                         // 记录成功（保持注册表/缓存一致）
                         TrueuuidRuntime.NAME_REGISTRY.recordSuccess(name, premium, ip);
                         TrueuuidRuntime.IP_GRACE.record(name, ip, premium);
@@ -99,19 +104,19 @@ public abstract class ServerLoginMixin {
         this.trueuuid$sentAt = System.currentTimeMillis();
 
         if (TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID] handleHello: 开始握手, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>"));
+            System.out.println("[TrueUUID] handleHello: 开始握手, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>"));
             System.out.println("[TrueUUID] 握手 nonce: " + this.trueuuid$nonce + ", txId: " + this.trueuuid$txId);
         }
 
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        buf.writeUtf(this.trueuuid$nonce);
-
-        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, NetIds.AUTH, buf));
+        AuthQueryTracker.mark(this.trueuuid$txId);
+        AuthPayload auth =new AuthPayload(this.trueuuid$nonce);
+        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, auth));
     }
 
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onTick(CallbackInfo ci) {
         if (this.trueuuid$txId == 0 || this.trueuuid$sentAt == 0L) return;
+        ci.cancel(); // 阻止原版 tick 推进登录状
         long timeoutMs = TrueuuidConfig.timeoutMs();
         if (timeoutMs <= 0) return;
 
@@ -137,9 +142,9 @@ public abstract class ServerLoginMixin {
     }
 
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
-    private void trueuuid$onLoginCustom(ServerboundCustomQueryPacket packet, CallbackInfo ci) {
+    private void trueuuid$onLoginCustom(ServerboundCustomQueryAnswerPacket packet, CallbackInfo ci) {
         if (this.trueuuid$txId == 0) return;
-        if (packet.getTransactionId() != this.trueuuid$txId) return;
+        if (packet.transactionId() != this.trueuuid$txId) return;
 
         String ip;
         if (this.connection.getRemoteAddress() instanceof InetSocketAddress isa) {
@@ -148,26 +153,22 @@ public abstract class ServerLoginMixin {
             ip = null;
         }
         if (TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID] 收到客户端认证包, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip);
+            System.out.println("[TrueUUID] 收到客户端认证包, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip);
         }
 
-        FriendlyByteBuf data = packet.getData();
-        if (data == null) {
+        AuthAnswerPayload payload = (AuthAnswerPayload) packet.payload();
+        if (payload == null) {
             if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 缺少数据");
+                System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 缺少数据");
             }
             handleAuthFailure(ip, "缺少数据");
             reset(); ci.cancel(); return;
         }
 
-        boolean ackOk = false;
-        try { ackOk = data.readBoolean(); } catch (Throwable ignored) {}
-        if (TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID] 客户端认证包ackOk: " + ackOk);
-        }
+        boolean ackOk =  payload.ok();
         if (!ackOk) {
             if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
+                System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
             }
             handleAuthFailure(ip, "客户端拒绝");
             reset(); ci.cancel(); return;
@@ -188,7 +189,7 @@ public abstract class ServerLoginMixin {
             // 立即取消原始调用（以免继续执行原有逻辑），但不要 reset()，保留状态直到回调完成
             ci.cancel();
 
-            SessionCheck.hasJoinedAsync(this.gameProfile.getName(), this.trueuuid$nonce, ip)
+            SessionCheck.hasJoinedAsync(this.authenticatedProfile.getName(), this.trueuuid$nonce, ip)
                     .whenComplete((resOpt, throwable) -> {
                         // 始终在主线程处理后续逻辑
                         server.execute(() -> {
@@ -203,7 +204,7 @@ public abstract class ServerLoginMixin {
 
                                 if (resOpt.isEmpty()) {
                                     if (TrueuuidConfig.debug()) {
-                                        System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.gameProfile != null ? this.gameProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 会话无效");
+                                        System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 会话无效");
                                     }
                                     handleAuthFailure(ip, "会话无效");
                                     return;
@@ -225,11 +226,8 @@ public abstract class ServerLoginMixin {
                                         propMap.put(p.name(), new Property(p.name(), p.value()));
                                     }
                                 }
-                                this.gameProfile = newProfile;
                                 try {
-                                    Method method = this.getClass().getDeclaredMethod("m_10055_");
-                                    method.setAccessible(true);
-                                    method.invoke(this);
+                                    trueuuid$startClientVerification(newProfile);
                                 } catch (Exception e) {
                                     if (TrueuuidConfig.debug()) {
                                         System.out.println("[TrueUUID] 调用失败: " + e);
@@ -260,7 +258,7 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void handleAuthFailure(String ip, String why) {
-        String name = this.gameProfile != null ? this.gameProfile.getName() : "<unknown>";
+        String name = this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>";
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 会话无效, 玩家: " + name + ", ip: " + ip + ", 失败原因: " + why);
         }
@@ -271,7 +269,7 @@ public abstract class ServerLoginMixin {
                 UUID premium = d.premiumUuid != null ? d.premiumUuid
                         : TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).orElse(null);
                 if (premium != null) {
-                    this.gameProfile = new GameProfile(premium, name);
+                    this.authenticatedProfile = new GameProfile(premium, name);
                 } else {
                     AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.FAILURE);
                 }
@@ -314,4 +312,7 @@ public abstract class ServerLoginMixin {
         this.trueuuid$nonce = null;
         this.trueuuid$sentAt = 0L;
     }
+
+    @Invoker("startClientVerification")
+    protected abstract void trueuuid$startClientVerification(GameProfile profile);
 }
