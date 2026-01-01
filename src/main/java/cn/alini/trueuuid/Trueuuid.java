@@ -12,24 +12,24 @@ public class Trueuuid {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public Trueuuid() {
-        // 注册并生成 config/trueuuid-common.toml
+        // 注册并生成 config/trueuuid-common.toml (Register and generate config/trueuuid-common.toml)
         TrueuuidConfig.register();
 
-        // 初始化运行时单例（注册表、最近 IP 容错缓存等）
+        // 初始化运行时单例（注册表、最近 IP 容错缓存等） (Initialize runtime singleton (registry, recent IP grace cache, etc.))
         TrueuuidRuntime.init();
 
-        // =====MoJang网络连通性测试=====
-        // 若开启 nomojang，则跳过启动时的 Mojang 网络连通性检测
+        // ===== MoJang网络连通性测试 (Mojang Network Connectivity Test)=====
+        // 若开启 nomojang，则跳过启动时的 Mojang 网络连通性检测 (If nomojang is enabled, skip Mojang network connectivity check at startup)
         if (TrueuuidConfig.nomojangEnabled()) {
             LOGGER.info("nomojang 已启用，跳过 Mojang 会话服务器连通性检测");
         } else {
-            // =====MoJang网络连通性测试=====
+            // ===== MoJang网络连通性测试 (Mojang Network Connectivity Test )=====
             try {
                 String testUrl = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=Mojang&serverId=test";
                 java.net.URL url = new java.net.URL(testUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.setConnectTimeout(3000); // 3秒超时
+                conn.setConnectTimeout(3000); // 3秒超时 (3 seconds timeout)
                 conn.setReadTimeout(3000);
                 conn.connect();
 
