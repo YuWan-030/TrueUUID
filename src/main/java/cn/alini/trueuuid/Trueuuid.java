@@ -33,7 +33,7 @@ public class Trueuuid {
         } else {
             // =====MoJang网络连通性测试=====
             try {
-                String testUrl = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=Mojang&serverId=test";
+                String testUrl = TrueuuidConfig.COMMON.mojangReverseProxy.get()+"/session/minecraft/hasJoined?username=Mojang&serverId=test";
                 java.net.URL url = new java.net.URL(testUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");

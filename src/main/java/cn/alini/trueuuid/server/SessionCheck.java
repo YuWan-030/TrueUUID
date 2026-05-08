@@ -1,6 +1,7 @@
 // java
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.config.TrueuuidConfig;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
@@ -42,7 +43,7 @@ public final class SessionCheck {
      * 异步版本：不阻塞调用线程，返回 CompletableFuture\<Optional\<HasJoinedResult\>\>
      */
     public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip) {
-        String url = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
+        String url = TrueuuidConfig.COMMON.mojangReverseProxy.get()+"/session/minecraft/hasJoined"
                 + "?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
                 + "&serverId=" + URLEncoder.encode(serverId, StandardCharsets.UTF_8);
 
