@@ -3,7 +3,7 @@ package cn.alini.trueuuid.mixin.client;
 import cn.alini.trueuuid.net.NetIds;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.User; // official 映射
+import net.minecraft.client.User; // official 映射 (mapping)
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
@@ -33,7 +33,7 @@ public abstract class ClientHandshakeMixin {
             var profile = user.getGameProfile();
             String token = user.getAccessToken();
 
-            // 令牌只在本地使用
+            // 令牌只在本地使用 (Token is only used locally)
             mc.getMinecraftSessionService().joinServer(profile, token, serverId);
             ok = true;
         } catch (Throwable t) {

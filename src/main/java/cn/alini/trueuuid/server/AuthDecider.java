@@ -10,7 +10,7 @@ public final class AuthDecider {
     public static class Decision {
         public enum Kind { PREMIUM_GRACE, OFFLINE, DENY }
         public Kind kind;
-        public UUID premiumUuid; // PREMIUM_GRACE 时填
+        public UUID premiumUuid; // PREMIUM_GRACE 时填 (Fill when PREMIUM_GRACE)
         public String denyMessage;
     }
 
@@ -19,14 +19,14 @@ public final class AuthDecider {
 
         boolean known = TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(name);
 
-        // 1) 已验证过正版的名字：禁止离线回落
+        // 1) 已验证过正版的名字：禁止离线回落 (Names already verified as premium: Deny offline fallback)
         if (known && TrueuuidConfig.knownPremiumDenyOffline()) {
             d.kind = Decision.Kind.DENY;
             d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
             return d;
         }
 
-        // 2) 近期同 IP 成功容错：临时按正版处理
+        // 2) 近期同 IP 成功容错：临时按正版处理 (Recent same IP success grace: Temporarily treat as premium)
         if (TrueuuidConfig.recentIpGraceEnabled()) {
             Optional<UUID> p = TrueuuidRuntime.IP_GRACE.tryGrace(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
             if (p.isPresent()) {
@@ -36,13 +36,13 @@ public final class AuthDecider {
             }
         }
 
-        // 3) 未知名字：可允许离线兜底
+        // 3) 未知名字：可允许离线兜底 (Unknown names: Allow offline fallback)
         if (TrueuuidConfig.allowOfflineForUnknownOnly() && !known) {
             d.kind = Decision.Kind.OFFLINE;
             return d;
         }
 
-        // 4) 否则拒绝
+        // 4) 否则拒绝 (Otherwise deny)
         d.kind = Decision.Kind.DENY;
         d.denyMessage = "鉴权失败，已禁止离线进入以保护你的正版存档。请稍后重试。";
         return d;
