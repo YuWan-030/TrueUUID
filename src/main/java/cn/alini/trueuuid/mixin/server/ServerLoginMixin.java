@@ -11,7 +11,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.Connection;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
@@ -23,12 +22,10 @@ import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -226,14 +223,11 @@ public abstract class ServerLoginMixin {
                                         propMap.put(p.name(), new Property(p.name(), p.value()));
                                     }
                                 }
-                                try {
-                                    trueuuid$startClientVerification(newProfile);
-                                } catch (Exception e) {
-                                    if (TrueuuidConfig.debug()) {
-                                        System.out.println("[TrueUUID] 调用失败: " + e);
-                                    }
-                                    disconnect(Component.literal("服务器错误，请稍后重试"));
-                                }
+                                // Vanilla has already started the offline login flow before
+                                // our custom query runs. Replace the profile in-place and let
+                                // the original login tick continue; starting verification a
+                                // second time can inject Forge's login pipeline handlers twice.
+                                this.authenticatedProfile = newProfile;
                             } catch (Throwable t) {
                                 if (TrueuuidConfig.debug()) {
                                     System.out.println("[TrueUUID] 认证异步处理时发生异常: " + t);
@@ -313,6 +307,4 @@ public abstract class ServerLoginMixin {
         this.trueuuid$sentAt = 0L;
     }
 
-    @Invoker("startClientVerification")
-    protected abstract void trueuuid$startClientVerification(GameProfile profile);
 }
