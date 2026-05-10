@@ -7,6 +7,8 @@ import cn.alini.trueuuid.server.*;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelPipeline;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -23,6 +25,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.UUID;
@@ -136,6 +139,13 @@ public abstract class ServerLoginMixin {
         }
     }
 
+    @Inject(method = "handleAcceptedLogin", at = @At("HEAD"), cancellable = true)
+    private void trueuuid$blockAcceptUntilAuthFinishes(CallbackInfo ci) {
+        if (this.trueuuid$txId != 0) {
+            ci.cancel();
+        }
+    }
+
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onLoginCustom(ServerboundCustomQueryPacket packet, CallbackInfo ci) {
         if (this.trueuuid$txId == 0) return;
@@ -226,7 +236,9 @@ public abstract class ServerLoginMixin {
                                     }
                                 }
                                 this.gameProfile = newProfile;
+                                reset();
                                 try {
+                                    trueuuid$removePipelineHandlerIfPresent("forge:forge_fixes");
                                     Method method = this.getClass().getDeclaredMethod("m_10055_");
                                     method.setAccessible(true);
                                     method.invoke(this);
@@ -303,6 +315,31 @@ public abstract class ServerLoginMixin {
             } catch (Throwable ignored) {}
             this.connection.disconnect(reason);
         }, "TrueUUID-AsyncDisconnect").start();
+    }
+
+    @Unique
+    private void trueuuid$removePipelineHandlerIfPresent(String name) {
+        try {
+            for (Field field : Connection.class.getDeclaredFields()) {
+                if (!Channel.class.isAssignableFrom(field.getType())) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Channel channel = (Channel) field.get(this.connection);
+                if (channel == null) {
+                    return;
+                }
+                ChannelPipeline pipeline = channel.pipeline();
+                if (pipeline.get(name) != null) {
+                    pipeline.remove(name);
+                }
+                return;
+            }
+        } catch (Throwable t) {
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] 清理Netty处理器失败: " + t);
+            }
+        }
     }
 
     @Unique
