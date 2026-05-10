@@ -34,8 +34,13 @@ public class SkinRefreshHandler {
         // 1) 登录后一帧刷新外观（强制客户端重拉皮肤） (Refresh skin one frame after login (force client to re-fetch skin))
         server.execute(() -> {
             var list = server.getPlayerList();
-            list.broadcastAll(new ClientboundPlayerInfoRemovePacket(List.of(sp.getUUID())));
-            list.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(sp)));
+            var removePacket = new ClientboundPlayerInfoRemovePacket(List.of(sp.getUUID()));
+            var updatePacket = ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(sp));
+            for (ServerPlayer player : list.getPlayers()) {
+                if (player.getUUID().equals(sp.getUUID())) continue;
+                player.connection.send(removePacket);
+                player.connection.send(updatePacket);
+            }
         });
 
         // 2) 判断是否离线放行，并发送聊天提示 + 屏幕标题（副标题使用短文案） (Determine if offline fallback is active, and send chat notification + screen title (subtitle uses short text))
