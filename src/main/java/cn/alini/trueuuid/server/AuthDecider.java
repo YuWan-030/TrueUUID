@@ -19,6 +19,18 @@ public final class AuthDecider {
 
         boolean known = TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(name);
 
+        // Velocity/VC proxy compatibility: if the modded client answered the
+        // trueuuid:auth query but Mojang hasJoined still fails behind a local
+        // proxy, preserve the already-bound premium UUID instead of denying.
+        if (known && isLocalProxyAddress(ip)) {
+            Optional<UUID> premiumUuid = TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name);
+            if (premiumUuid.isPresent()) {
+                d.kind = Decision.Kind.PREMIUM_GRACE;
+                d.premiumUuid = premiumUuid.get();
+                return d;
+            }
+        }
+
         // 1) 已验证过正版的名字：禁止离线回落
         if (known && TrueuuidConfig.knownPremiumDenyOffline()) {
             d.kind = Decision.Kind.DENY;
@@ -46,6 +58,16 @@ public final class AuthDecider {
         d.kind = Decision.Kind.DENY;
         d.denyMessage = "鉴权失败，已禁止离线进入以保护你的正版存档。请稍后重试。";
         return d;
+    }
+
+    private static boolean isLocalProxyAddress(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return false;
+        }
+        return "127.0.0.1".equals(ip)
+                || "0:0:0:0:0:0:0:1".equals(ip)
+                || "::1".equals(ip)
+                || "localhost".equalsIgnoreCase(ip);
     }
 
     private AuthDecider() {}
