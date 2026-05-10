@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 在登录阶段记录“放行离线”的连接；玩家完全进服后消费并提示。
- * (Record "offline fallback" connections during login phase; consume and notify after player fully joins server.)
  */
 public final class AuthState {
     public enum FallbackReason { TIMEOUT, FAILURE }

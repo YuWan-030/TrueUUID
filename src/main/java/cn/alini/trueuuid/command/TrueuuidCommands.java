@@ -43,7 +43,7 @@ public class TrueuuidCommands {
         CommandDispatcher<CommandSourceStack> d = e.getDispatcher();
         d.register(Commands.literal("trueuuid")
                 .requires(src -> src.hasPermission(3))
-                // 新增(Added)：/trueuuid mojang status
+                // 新增：/trueuuid mojang status
                 .then(Commands.literal("config")
                         .requires(src -> src.hasPermission(3))
                         .then(Commands.literal("nomojang")
@@ -91,24 +91,24 @@ public class TrueuuidCommands {
 
     }
 
-    // 新增方法：runtime 从磁盘重载配置并将值写入 TrueuuidConfig.COMMON (Added method: runtime reload config from disk and write values to TrueuuidConfig.COMMON)
+    // 新增方法：runtime 从磁盘重载配置并将值写入 TrueuuidConfig.COMMON
     private static int cmdConfigReload(CommandSourceStack src) {
         try {
             Path cfgPath = FMLPaths.CONFIGDIR.get().resolve("trueuuid-common.toml");
             CommentedFileConfig cfg = CommentedFileConfig.builder(cfgPath)
-                    .sync() // 与磁盘保持同步 (Sync with disk)
+                    .sync() // 与磁盘保持同步
                     .autosave()
                     .build();
             cfg.load();
 
-            // 辅助读取函数：优先读取 auth.xxx，其次尝试不带 auth 前缀的样式（兼容不同定义位置） (Helper read function: Prioritize reading auth.xxx, then try style without auth prefix (compatible with different definition locations))
+            // 辅助读取函数：优先读取 auth.xxx，其次尝试不带 auth 前缀的样式（兼容不同定义位置）
             java.util.function.BiFunction<String, String, Object> getVal = (authKey, altKey) -> {
                 if (cfg.contains(authKey)) return cfg.get(authKey);
                 if (altKey != null && cfg.contains(altKey)) return cfg.get(altKey);
                 return null;
             };
 
-            // 布尔项 (Boolean items)
+            // 布尔项
             Object v;
             v = getVal.apply("auth.nomojang.enabled", "nomojang.enabled");
             if (v instanceof Boolean) TrueuuidConfig.COMMON.nomojangEnabled.set((Boolean) v);
@@ -131,14 +131,14 @@ public class TrueuuidCommands {
             v = getVal.apply("auth.allowOfflineOnFailure", "allowOfflineOnFailure");
             if (v instanceof Boolean) TrueuuidConfig.COMMON.allowOfflineOnFailure.set((Boolean) v);
 
-            // 数值项 (Numeric items)
+            // 数值项
             v = getVal.apply("auth.timeoutMs", "timeoutMs");
             if (v instanceof Number) TrueuuidConfig.COMMON.timeoutMs.set(((Number) v).longValue());
 
             v = getVal.apply("auth.recentIpGrace.ttlSeconds", "recentIpGrace.ttlSeconds");
             if (v instanceof Number) TrueuuidConfig.COMMON.recentIpGraceTtlSeconds.set(((Number) v).intValue());
 
-            // 字符串项 (String items)
+            // 字符串项
             v = getVal.apply("auth.timeoutKickMessage", "timeoutKickMessage");
             if (v != null) TrueuuidConfig.COMMON.timeoutKickMessage.set(String.valueOf(v));
 
@@ -151,7 +151,7 @@ public class TrueuuidCommands {
             v = getVal.apply("auth.onlineShortSubtitle", "onlineShortSubtitle");
             if (v != null) TrueuuidConfig.COMMON.onlineShortSubtitle.set(String.valueOf(v));
 
-            // 完成反馈 (Completion feedback)
+            // 完成反馈
             src.sendSuccess(() -> Component.literal("[TrueUUID] 配置已从磁盘重载").withStyle(net.minecraft.ChatFormatting.GREEN), false);
             return 1;
         } catch (Exception ex) {
@@ -160,7 +160,7 @@ public class TrueuuidCommands {
         }
     }
 
-    // 以下方法加入到 `TrueuuidCommands` 类中（同一文件） (The following methods are added to `TrueuuidCommands` class (same file))
+    // 以下方法加入到 `TrueuuidCommands` 类中（同一文件）
     private static int cmdNomojangStatus(CommandSourceStack src) {
         boolean enabled = TrueuuidConfig.nomojangEnabled();
         if (enabled) {
@@ -174,7 +174,7 @@ public class TrueuuidCommands {
     private static int cmdNomojangSet(CommandSourceStack src, boolean value) {
         try {
             TrueuuidConfig.COMMON.nomojangEnabled.set(value);
-            // 运行时也可记录日志 (Can also log at runtime)
+            // 运行时也可记录日志
             src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang 已" + (value ? "启用" : "禁用"))
                     .withStyle(value ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED), false);
             return 1;
@@ -263,16 +263,16 @@ public class TrueuuidCommands {
                 copyIfExists(offStats, backupDir.resolve("offline.stats.json"));
             }
 
-            // ==== NBT 合并实现 (Merge Implementation) ====
+            // ==== NBT 合并实现 ====
             if (Files.exists(offDat)) {
                 if (!Files.exists(premDat)) {
                     Files.move(offDat, premDat, StandardCopyOption.REPLACE_EXISTING);
                 } else {
-                    // 合并 NBT（背包/末影箱） (Merge NBT (Inventory/EnderChest))
+                    // 合并 NBT（背包/末影箱）
                     mergePlayerDatNBT(premDat, offDat, mergeInv, mergeEnder);
                 }
             }
-            // ==== advancements 合并实现 (Merge Implementation) ====
+            // ==== advancements 合并实现 ====
             if (Files.exists(offAdv)) {
                 if (!Files.exists(premAdv)) {
                     Files.move(offAdv, premAdv, StandardCopyOption.REPLACE_EXISTING);
@@ -280,7 +280,7 @@ public class TrueuuidCommands {
                     mergeAdvancementsJson(premAdv, offAdv);
                 }
             }
-            // ==== stats 合并实现 (Merge Implementation) ====
+            // ==== stats 合并实现 ====
             if (Files.exists(offStats)) {
                 if (!Files.exists(premStats)) {
                     Files.move(offStats, premStats, StandardCopyOption.REPLACE_EXISTING);
@@ -299,13 +299,13 @@ public class TrueuuidCommands {
     }
 
     private static Optional<NameRegistry.Entry> getEntry(String name) {
-        // 仅供命令打印 premium，用不到其它字段时可改为直接 getPremiumUuid (Only for command printing premium, can be changed to direct getPremiumUuid when other fields are not used)
+        // 仅供命令打印 premium，用不到其它字段时可改为直接 getPremiumUuid
         try {
             var f = NameRegistry.class.getDeclaredField("map");
             f.setAccessible(true);
         } catch (Throwable ignored) {
         }
-        // 简化：复用 getPremiumUuid，并构造一个 Entry (Simplify: Reuse getPremiumUuid and construct an Entry)
+        // 简化：复用 getPremiumUuid，并构造一个 Entry
         return TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).map(u -> {
             NameRegistry.Entry e = new NameRegistry.Entry();
             e.premiumUuid = u;
@@ -320,7 +320,7 @@ public class TrueuuidCommands {
         }
     }
 
-    // --- NBT合并：背包/末影箱 (NBT Merge: Inventory/EnderChest) ---
+    // --- NBT合并：背包/末影箱 ---
     private static void mergePlayerDatNBT(Path premDat, Path offDat, boolean mergeInv, boolean mergeEnder) throws Exception {
         CompoundTag prem, off;
         try (InputStream is = Files.newInputStream(premDat)) {
@@ -345,12 +345,12 @@ public class TrueuuidCommands {
         }
     }
 
-    // 合并规则：以 premium 为主，offline中未出现的item补到后面（不会覆盖原物品槽号） (Merge rule: Premium is primary, items not appearing in offline are appended (will not overwrite original item slot numbers))
+    // 合并规则：以 premium 为主，offline中未出现的item补到后面（不会覆盖原物品槽号）
     private static boolean mergeItemListTag(CompoundTag prem, CompoundTag off, String key) {
         if (!prem.contains(key) || !off.contains(key)) return false;
         ListTag premList = prem.getList(key, 10); // 10: CompoundTag
         ListTag offList = off.getList(key, 10);
-        // 以槽号为主键 (Slot number as primary key)
+        // 以槽号为主键
         Set<Integer> premSlots = new HashSet<>();
         for (int i = 0; i < premList.size(); ++i) {
             CompoundTag tag = premList.getCompound(i);
@@ -373,7 +373,7 @@ public class TrueuuidCommands {
         return changed;
     }
 
-    // --- advancements 合并：并集 (Advancements Merge: Union) ---
+    // --- advancements 合并：并集 ---
     private static void mergeAdvancementsJson(Path premAdv, Path offAdv) throws Exception {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonObject prem, off;
@@ -397,7 +397,7 @@ public class TrueuuidCommands {
         }
     }
 
-    // 更健壮的 mergeStatsJson 实现，处理 JsonElement 类型差异，避免 ClassCastException (More robust mergeStatsJson implementation, handling JsonElement type differences to avoid ClassCastException)
+    // 更健壮的 mergeStatsJson 实现，处理 JsonElement 类型差异，避免 ClassCastException
     private static void mergeStatsJson(Path premStats, Path offStats) throws Exception {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         JsonObject prem, off;
@@ -411,7 +411,7 @@ public class TrueuuidCommands {
 
         for (String cat : off.keySet()) {
             JsonElement offElem = off.get(cat);
-            // 如果 premium 中没有该分类，直接拷贝整个元素（无论类型） (If premium does not have this category, copy the entire element directly (regardless of type))
+            // 如果 premium 中没有该分类，直接拷贝整个元素（无论类型）
             if (!prem.has(cat)) {
                 prem.add(cat, offElem);
                 changed = true;
@@ -420,7 +420,7 @@ public class TrueuuidCommands {
 
             JsonElement premElem = prem.get(cat);
 
-            // 两边都是对象 -> 逐条合并（数值累加，非数值保留 premium） (Both are objects -> Merge item by item (accumulate numbers, keep premium for non-numbers))
+            // 两边都是对象 -> 逐条合并（数值累加，非数值保留 premium）
             if (offElem.isJsonObject() && premElem.isJsonObject()) {
                 JsonObject offCat = offElem.getAsJsonObject();
                 JsonObject premCat = premElem.getAsJsonObject();
@@ -431,7 +431,7 @@ public class TrueuuidCommands {
                         changed = true;
                     } else {
                         JsonElement premVal = premCat.get(key);
-                        // 尝试对原语数值做累加 (Try to accumulate primitive numbers)
+                        // 尝试对原语数值做累加
                         if (premVal.isJsonPrimitive() && offVal.isJsonPrimitive()) {
                             JsonPrimitive pPri = premVal.getAsJsonPrimitive();
                             JsonPrimitive oPri = offVal.getAsJsonPrimitive();
@@ -442,17 +442,17 @@ public class TrueuuidCommands {
                                     premCat.addProperty(key, a + b);
                                     changed = true;
                                 } catch (Exception ignored) {
-                                    // 若不能以 long 累加则保持 premium 原值 (If cannot accumulate as long, keep premium original value)
+                                    // 若不能以 long 累加则保持 premium 原值
                                 }
                             }
                         }
-                        // 其他类型（数组/对象/非数值原语）优先保留 prem，不覆盖 (Other types (array/object/non-numeric primitive) prioritize keeping prem, do not overwrite)
+                        // 其他类型（数组/对象/非数值原语）优先保留 prem，不覆盖
                     }
                 }
                 prem.add(cat, premCat);
             } else {
-                // 类型不一致或都不是对象： (Types inconsistent or neither are objects:)
-                // 若两边都是原语且为数字，则尝试累加（例如少见的数值统计） (If both are primitives and numbers, try to accumulate (e.g. rare numeric stats))
+                // 类型不一致或都不是对象：
+                // 若两边都是原语且为数字，则尝试累加（例如少见的数值统计）
                 if (premElem.isJsonPrimitive() && offElem.isJsonPrimitive()) {
                     JsonPrimitive pPri = premElem.getAsJsonPrimitive();
                     JsonPrimitive oPri = offElem.getAsJsonPrimitive();
@@ -463,11 +463,11 @@ public class TrueuuidCommands {
                             prem.addProperty(cat, a + b);
                             changed = true;
                         } catch (Exception ignored) {
-                            // 不可累加则保留 prem (Cannot accumulate, keep prem)
+                            // 不可累加则保留 prem
                         }
                     }
                 }
-                // 其余情况（类型不一致且 prem 已存在）保持 prem，不覆盖 (Other cases (types inconsistent and prem exists) keep prem, do not overwrite)
+                // 其余情况（类型不一致且 prem 已存在）保持 prem，不覆盖
             }
         }
 

@@ -32,24 +32,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 public abstract class ServerLoginMixin {
     @Shadow private GameProfile gameProfile;
     @Shadow private MinecraftServer server;
-    @Shadow private Connection connection; // 1.20.1 是字段 (is a field)
+    @Shadow private Connection connection; // 1.20.1 是字段
 
     @Shadow public abstract void disconnect(Component reason);
-    // 握手状态 (handshake state)
+
+    // 握手状态
     @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(1);
     @Unique private int trueuuid$txId = 0;
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
 
 
-    // 新增：防止重复处理客户端认证包（同次握手只处理一次）(Added: Prevent duplicate processing of client auth packets (only process once per handshake))
+    // 新增：防止重复处理客户端认证包（同次握手只处理一次）
     @Unique private volatile boolean trueuuid$ackHandled = false;
 
     @Inject(method = "handleHello", at = @At("TAIL"))
     private void trueuuid$afterHello(ServerboundHelloPacket pkt, CallbackInfo ci) {
         if (this.server.usesAuthentication() || this.gameProfile == null) return;
 
-        // 若开启 nomojang，则直接使用本地策略，不向客户端发送会话认证包 (If nomojang is enabled, use local policy directly, do not send session auth packet to client)
+        // 若开启 nomojang，则直接使用本地策略，不向客户端发送会话认证包
         if (TrueuuidConfig.nomojangEnabled()) {
             String name = this.gameProfile.getName();
             String ip;
@@ -62,7 +63,7 @@ public abstract class ServerLoginMixin {
                 System.out.println("[TrueUUID] nomojang 模式：跳过 Mojang 会话认证, 玩家: " + (name != null ? name : "<unknown>") + ", ip: " + ip);
             }
 
-            // 尝试同 IP 的近期容错命中 -> 视为正版 (Try recent same IP grace hit -> Treat as premium)
+            // 尝试同 IP 的近期容错命中 -> 视为正版
             if (TrueuuidConfig.recentIpGraceEnabled() && ip != null) {
                 var pOpt = TrueuuidRuntime.IP_GRACE.tryGrace(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
                 if (pOpt.isPresent()) {
@@ -73,24 +74,24 @@ public abstract class ServerLoginMixin {
                         }
                         GameProfile newProfile = new GameProfile(premium, name);
                         this.gameProfile = newProfile;
-                        // 记录成功（保持注册表/缓存一致） (Record success (keep registry/cache consistent))
+                        // 记录成功（保持注册表/缓存一致）
                         TrueuuidRuntime.NAME_REGISTRY.recordSuccess(name, premium, ip);
                         TrueuuidRuntime.IP_GRACE.record(name, ip, premium);
-                        return; // 直接返回，按正版处理完毕 (Return directly, premium processing complete)
+                        return; // 直接返回，按正版处理完毕
                     }
                 }
             }
 
-            // 其余情况：直接按离线处理（不阻止进入） (Other cases: Treat as offline directly (do not block entry))
+            // 其余情况：直接按离线处理（不阻止进入）
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] nomojang: 未命中同IP正版记录，按离线方式放行");
             }
-            // 不发送自定义认证包，保持默认的离线行为 (Do not send custom auth packet, keep default offline behavior)
+            // 不发送自定义认证包，保持默认的离线行为
             return;
         }
 
 
-        // 清理 ack 处理标志（新握手重新可处理） (Clear ack handled flag (new handshake can be processed again))
+        // 清理 ack 处理标志（新握手重新可处理）
         this.trueuuid$ackHandled = false;
 
         this.trueuuid$nonce = UUID.randomUUID().toString().replace("-", "");
@@ -172,7 +173,7 @@ public abstract class ServerLoginMixin {
             reset(); ci.cancel(); return;
         }
 
-        // 幂等保护：如果已经处理过本次握手的 ack，则忽略重复包 (Idempotency protection: If ack for this handshake has been processed, ignore duplicate packets)
+        // 幂等保护：如果已经处理过本次握手的 ack，则忽略重复包
         if (this.trueuuid$ackHandled) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 重复认证包忽略, txId: " + this.trueuuid$txId);
@@ -182,15 +183,14 @@ public abstract class ServerLoginMixin {
         }
         this.trueuuid$ackHandled = true;
 
-        // 关键：使用异步 API，不在主线程阻塞 (Key: Use async API, do not block main thread)
+        // 关键：使用异步 API，不在主线程阻塞
         try {
             // 立即取消原始调用（以免继续执行原有逻辑），但不要 reset()，保留状态直到回调完成
-            // (Immediately cancel the original call (to avoid executing original logic), but do not reset(); keep state until callback completes)
             ci.cancel();
 
             SessionCheck.hasJoinedAsync(this.gameProfile.getName(), this.trueuuid$nonce, ip)
                     .whenComplete((resOpt, throwable) -> {
-                        // 始终在主线程处理后续逻辑 (Always process subsequent logic on main thread)
+                        // 始终在主线程处理后续逻辑
                         server.execute(() -> {
                             try {
                                 if (throwable != null) {
@@ -211,7 +211,7 @@ public abstract class ServerLoginMixin {
 
                                 var res = resOpt.get();
 
-                                // 成功：记录注册表/近期 IP；替换为正版 UUID + 名称大小写矫正 + 注入皮肤 (Success: Record registry/recent IP; replace with premium UUID + name case correction + inject skin)
+                                // 成功：记录注册表/近期 IP；替换为正版 UUID + 名称大小写矫正 + 注入皮肤
                                 TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip);
                                 TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid());
 
@@ -249,7 +249,6 @@ public abstract class ServerLoginMixin {
 
         } catch (Throwable t) {
             // 若构造异步调用时报错（极少见），则回退为失败处理并重置
-            // (If an error occurs when constructing the async call (very rare), fall back to failure handling and reset)
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 启动异步认证时出错: " + t);
             }
@@ -296,7 +295,7 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void sendDisconnectWithReason(Component reason) {
-        // 异步断开，避免主线程卡死 (Async disconnect, avoid main thread freeze)
+        // 异步断开，避免主线程卡死
         new Thread(() -> {
             try {
                 this.connection.send(new ClientboundLoginDisconnectPacket(reason));

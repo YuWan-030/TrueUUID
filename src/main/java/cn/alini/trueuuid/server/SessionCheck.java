@@ -17,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * 服务端调用 hasJoined 校验正版并获取最终 UUID 与皮肤属性
- * (Server calls hasJoined to verify premium status and get final UUID and skin properties)
  */
 public final class SessionCheck {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
@@ -28,7 +27,7 @@ public final class SessionCheck {
     public record HasJoinedResult(UUID uuid, String name, List<Property> properties) {}
 
     private static class HasJoinedJson {
-        String id; // 无连字符的 UUID (UUID without hyphens)
+        String id; // 无连字符的 UUID
         String name;
         List<Prop> properties;
     }
@@ -41,7 +40,6 @@ public final class SessionCheck {
 
     /**
      * 异步版本：不阻塞调用线程，返回 CompletableFuture\<Optional\<HasJoinedResult\>\>
-     * (Async version: Does not block calling thread, returns CompletableFuture<Optional<HasJoinedResult>>)
      */
     public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip) {
         String url = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
@@ -99,9 +97,9 @@ public final class SessionCheck {
                 });
     }
 
-    // 保留同步方法（若需要）或移除 (Keep synchronous method (if needed) or remove)
+    // 保留同步方法（若需要）或移除
     public static Optional<HasJoinedResult> hasJoined(String username, String serverId, String ip) throws Exception {
-        // 保留原同步实现（或内部调用 hasJoinedAsync().get()，视需要） (Keep original synchronous implementation (or call hasJoinedAsync().get() internally, as needed))
+        // 保留原同步实现（或内部调用 hasJoinedAsync().get()，视需要）
         throw new UnsupportedOperationException("同步 hasJoined 已不推荐使用，请使用 hasJoinedAsync");
     }
 
