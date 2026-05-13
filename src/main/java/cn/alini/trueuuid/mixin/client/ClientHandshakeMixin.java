@@ -11,9 +11,13 @@ import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Mixin(ClientHandshakePacketListenerImpl.class)
 public abstract class ClientHandshakeMixin {
@@ -26,25 +30,49 @@ public abstract class ClientHandshakeMixin {
         FriendlyByteBuf buf = packet.getData();
         String serverId = buf.readUtf();
 
-        boolean ok;
-        try {
-            Minecraft mc = Minecraft.getInstance();
-            User user = mc.getUser();
-            var profile = user.getGameProfile();
-            String token = user.getAccessToken();
+        Minecraft mc = Minecraft.getInstance();
+        User user = mc.getUser();
+        var profile = user.getGameProfile();
+        String token = user.getAccessToken();
+        Connection loginConnection = this.connection;
+        int transactionId = packet.getTransactionId();
 
-            // 令牌只在本地使用 (Token is only used locally)
-            mc.getMinecraftSessionService().joinServer(profile, token, serverId);
-            ok = true;
-        } catch (Throwable t) {
-            ok = false;
+        // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
+        if (trueuuid$isMissingSessionToken(token)) {
+            trueuuid$sendAuthAck(loginConnection, transactionId, false);
+            ci.cancel();
+            return;
         }
 
-        FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.buffer());
-        resp.writeBoolean(ok);
-        this.connection.send(new ServerboundCustomQueryPacket(packet.getTransactionId(), resp));
+        // Mojang joinServer 可能因网络卡住；放到后台线程并在默认服务端超时前回包，避免阻塞后续 LOGIN 包处理。
+        CompletableFuture.supplyAsync(() -> {
+                    try {
+                        // 令牌只在本地使用 (Token is only used locally)
+                        mc.getMinecraftSessionService().joinServer(profile, token, serverId);
+                        return true;
+                    } catch (Throwable t) {
+                        return false;
+                    }
+                })
+                .orTimeout(8, TimeUnit.SECONDS)
+                .exceptionally(t -> false)
+                .thenAccept(ok -> trueuuid$sendAuthAck(loginConnection, transactionId, ok));
 
         ci.cancel();
+    }
+
+    @Unique
+    private static boolean trueuuid$isMissingSessionToken(String token) {
+        // 这些值通常来自开发环境或离线启动器，继续请求 Mojang 只会制造无意义等待。
+        return token == null || token.isBlank() || "0".equals(token);
+    }
+
+    @Unique
+    private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok) {
+        // LOGIN 自定义查询必须回复 LOGIN 阶段的 ServerboundCustomQueryPacket，不能切到 PLAY 包。
+        FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.buffer());
+        resp.writeBoolean(ok);
+        connection.send(new ServerboundCustomQueryPacket(transactionId, resp));
     }
 
 }
