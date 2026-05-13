@@ -10,9 +10,7 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
-import net.minecraft.network.protocol.login.ClientboundLoginDisconnectPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;
@@ -23,7 +21,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,7 +33,8 @@ public abstract class ServerLoginMixin {
 
     @Shadow public abstract void disconnect(Component reason);
     // 握手状态 (handshake state)
-    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(1);
+    // 使用高位事务号，避免和 Forge/FML 登录握手从 0 开始分配的 CustomQuery 事务号撞车。
+    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(0x4F000000);
     @Unique private int trueuuid$txId = 0;
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
@@ -108,14 +106,22 @@ public abstract class ServerLoginMixin {
         this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, NetIds.AUTH, buf));
     }
 
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onTick(CallbackInfo ci) {
         if (this.trueuuid$txId == 0 || this.trueuuid$sentAt == 0L) return;
         long timeoutMs = TrueuuidConfig.timeoutMs();
-        if (timeoutMs <= 0) return;
+        if (timeoutMs <= 0) {
+            // TrueUUID 自定义认证还没有结束时暂停原版登录推进，避免离线档案先进入世界后又被正版档案二次接受。
+            ci.cancel();
+            return;
+        }
 
         long now = System.currentTimeMillis();
-        if (now - this.trueuuid$sentAt < timeoutMs) return;
+        if (now - this.trueuuid$sentAt < timeoutMs) {
+            // 等待客户端认证或异步会话校验完成期间，Forge 的 NEGOTIATING 状态不能继续推进到 READY_TO_ACCEPT。
+            ci.cancel();
+            return;
+        }
 
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 握手超时, txId: " + this.trueuuid$txId);
@@ -132,6 +138,7 @@ public abstract class ServerLoginMixin {
             Component reason = Component.literal(msg != null ? msg : "登录超时，未完成账号校验");
             sendDisconnectWithReason(reason);
             reset();
+            ci.cancel();
         }
     }
 
@@ -226,16 +233,7 @@ public abstract class ServerLoginMixin {
                                     }
                                 }
                                 this.gameProfile = newProfile;
-                                try {
-                                    Method method = this.getClass().getDeclaredMethod("m_10055_");
-                                    method.setAccessible(true);
-                                    method.invoke(this);
-                                } catch (Exception e) {
-                                    if (TrueuuidConfig.debug()) {
-                                        System.out.println("[TrueUUID] 调用失败: " + e);
-                                    }
-                                    disconnect(Component.literal("服务器错误，请稍后重试"));
-                                }
+                                // 认证成功后只替换档案并释放暂停，后续由 Forge 原版登录 tick 继续完成协商和放入世界。
                             } catch (Throwable t) {
                                 if (TrueuuidConfig.debug()) {
                                     System.out.println("[TrueUUID] 认证异步处理时发生异常: " + t);
@@ -296,14 +294,8 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void sendDisconnectWithReason(Component reason) {
-        // 异步断开，避免主线程卡死 (Async disconnect, avoid main thread freeze)
-        new Thread(() -> {
-            try {
-                this.connection.send(new ClientboundLoginDisconnectPacket(reason));
-                this.connection.send(new ClientboundDisconnectPacket(reason));
-            } catch (Throwable ignored) {}
-            this.connection.disconnect(reason);
-        }, "TrueUUID-AsyncDisconnect").start();
+        // 登录监听器只能使用 LOGIN 阶段的断开流程，避免混发 PLAY 断开包导致客户端按错误协议解码。
+        this.disconnect(reason);
     }
 
     @Unique
