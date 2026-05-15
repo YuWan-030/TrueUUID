@@ -64,7 +64,7 @@ public final class TrueuuidConfig {
         Common(ForgeConfigSpec.Builder b) {
             b.push("auth");
 
-            timeoutMs = b.defineInRange("timeoutMs", 10_000L, 1_000L, 600_000L);
+            timeoutMs = b.defineInRange("timeoutMs", 30_000L, 1_000L, 600_000L);
             allowOfflineOnTimeout = b.comment("false:超时踢出(默认)true:超时放行为离线").define("allowOfflineOnTimeout", false);
             allowOfflineOnFailure = b.comment("false:失败时踢出true:任何鉴权失败放行为离线(默认)").define("allowOfflineOnFailure", true);
 

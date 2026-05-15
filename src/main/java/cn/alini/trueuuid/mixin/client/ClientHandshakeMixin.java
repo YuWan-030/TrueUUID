@@ -7,6 +7,7 @@ import net.minecraft.client.User; // official 映射 (mapping)
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,10 +19,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @Mixin(ClientHandshakePacketListenerImpl.class)
 public abstract class ClientHandshakeMixin {
     @Shadow private Connection connection;
+    @Shadow private Consumer<Component> updateStatus;
 
     @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
@@ -44,7 +47,10 @@ public abstract class ClientHandshakeMixin {
             return;
         }
 
-        // Mojang joinServer 可能因网络卡住；放到后台线程并在默认服务端超时前回包，避免阻塞后续 LOGIN 包处理。
+        // 复用原版正版登录文案，中文客户端会显示“正在登录中...”。
+        this.updateStatus.accept(Component.translatable("connect.authorizing"));
+
+        // Mojang joinServer 可能因网络卡住；放到后台线程，保留原版登录等待界面，同时在服务端 30 秒超时前回包。
         CompletableFuture.supplyAsync(() -> {
                     try {
                         // 令牌只在本地使用 (Token is only used locally)
@@ -54,7 +60,7 @@ public abstract class ClientHandshakeMixin {
                         return false;
                     }
                 })
-                .orTimeout(8, TimeUnit.SECONDS)
+                .orTimeout(30, TimeUnit.SECONDS)
                 .exceptionally(t -> false)
                 .thenAccept(ok -> trueuuid$sendAuthAck(loginConnection, transactionId, ok));
 
