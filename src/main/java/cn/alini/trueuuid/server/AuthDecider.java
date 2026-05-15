@@ -31,14 +31,9 @@ public final class AuthDecider {
             }
         }
 
-        // 1) 已验证过正版的名字：禁止离线回落
-        if (known && TrueuuidConfig.knownPremiumDenyOffline()) {
-            d.kind = Decision.Kind.DENY;
-            d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
-            return d;
-        }
-
-        // 2) 近期同 IP 成功容错：临时按正版处理
+        // 1) 近期同 IP 成功容错：临时按正版处理。
+        // 必须优先于 knownPremiumDenyOffline，否则“刚刚成功验证过的正版名”在 Mojang 短暂失败时会被直接拒绝，
+        // 配置里的 recentIpGrace.enabled/ttlSeconds 就失去意义。
         if (TrueuuidConfig.recentIpGraceEnabled()) {
             Optional<UUID> p = TrueuuidRuntime.IP_GRACE.tryGrace(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
             if (p.isPresent()) {
@@ -46,6 +41,13 @@ public final class AuthDecider {
                 d.premiumUuid = p.get();
                 return d;
             }
+        }
+
+        // 2) 已验证过正版的名字：禁止离线回落
+        if (known && TrueuuidConfig.knownPremiumDenyOffline()) {
+            d.kind = Decision.Kind.DENY;
+            d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
+            return d;
         }
 
         // 3) 未知名字：可允许离线兜底

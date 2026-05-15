@@ -39,7 +39,7 @@ public abstract class ServerLoginMixin {
     @Shadow public abstract void disconnect(Component reason);
 
     // 握手状态
-    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(1);
+    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(0x4F000000);
     @Unique private int trueuuid$txId = 0;
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
@@ -253,6 +253,7 @@ public abstract class ServerLoginMixin {
     @Unique
     private void handleAuthFailure(String ip, String why) {
         String name = this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>";
+        System.out.println("[TrueUUID] 认证失败, 玩家: " + name + ", ip: " + ip + ", 原因: " + why);
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 会话无效, 玩家: " + name + ", ip: " + ip + ", 失败原因: " + why);
         }
@@ -263,12 +264,15 @@ public abstract class ServerLoginMixin {
                 UUID premium = d.premiumUuid != null ? d.premiumUuid
                         : TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).orElse(null);
                 if (premium != null) {
+                    System.out.println("[TrueUUID] 使用近期同 IP 容错按正版 UUID 放行, 玩家: " + name + ", ip: " + ip + ", uuid: " + premium);
                     this.authenticatedProfile = new GameProfile(premium, name);
                 } else {
+                    System.out.println("[TrueUUID] 容错未找到正版 UUID，改为离线兜底, 玩家: " + name + ", ip: " + ip);
                     AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.FAILURE);
                 }
             }
             case OFFLINE -> {
+                System.out.println("[TrueUUID] 鉴权失败后允许离线兜底, 玩家: " + name + ", ip: " + ip);
                 if (TrueuuidConfig.debug()) {
                     System.out.println("[TrueUUID] 离线进入");
                 }
@@ -277,6 +281,7 @@ public abstract class ServerLoginMixin {
             case DENY -> {
                 String msg = d.denyMessage != null ? d.denyMessage
                         : "鉴权失败，已禁止离线进入以保护你的正版存档。请稍后重试。";
+                System.out.println("[TrueUUID] 认证被拒绝, 玩家: " + name + ", ip: " + ip + ", 原因: " + why + ", 消息: " + msg);
                 if (TrueuuidConfig.debug()) {
                     System.out.println("[TrueUUID] 认证被拒绝, 玩家: " + name + ", ip: " + ip + ", 消息: " + msg);
                 }
@@ -287,14 +292,8 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void sendDisconnectWithReason(Component reason) {
-        // 异步断开，避免主线程卡死
-        new Thread(() -> {
-            try {
-                this.connection.send(new ClientboundLoginDisconnectPacket(reason));
-                this.connection.send(new ClientboundDisconnectPacket(reason));
-            } catch (Throwable ignored) {}
-            this.connection.disconnect(reason);
-        }, "TrueUUID-AsyncDisconnect").start();
+        // 登录监听器只能使用 LOGIN 阶段的断开流程，避免混发 PLAY 断开包导致客户端按错误协议解码。
+        this.disconnect(reason);
     }
 
     @Unique
