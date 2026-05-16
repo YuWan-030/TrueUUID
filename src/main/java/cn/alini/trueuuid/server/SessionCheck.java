@@ -39,17 +39,29 @@ public final class SessionCheck {
         String sig;
     }
 
+    private static final String MOJANG_HAS_JOINED = "https://sessionserver.mojang.com/session/minecraft/hasJoined";
+
     /**
-     * 异步版本：不阻塞调用线程，返回 CompletableFuture\<Optional\<HasJoinedResult\>\>
-     * (Async version: Does not block calling thread, returns CompletableFuture<Optional<HasJoinedResult>>)
+     * 异步版本：不阻塞调用线程，返回 CompletableFuture&lt;Optional&lt;HasJoinedResult&gt;&gt;
+     * (Async version: Does not block calling thread, returns CompletableFuture&lt;Optional&lt;HasJoinedResult&gt;&gt;)
+     *
+     * @param hasJoinedBaseUrl 客户端上报的 hasJoined endpoint URL，空字符串或 null 表示使用 Mojang 默认。
+     *                         例如: "https://skinserver.example.com/sessionserver/session/minecraft/hasJoined"
      */
-    public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip) {
-        String url = "https://sessionserver.mojang.com/session/minecraft/hasJoined"
+    public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(
+            String username, String serverId, String ip, String hasJoinedBaseUrl) {
+
+        String baseUrl = (hasJoinedBaseUrl == null || hasJoinedBaseUrl.isEmpty())
+                ? MOJANG_HAS_JOINED
+                : hasJoinedBaseUrl;
+
+        String url = baseUrl
                 + "?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
                 + "&serverId=" + URLEncoder.encode(serverId, StandardCharsets.UTF_8);
 
         if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID][DEBUG] 请求 Mojang 校验接口: " + url);
+            System.out.println("[TrueUUID][DEBUG] 请求会话校验接口: " + url
+                    + (hasJoinedBaseUrl != null && !hasJoinedBaseUrl.isEmpty() ? " (自定义)" : " (Mojang)"));
         }
 
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
@@ -57,8 +69,8 @@ public final class SessionCheck {
         return HTTP.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .thenApply(resp -> {
                     if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-                        System.out.println("[TrueUUID][DEBUG] Mojang 响应状态码: " + resp.statusCode());
-                        System.out.println("[TrueUUID][DEBUG] Mojang 响应内容: " + resp.body());
+                        System.out.println("[TrueUUID][DEBUG] 响应状态码: " + resp.statusCode());
+                        System.out.println("[TrueUUID][DEBUG] 响应内容: " + resp.body());
                     }
 
                     if (resp.statusCode() != 200) {
@@ -93,10 +105,15 @@ public final class SessionCheck {
                 })
                 .exceptionally(ex -> {
                     if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-                        System.out.println("[TrueUUID][DEBUG] 与 Mojang 通信或解析时发生异常: " + ex);
+                        System.out.println("[TrueUUID][DEBUG] 与会话服务通信或解析时发生异常: " + ex);
                     }
                     return Optional.empty();
                 });
+    }
+
+    /** 保持向后兼容的 3 参数重载，使用 Mojang 默认 URL */
+    public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip) {
+        return hasJoinedAsync(username, serverId, ip, "");
     }
 
     // 保留同步方法（若需要）或移除 (Keep synchronous method (if needed) or remove)
