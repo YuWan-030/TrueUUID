@@ -16,6 +16,8 @@ public class NameRegistry {
         public long firstVerifiedAt;
         public long lastVerifiedAt;
         public String lastSuccessIp;
+        public AuthState.AuthSource authSource;
+        public String authDisplayName;
     }
 
     private final Path file;
@@ -36,10 +38,29 @@ public class NameRegistry {
         return map.containsKey(name.toLowerCase(Locale.ROOT));
     }
 
+    public synchronized AuthState.AuthSource getAuthSource(String name) {
+        Entry e = map.get(name.toLowerCase(Locale.ROOT));
+        return e == null || e.authSource == null ? AuthState.AuthSource.MOJANG : e.authSource;
+    }
+
+    public synchronized String getAuthDisplayName(String name) {
+        Entry e = map.get(name.toLowerCase(Locale.ROOT));
+        if (e == null || e.authDisplayName == null || e.authDisplayName.isBlank()) {
+            return getAuthSource(name) == AuthState.AuthSource.YGGDRASIL ? "Yggdrasil 皮肤站" : "Mojang";
+        }
+        return e.authDisplayName;
+    }
+
     public synchronized void recordSuccess(String name, UUID premiumUuid, String ip) {
+        recordSuccess(name, premiumUuid, ip, AuthState.AuthSource.MOJANG, "Mojang");
+    }
+
+    public synchronized void recordSuccess(String name, UUID premiumUuid, String ip, AuthState.AuthSource source, String displayName) {
         String k = name.toLowerCase(Locale.ROOT);
         Entry e = map.getOrDefault(k, new Entry());
         e.premiumUuid = premiumUuid;
+        e.authSource = source != null ? source : AuthState.AuthSource.MOJANG;
+        e.authDisplayName = displayName == null || displayName.isBlank() ? e.authSource.name() : displayName;
         long now = Instant.now().toEpochMilli();
         if (e.firstVerifiedAt == 0) e.firstVerifiedAt = now;
         e.lastVerifiedAt = now;
@@ -60,6 +81,14 @@ public class NameRegistry {
                         en.firstVerifiedAt = e.get("firstVerifiedAt").getAsLong();
                         en.lastVerifiedAt = e.get("lastVerifiedAt").getAsLong();
                         if (e.has("lastSuccessIp")) en.lastSuccessIp = e.get("lastSuccessIp").getAsString();
+                        if (e.has("authSource")) {
+                            try {
+                                en.authSource = AuthState.AuthSource.valueOf(e.get("authSource").getAsString());
+                            } catch (IllegalArgumentException ignored) {
+                                en.authSource = AuthState.AuthSource.MOJANG;
+                            }
+                        }
+                        if (e.has("authDisplayName")) en.authDisplayName = e.get("authDisplayName").getAsString();
                         map.put(k, en);
                     }
                 }
@@ -84,6 +113,10 @@ public class NameRegistry {
                 e.addProperty("lastVerifiedAt", me.getValue().lastVerifiedAt);
                 if (me.getValue().lastSuccessIp != null)
                     e.addProperty("lastSuccessIp", me.getValue().lastSuccessIp);
+                if (me.getValue().authSource != null)
+                    e.addProperty("authSource", me.getValue().authSource.name());
+                if (me.getValue().authDisplayName != null)
+                    e.addProperty("authDisplayName", me.getValue().authDisplayName);
                 o.add(me.getKey(), e);
             }
             try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {

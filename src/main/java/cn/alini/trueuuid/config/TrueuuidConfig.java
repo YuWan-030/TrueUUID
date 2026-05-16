@@ -5,6 +5,8 @@ import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+import java.util.List;
+
 public final class TrueuuidConfig {
     public static final ModConfigSpec COMMON_SPEC;
     public static final Common COMMON;
@@ -41,6 +43,8 @@ public final class TrueuuidConfig {
     // 新增 nomojang 开关访问器
     public static boolean nomojangEnabled() { return COMMON.nomojangEnabled.get(); }
     public static String mojangReverseProxy() { return COMMON.mojangReverseProxy.get(); }
+    @SuppressWarnings("unchecked")
+    public static List<String> apiRootWhitelist() { return (List<String>) COMMON.apiRootWhitelist.get(); }
 
     public static final class Common {
         public final ModConfigSpec.LongValue timeoutMs;
@@ -56,6 +60,7 @@ public final class TrueuuidConfig {
         // 新增 nomojang 配置
         public final ModConfigSpec.BooleanValue nomojangEnabled;
         public final ModConfigSpec.ConfigValue<String> mojangReverseProxy;
+        public final ModConfigSpec.ConfigValue<List<? extends String>> apiRootWhitelist;
 
         // 新增：策略相关
         public final ModConfigSpec.BooleanValue knownPremiumDenyOffline;
@@ -86,15 +91,20 @@ public final class TrueuuidConfig {
                     .define("knownPremiumDenyOffline", true);
             allowOfflineForUnknownOnly = b.comment("仅对从未验证为正版的新名字允许离线兜底。")
                     .define("allowOfflineForUnknownOnly", true);
-            recentIpGraceEnabled      = b.comment("启用“近期同 IP 成功”容错，在 TTL 内失败时临时按正版处理。")
+            recentIpGraceEnabled      = b.comment("启用“退出后同 IP 短时重连”容错，只在玩家退出后的 TTL 秒内临时沿用上次认证来源。")
                     .define("recentIpGrace.enabled", true);
-            recentIpGraceTtlSeconds   = b.comment("“近期同 IP 成功”容错的 TTL 秒数。建议 60~600。")
-                    .defineInRange("recentIpGrace.ttlSeconds", 300, 30, 3600);
+            recentIpGraceTtlSeconds   = b.comment("退出游戏后允许同 IP 容错重连的秒数。默认 10 秒，避免长期误导为皮肤站/正版登录。")
+                    .defineInRange("recentIpGrace.ttlSeconds", 10, 1, 60);
             debug = b.comment("启用调试日志输出").define("debug", false);
             // 新增：跳过 Mojang 会话认证（开启后不再通过 sessionserver 验证）
             nomojangEnabled = b.comment("开启后关闭对 Mojang 会话服务的在线校验逻辑；同 IP 且近期有正版成功的名称按正版 UUID 处理，其余直接按离线进入处理。")
                     .define("nomojang.enabled", false);
             mojangReverseProxy = b.comment("mojang的反代地址,专门为那些不想给服务器开代理的人使用,默认为mojang地址").define("mojangReverseProxy", "https://sessionserver.mojang.com");
+            apiRootWhitelist = b.comment(
+                            "authlib-injector/Yggdrasil 皮肤站 hasJoined URL 白名单。",
+                            "默认空列表表示信任客户端上报的皮肤站端点；填写 littleskin.cn 等关键字后，只允许匹配项通过。"
+                    )
+                    .defineListAllowEmpty(List.of("yggdrasil.apiRootWhitelist"), List::of, o -> o instanceof String);
             b.pop();
         }
     }
