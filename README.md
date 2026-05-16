@@ -28,7 +28,7 @@ Note: Client and server must both install this mod. The server must run in offli
 - Policy: allowOfflineForUnknownOnly
     - Only allow offline fallback for names that have never verified as premium.
 - Recent IP Grace (optional)
-    - If the same name and IP had a successful verification within a short TTL (e.g., 5 minutes), a temporary premium session can be granted if verification fails. Useful to handle transient network hiccups. Use with caution on shared IP environments.
+    - After a player has already verified successfully and then disconnects, the same name and IP may reuse that verified UUID only within a short logout window (default: 10 seconds) if the next verification fails. This is intended for immediate reconnects only and is consumed after one use.
 - Admin command: /trueuuid link <name>
     - Migrate/merge an offline UUID’s data to the premium UUID. Supports dry-run and backups.
 - Reliable disconnect reason on 1.20.x Forge
@@ -85,12 +85,14 @@ Keys and defaults:
 - auth.allowOfflineForUnknownOnly = true
     - Only names that have never verified as premium may fall back to offline.
 - auth.recentIpGrace.enabled = true
-    - Enable recent-IP grace window.
-- auth.recentIpGrace.ttlSeconds = 300
-    - TTL for recent-IP grace (suggested 60–600).
+    - Enable same-IP short reconnect grace after a verified player disconnects.
+- auth.recentIpGrace.ttlSeconds = 10
+    - Seconds after logout during which the same name and IP may reuse the last verified UUID. Valid range: 1–60. The grace entry is consumed after one use.
+- auth.yggdrasil.apiRootWhitelist = []
+    - Optional authlib-injector/Yggdrasil skin-site URL whitelist. Empty means trust the client-reported skin-site `hasJoined` endpoint. Add entries such as `["littleskin.cn"]` to only accept matching endpoints.
 
 Notes:
-- Recent IP Grace is a usability feature, not strong security. Do not use a large TTL. Avoid enabling on shared networks if you have strict identity requirements.
+- Recent IP Grace is a usability feature, not strong security. Keep the logout window short and avoid enabling it on shared networks if you have strict identity requirements.
 - The legacy `allowOfflineOnFailure` is still respected, but the new policies are recommended.
 
 ## Commands

@@ -28,7 +28,7 @@ TrueUUID 让离线服也能：
 - 策略：allowOfflineForUnknownOnly
     - 仅允许“从未验证为正版”的新名字走离线兜底。
 - 近期同 IP 容错（可选）
-    - 若同名同 IP 在短时间 TTL 内曾验证成功，这次失败可临时按正版处理，用于缓解瞬时网络问题。公共/共享网络请谨慎启用，并缩短 TTL。
+    - 玩家已经成功完成正版/皮肤站校验并退出后，仅在同名同 IP 的短时间重连窗口内（默认 10 秒）允许复用上次验证 UUID；命中一次后即消费。用于处理刚掉线立刻重连，不再从“验证成功时间”开始按分钟计时。
 - 管理员命令：/trueuuid link <name>
     - 将该名字对应“离线 UUID”的玩家数据迁移/合并到“正版 UUID”。支持 dry-run 预览与备份。
 - 可靠显示踢出原因（Forge 1.20.x）
@@ -85,12 +85,14 @@ TrueUUID 让离线服也能：
 - auth.allowOfflineForUnknownOnly = true
     - 仅“从未验证为正版”的名字可离线兜底。
 - auth.recentIpGrace.enabled = true
-    - 启用“近期同 IP 成功”容错。
-- auth.recentIpGrace.ttlSeconds = 300
-    - 同 IP 容错 TTL（建议 60–600）。
+    - 启用“退出后同 IP 短时重连”容错。
+- auth.recentIpGrace.ttlSeconds = 10
+    - 玩家退出后允许同名同 IP 复用上次验证 UUID 的秒数。有效范围：1–60。命中一次后即消费。
+- auth.yggdrasil.apiRootWhitelist = []
+    - authlib-injector/Yggdrasil 皮肤站 hasJoined URL 白名单。留空表示信任客户端上报的皮肤站端点；可填如 `["littleskin.cn"]`，只允许匹配的皮肤站通过。
 
 说明：
-- 同 IP 容错重在可用性，并非强安全；TTL 不宜过长，公共网络慎用。
+- 同 IP 容错重在可用性，并非强安全；请保持退出重连窗口很短，公共/共享网络慎用。
 - 旧开关 `allowOfflineOnFailure` 仍有效，但建议优先使用新策略。
 
 ## 管理命令
