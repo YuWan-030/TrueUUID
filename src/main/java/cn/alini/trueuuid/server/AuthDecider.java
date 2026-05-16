@@ -11,6 +11,8 @@ public final class AuthDecider {
         public enum Kind { PREMIUM_GRACE, OFFLINE, DENY }
         public Kind kind;
         public UUID premiumUuid; // PREMIUM_GRACE 时填 (Fill when PREMIUM_GRACE)
+        public AuthState.AuthSource graceSource;
+        public String graceDisplayName;
         public String denyMessage;
     }
 
@@ -27,6 +29,8 @@ public final class AuthDecider {
             if (premiumUuid.isPresent()) {
                 d.kind = Decision.Kind.PREMIUM_GRACE;
                 d.premiumUuid = premiumUuid.get();
+                d.graceSource = AuthState.AuthSource.MOJANG;
+                d.graceDisplayName = "本地代理容错";
                 return d;
             }
         }
@@ -35,18 +39,26 @@ public final class AuthDecider {
         // 必须优先于 knownPremiumDenyOffline，否则“刚刚成功验证过的正版名”在 Mojang 短暂失败时会被直接拒绝，
         // 配置里的 recentIpGrace.enabled/ttlSeconds 就失去意义。
         if (TrueuuidConfig.recentIpGraceEnabled()) {
-            Optional<UUID> p = TrueuuidRuntime.IP_GRACE.tryGrace(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
+            Optional<RecentIpGraceCache.GraceResult> p = TrueuuidRuntime.IP_GRACE.tryGraceResult(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
             if (p.isPresent()) {
                 d.kind = Decision.Kind.PREMIUM_GRACE;
-                d.premiumUuid = p.get();
+                d.premiumUuid = p.get().premiumUuid();
+                d.graceSource = p.get().source();
+                d.graceDisplayName = p.get().displayName();
                 return d;
             }
         }
 
         // 2) 已验证过正版的名字：禁止离线回落 (Names already verified as premium: Deny offline fallback)
         if (known && TrueuuidConfig.knownPremiumDenyOffline()) {
+            AuthState.AuthSource source = TrueuuidRuntime.NAME_REGISTRY.getAuthSource(name);
+            String displayName = TrueuuidRuntime.NAME_REGISTRY.getAuthDisplayName(name);
             d.kind = Decision.Kind.DENY;
-            d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
+            if (source == AuthState.AuthSource.YGGDRASIL) {
+                d.denyMessage = "该名称已绑定皮肤站 UUID（" + displayName + "），鉴权失败时不允许以离线模式进入。请使用对应皮肤站登录后重试。";
+            } else {
+                d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
+            }
             return d;
         }
 
