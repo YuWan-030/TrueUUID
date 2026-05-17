@@ -15,6 +15,7 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
@@ -46,6 +47,7 @@ public class SkinRefreshHandler {
         // 2) 判断是否离线放行，并发送聊天提示 + 屏幕标题（副标题使用短文案） (Determine if offline fallback is active, and send chat notification + screen title (subtitle uses short text))
         var netConn = sp.connection.connection; // ServerGamePacketListenerImpl.connection
         var fallbackOpt = AuthState.consume(netConn);
+        var successOpt = AuthState.consumeAuthSuccess(netConn, sp.getUUID(), sp.getGameProfile().getName());
 
         if (fallbackOpt.isPresent()) {
             // 聊天提示：长文案 (Chat notification: Long text)
@@ -59,19 +61,63 @@ public class SkinRefreshHandler {
             String shortSubtitle = TrueuuidConfig.offlineShortSubtitle();
             var subtitle = Component.literal(clamp(shortSubtitle, SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.YELLOW);
 
-            sp.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 10));
-            sp.connection.send(new ClientboundSetTitleTextPacket(title));
-            sp.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
-        } else {
+            sendTitleNextTick(server, sp, title, subtitle, "OFFLINE");
+        } else if (successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL) {
+            // 皮肤站模式：青绿色标题，明确区别于 Mojang 正版验证。
+            AuthState.AuthSuccess success = successOpt.get();
+            var title = Component.literal("皮肤站登录").withStyle(ChatFormatting.AQUA);
+            String sourceName = success.displayName();
+            var subtitle = Component.literal(clamp("已通过 " + sourceName + " 校验", SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.GREEN);
+
+            sendTitleNextTick(server, sp, title, subtitle, "YGGDRASIL:" + sourceName);
+        } else if (successOpt.isPresent()) {
             // 正版模式：绿色标题，副标题短文案（灰色） (Premium Mode: Green title, subtitle short text (Gray))
             var title = Component.literal("正版模式").withStyle(ChatFormatting.GREEN);
             String shortSubtitle = TrueuuidConfig.onlineShortSubtitle();
             var subtitle = Component.literal(clamp(shortSubtitle, SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.GRAY);
 
+            String mode = "MOJANG:" + successOpt.get().displayName();
+            sendTitleNextTick(server, sp, title, subtitle, mode);
+        } else if (!server.isDedicatedServer()) {
+            var title = Component.literal("单人模式").withStyle(ChatFormatting.GOLD);
+            var subtitle = Component.literal("未进行服务器鉴权").withStyle(ChatFormatting.GRAY);
+
+            sendTitleNextTick(server, sp, title, subtitle, "SINGLEPLAYER");
+        } else if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] 跳过登录标题: 玩家=" + sp.getGameProfile().getName() + ", 原因=未经过 TrueUUID 登录认证状态");
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+        String ip = trueuuid$ipOf(sp);
+        if (ip == null || ip.isBlank()) return;
+        TrueuuidRuntime.IP_GRACE.activateAfterLogout(sp.getGameProfile().getName(), ip);
+        if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] 玩家退出，开启近期同 IP 容错窗口: 玩家=" + sp.getGameProfile().getName() + ", ip=" + ip + ", ttl=" + TrueuuidConfig.recentIpGraceTtlSeconds() + "s");
+        }
+    }
+
+    private static String trueuuid$ipOf(ServerPlayer sp) {
+        if (sp.connection.connection.getRemoteAddress() instanceof InetSocketAddress isa) {
+            return isa.getAddress().getHostAddress();
+        }
+        return null;
+    }
+
+    private static void sendTitleNextTick(net.minecraft.server.MinecraftServer server, ServerPlayer sp, Component title, Component subtitle, String mode) {
+        server.execute(() -> {
+            if (sp.hasDisconnected()) {
+                return;
+            }
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] 发送登录标题: 玩家=" + sp.getGameProfile().getName() + ", mode=" + mode);
+            }
             sp.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 10));
             sp.connection.send(new ClientboundSetTitleTextPacket(title));
             sp.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
-        }
+        });
     }
 
     private static String clamp(String s, int max) {

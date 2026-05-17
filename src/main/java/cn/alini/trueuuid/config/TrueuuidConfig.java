@@ -4,6 +4,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 
+import java.util.List;
+
 public final class TrueuuidConfig {
     public static final ForgeConfigSpec COMMON_SPEC;
     public static final Common COMMON;
@@ -40,6 +42,10 @@ public final class TrueuuidConfig {
     // 新增 nomojang 开关访问器 (Added nomojang switch accessor)
     public static boolean nomojangEnabled() { return COMMON.nomojangEnabled.get(); }
 
+    // authlib-injector / Yggdrasil 皮肤站支持
+    @SuppressWarnings("unchecked")
+    public static List<String> apiRootWhitelist() { return (List<String>) COMMON.apiRootWhitelist.get(); }
+
     public static final class Common {
         public final ForgeConfigSpec.LongValue timeoutMs;
         public final ForgeConfigSpec.BooleanValue allowOfflineOnTimeout;
@@ -54,6 +60,9 @@ public final class TrueuuidConfig {
         // 新增 nomojang 配置 (Added nomojang config)
         public final ForgeConfigSpec.BooleanValue nomojangEnabled;
 
+        // authlib-injector / Yggdrasil 皮肤站白名单
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> apiRootWhitelist;
+
         // 新增：策略相关 (Added: Strategy related)
         public final ForgeConfigSpec.BooleanValue knownPremiumDenyOffline;
         public final ForgeConfigSpec.BooleanValue allowOfflineForUnknownOnly;
@@ -64,7 +73,7 @@ public final class TrueuuidConfig {
         Common(ForgeConfigSpec.Builder b) {
             b.push("auth");
 
-            timeoutMs = b.defineInRange("timeoutMs", 10_000L, 1_000L, 600_000L);
+            timeoutMs = b.defineInRange("timeoutMs", 30_000L, 1_000L, 600_000L);
             allowOfflineOnTimeout = b.comment("false:超时踢出(默认)true:超时放行为离线").define("allowOfflineOnTimeout", false);
             allowOfflineOnFailure = b.comment("false:失败时踢出true:任何鉴权失败放行为离线(默认)").define("allowOfflineOnFailure", true);
 
@@ -83,14 +92,22 @@ public final class TrueuuidConfig {
                     .define("knownPremiumDenyOffline", true);
             allowOfflineForUnknownOnly = b.comment("仅对从未验证为正版的新名字允许离线兜底。")
                     .define("allowOfflineForUnknownOnly", true);
-            recentIpGraceEnabled      = b.comment("启用“近期同 IP 成功”容错，在 TTL 内失败时临时按正版处理。")
+            recentIpGraceEnabled      = b.comment("启用“退出后同 IP 短时重连”容错，只在玩家退出后的 TTL 秒内临时沿用上次认证来源。")
                     .define("recentIpGrace.enabled", true);
-            recentIpGraceTtlSeconds   = b.comment("“近期同 IP 成功”容错的 TTL 秒数。建议 60~600。")
-                    .defineInRange("recentIpGrace.ttlSeconds", 300, 30, 3600);
+            recentIpGraceTtlSeconds   = b.comment("退出游戏后允许同 IP 容错重连的秒数。默认 10 秒，避免长期误导为皮肤站/正版登录。")
+                    .defineInRange("recentIpGrace.ttlSeconds", 10, 1, 60);
             debug = b.comment("启用调试日志输出").define("debug", false);
             // 新增：跳过 Mojang 会话认证（开启后不再通过 sessionserver 验证） (Added: Skip Mojang session auth (no longer verify via sessionserver when enabled))
             nomojangEnabled = b.comment("开启后关闭对 Mojang 会话服务的在线校验逻辑；同 IP 且近期有正版成功的名称按正版 UUID 处理，其余直接按离线进入处理。")
                     .define("nomojang.enabled", false);
+
+            apiRootWhitelist = b.comment(
+                    "authlib-injector 皮肤站域名白名单。",
+                    "留空(默认)表示信任客户端上报的任何皮肤站 URL。",
+                    "配置后，只有 URL 中包含白名单条目的皮肤站才会被接受。",
+                    "例如: [\"littleskin.cn\", \"skin.example.com\"]"
+            ).defineListAllowEmpty(List.of("yggdrasil.apiRootWhitelist"), List::of, o -> o instanceof String);
+
             b.pop();
         }
     }
