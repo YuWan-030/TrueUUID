@@ -11,7 +11,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.Connection;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
@@ -23,13 +22,12 @@ import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -42,7 +40,7 @@ public abstract class ServerLoginMixin {
     @Shadow public abstract void disconnect(Component reason);
 
     // 握手状态
-    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(1);
+    @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(0x4F000000);
     @Unique private int trueuuid$txId = 0;
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
@@ -70,18 +68,21 @@ public abstract class ServerLoginMixin {
 
             // 尝试同 IP 的近期容错命中 -> 视为正版
             if (TrueuuidConfig.recentIpGraceEnabled() && ip != null) {
-                var pOpt = TrueuuidRuntime.IP_GRACE.tryGrace(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
+                var pOpt = TrueuuidRuntime.IP_GRACE.tryGraceResult(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
                 if (pOpt.isPresent()) {
-                    UUID premium = pOpt.get();
+                    UUID premium = pOpt.get().premiumUuid();
                     if (premium != null) {
                         if (TrueuuidConfig.debug()) {
                             System.out.println("[TrueUUID] nomojang: 找到同IP正版记录，按正版处理, uuid=" + premium);
                         }
                         GameProfile newProfile = new GameProfile(premium, name);
                         this.authenticatedProfile = newProfile;
+                        AuthState.AuthSource source = pOpt.get().source() == AuthState.AuthSource.YGGDRASIL
+                                ? AuthState.AuthSource.YGGDRASIL
+                                : AuthState.AuthSource.MOJANG;
+                        AuthState.markAuthSuccess(this.connection, source, pOpt.get().displayName());
                         // 记录成功（保持注册表/缓存一致）
-                        TrueuuidRuntime.NAME_REGISTRY.recordSuccess(name, premium, ip);
-                        TrueuuidRuntime.IP_GRACE.record(name, ip, premium);
+                        TrueuuidRuntime.NAME_REGISTRY.recordSuccess(name, premium, ip, source, pOpt.get().displayName());
                         return; // 直接返回，按正版处理完毕
                     }
                 }
@@ -166,12 +167,37 @@ public abstract class ServerLoginMixin {
         }
 
         boolean ackOk =  payload.ok();
+        String clientHasJoinedUrl = payload.hasJoinedUrl() == null ? "" : payload.hasJoinedUrl().trim();
+        if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] 客户端认证包ackOk: " + ackOk + ", hasJoinedUrl: " + (clientHasJoinedUrl.isEmpty() ? "(mojang default)" : clientHasJoinedUrl));
+        }
         if (!ackOk) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
             }
             handleAuthFailure(ip, "客户端拒绝");
             reset(); ci.cancel(); return;
+        }
+
+        // 白名单校验：如果配置了白名单且客户端上报了非默认 URL，检查 URL 是否匹配任一配置项。
+        if (!clientHasJoinedUrl.isEmpty()) {
+            var whitelist = TrueuuidConfig.apiRootWhitelist();
+            if (!whitelist.isEmpty()) {
+                boolean allowed = false;
+                for (String entry : whitelist) {
+                    if (entry != null && !entry.isBlank() && clientHasJoinedUrl.contains(entry)) {
+                        allowed = true;
+                        break;
+                    }
+                }
+                if (!allowed) {
+                    if (TrueuuidConfig.debug()) {
+                        System.out.println("[TrueUUID] 客户端上报的 hasJoined URL 不在白名单中: " + clientHasJoinedUrl);
+                    }
+                    handleAuthFailure(ip, "不受信任的认证服务器");
+                    reset(); ci.cancel(); return;
+                }
+            }
         }
 
         // 幂等保护：如果已经处理过本次握手的 ack，则忽略重复包
@@ -185,11 +211,12 @@ public abstract class ServerLoginMixin {
         this.trueuuid$ackHandled = true;
 
         // 关键：使用异步 API，不在主线程阻塞
+        final String hasJoinedUrl = clientHasJoinedUrl;
         try {
             // 立即取消原始调用（以免继续执行原有逻辑），但不要 reset()，保留状态直到回调完成
             ci.cancel();
 
-            SessionCheck.hasJoinedAsync(this.authenticatedProfile.getName(), this.trueuuid$nonce, ip)
+            SessionCheck.hasJoinedAsync(this.authenticatedProfile.getName(), this.trueuuid$nonce, ip, hasJoinedUrl)
                     .whenComplete((resOpt, throwable) -> {
                         // 始终在主线程处理后续逻辑
                         server.execute(() -> {
@@ -213,8 +240,13 @@ public abstract class ServerLoginMixin {
                                 var res = resOpt.get();
 
                                 // 成功：记录注册表/近期 IP；替换为正版 UUID + 名称大小写矫正 + 注入皮肤
-                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip);
-                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid());
+                                AuthState.AuthSource source = hasJoinedUrl.isEmpty()
+                                        ? AuthState.AuthSource.MOJANG
+                                        : AuthState.AuthSource.YGGDRASIL;
+                                String displayName = trueuuid$authDisplayName(hasJoinedUrl);
+
+                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip, source, displayName);
+                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid(), source, displayName);
 
                                 GameProfile newProfile = new GameProfile(res.uuid(), res.name());
                                 var propMap = newProfile.getProperties();
@@ -226,13 +258,14 @@ public abstract class ServerLoginMixin {
                                         propMap.put(p.name(), new Property(p.name(), p.value()));
                                     }
                                 }
-                                try {
-                                    trueuuid$startClientVerification(newProfile);
-                                } catch (Exception e) {
-                                    if (TrueuuidConfig.debug()) {
-                                        System.out.println("[TrueUUID] 调用失败: " + e);
-                                    }
-                                    disconnect(Component.literal("服务器错误，请稍后重试"));
+                                // Vanilla has already started the offline login flow before
+                                // our custom query runs. Replace the profile in-place and let
+                                // the original login tick continue; starting verification a
+                                // second time can inject Forge's login pipeline handlers twice.
+                                this.authenticatedProfile = newProfile;
+                                AuthState.markAuthSuccess(this.connection, res.uuid(), res.name(), source, displayName);
+                                if (TrueuuidConfig.debug()) {
+                                    System.out.println("[TrueUUID] 记录认证成功来源: " + source + ", displayName=" + displayName);
                                 }
                             } catch (Throwable t) {
                                 if (TrueuuidConfig.debug()) {
@@ -259,6 +292,7 @@ public abstract class ServerLoginMixin {
     @Unique
     private void handleAuthFailure(String ip, String why) {
         String name = this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>";
+        System.out.println("[TrueUUID] 认证失败, 玩家: " + name + ", ip: " + ip + ", 原因: " + why);
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 会话无效, 玩家: " + name + ", ip: " + ip + ", 失败原因: " + why);
         }
@@ -269,12 +303,18 @@ public abstract class ServerLoginMixin {
                 UUID premium = d.premiumUuid != null ? d.premiumUuid
                         : TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).orElse(null);
                 if (premium != null) {
+                    System.out.println("[TrueUUID] 使用近期同 IP 容错按正版 UUID 放行, 玩家: " + name + ", ip: " + ip + ", uuid: " + premium);
                     this.authenticatedProfile = new GameProfile(premium, name);
+                    AuthState.AuthSource cachedSource = d.graceSource != null ? d.graceSource : AuthState.AuthSource.MOJANG;
+                    String cachedName = d.graceDisplayName != null ? d.graceDisplayName : "近期同IP容错";
+                    AuthState.markAuthSuccess(this.connection, premium, name, cachedSource, cachedName);
                 } else {
+                    System.out.println("[TrueUUID] 容错未找到正版 UUID，改为离线兜底, 玩家: " + name + ", ip: " + ip);
                     AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.FAILURE);
                 }
             }
             case OFFLINE -> {
+                System.out.println("[TrueUUID] 鉴权失败后允许离线兜底, 玩家: " + name + ", ip: " + ip);
                 if (TrueuuidConfig.debug()) {
                     System.out.println("[TrueUUID] 离线进入");
                 }
@@ -283,6 +323,7 @@ public abstract class ServerLoginMixin {
             case DENY -> {
                 String msg = d.denyMessage != null ? d.denyMessage
                         : "鉴权失败，已禁止离线进入以保护你的正版存档。请稍后重试。";
+                System.out.println("[TrueUUID] 认证被拒绝, 玩家: " + name + ", ip: " + ip + ", 原因: " + why + ", 消息: " + msg);
                 if (TrueuuidConfig.debug()) {
                     System.out.println("[TrueUUID] 认证被拒绝, 玩家: " + name + ", ip: " + ip + ", 消息: " + msg);
                 }
@@ -293,14 +334,23 @@ public abstract class ServerLoginMixin {
 
     @Unique
     private void sendDisconnectWithReason(Component reason) {
-        // 异步断开，避免主线程卡死
-        new Thread(() -> {
-            try {
-                this.connection.send(new ClientboundLoginDisconnectPacket(reason));
-                this.connection.send(new ClientboundDisconnectPacket(reason));
-            } catch (Throwable ignored) {}
-            this.connection.disconnect(reason);
-        }, "TrueUUID-AsyncDisconnect").start();
+        // 登录监听器只能使用 LOGIN 阶段的断开流程，避免混发 PLAY 断开包导致客户端按错误协议解码。
+        this.disconnect(reason);
+    }
+
+    @Unique
+    private String trueuuid$authDisplayName(String hasJoinedUrl) {
+        if (hasJoinedUrl == null || hasJoinedUrl.isBlank()) {
+            return "Mojang";
+        }
+        try {
+            URI uri = URI.create(hasJoinedUrl);
+            String host = uri.getHost();
+            if (host != null && !host.isBlank()) {
+                return host;
+            }
+        } catch (Throwable ignored) {}
+        return "Yggdrasil 皮肤站";
     }
 
     @Unique
@@ -313,6 +363,4 @@ public abstract class ServerLoginMixin {
         this.trueuuid$sentAt = 0L;
     }
 
-    @Invoker("startClientVerification")
-    protected abstract void trueuuid$startClientVerification(GameProfile profile);
 }

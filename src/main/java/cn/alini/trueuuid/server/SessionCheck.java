@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public final class SessionCheck {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final Gson GSON = new Gson();
+    private static final String MOJANG_HAS_JOINED = "https://sessionserver.mojang.com/session/minecraft/hasJoined";
 
     public record Property(String name, String value, String signature) {}
 
@@ -43,12 +44,19 @@ public final class SessionCheck {
      * 异步版本：不阻塞调用线程，返回 CompletableFuture\<Optional\<HasJoinedResult\>\>
      */
     public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip) {
-        String url = TrueuuidConfig.COMMON.mojangReverseProxy.get()+"/session/minecraft/hasJoined"
+        return hasJoinedAsync(username, serverId, ip, "");
+    }
+
+    public static CompletableFuture<Optional<HasJoinedResult>> hasJoinedAsync(String username, String serverId, String ip, String hasJoinedBaseUrl) {
+        String baseUrl = hasJoinedBaseUrl == null || hasJoinedBaseUrl.isBlank()
+                ? trueuuid$mojangHasJoinedUrl()
+                : hasJoinedBaseUrl.trim();
+        String url = baseUrl
                 + "?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
                 + "&serverId=" + URLEncoder.encode(serverId, StandardCharsets.UTF_8);
 
         if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID][DEBUG] 请求 Mojang 校验接口: " + url);
+            System.out.println("[TrueUUID][DEBUG] 请求会话校验接口: " + url + (hasJoinedBaseUrl == null || hasJoinedBaseUrl.isBlank() ? " (Mojang)" : " (自定义)"));
         }
 
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
@@ -56,8 +64,8 @@ public final class SessionCheck {
         return HTTP.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .thenApply(resp -> {
                     if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-                        System.out.println("[TrueUUID][DEBUG] Mojang 响应状态码: " + resp.statusCode());
-                        System.out.println("[TrueUUID][DEBUG] Mojang 响应内容: " + resp.body());
+                        System.out.println("[TrueUUID][DEBUG] 响应状态码: " + resp.statusCode());
+                        System.out.println("[TrueUUID][DEBUG] 响应内容: " + resp.body());
                     }
 
                     if (resp.statusCode() != 200) {
@@ -92,10 +100,19 @@ public final class SessionCheck {
                 })
                 .exceptionally(ex -> {
                     if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
-                        System.out.println("[TrueUUID][DEBUG] 与 Mojang 通信或解析时发生异常: " + ex);
+                        System.out.println("[TrueUUID][DEBUG] 与会话服务通信或解析时发生异常: " + ex);
                     }
                     return Optional.empty();
                 });
+    }
+
+    private static String trueuuid$mojangHasJoinedUrl() {
+        String reverseProxy = TrueuuidConfig.mojangReverseProxy();
+        if (reverseProxy == null || reverseProxy.isBlank() || "https://sessionserver.mojang.com".equals(reverseProxy)) {
+            return MOJANG_HAS_JOINED;
+        }
+        String root = reverseProxy.endsWith("/") ? reverseProxy.substring(0, reverseProxy.length() - 1) : reverseProxy;
+        return root + "/session/minecraft/hasJoined";
     }
 
     // 保留同步方法（若需要）或移除
