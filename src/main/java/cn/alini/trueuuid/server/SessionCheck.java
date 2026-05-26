@@ -32,6 +32,10 @@ public final class SessionCheck {
         String name;
         List<Prop> properties;
     }
+    private static class ProfileJson {
+        String id;
+        String name;
+    }
     private static class Prop {
         String name;
         String value;
@@ -39,7 +43,9 @@ public final class SessionCheck {
         String sig;
     }
 
-    private static final String MOJANG_HAS_JOINED = "https://sessionserver.mojang.com/session/minecraft/hasJoined";
+    private static final String MOJANG_HAS_JOINED = mojangUrl("sessionserver", "/session/minecraft/hasJoined");
+    private static final String MOJANG_PROFILE_BY_NAME = mojangUrl("api", "/users/profiles/minecraft/");
+    private static final String MOJANG_PROFILE_BY_UUID = mojangUrl("sessionserver", "/session/minecraft/profile/");
 
     /**
      * 异步版本：不阻塞调用线程，返回 CompletableFuture&lt;Optional&lt;HasJoinedResult&gt;&gt;
@@ -116,6 +122,45 @@ public final class SessionCheck {
         return hasJoinedAsync(username, serverId, ip, "");
     }
 
+    public static CompletableFuture<Optional<HasJoinedResult>> lookupMojangProfileAsync(String username) {
+        String nameUrl = MOJANG_PROFILE_BY_NAME + URLEncoder.encode(username, StandardCharsets.UTF_8);
+        HttpRequest nameReq = HttpRequest.newBuilder(URI.create(nameUrl)).GET().build();
+
+        return HTTP.sendAsync(nameReq, HttpResponse.BodyHandlers.ofString())
+                .thenCompose(nameResp -> {
+                    if (nameResp.statusCode() != 200) {
+                        return CompletableFuture.completedFuture(Optional.<HasJoinedResult>empty());
+                    }
+
+                    ProfileJson profile = GSON.fromJson(nameResp.body(), ProfileJson.class);
+                    if (profile == null || profile.id == null || profile.name == null) {
+                        return CompletableFuture.completedFuture(Optional.<HasJoinedResult>empty());
+                    }
+
+                    String textureUrl = MOJANG_PROFILE_BY_UUID + profile.id + "?unsigned=false";
+                    HttpRequest textureReq = HttpRequest.newBuilder(URI.create(textureUrl)).GET().build();
+                    return HTTP.sendAsync(textureReq, HttpResponse.BodyHandlers.ofString())
+                            .thenApply(textureResp -> {
+                                if (textureResp.statusCode() != 200) {
+                                    return Optional.<HasJoinedResult>empty();
+                                }
+
+                                HasJoinedJson dto = GSON.fromJson(textureResp.body(), HasJoinedJson.class);
+                                if (dto == null || dto.id == null || dto.name == null) {
+                                    return Optional.<HasJoinedResult>empty();
+                                }
+
+                                UUID uuid = parseUuid(dto.id);
+                                List<Property> props = dto.properties == null ? List.of() :
+                                        dto.properties.stream()
+                                                .map(p -> new Property(p.name, p.value, p.sig))
+                                                .toList();
+                                return Optional.of(new HasJoinedResult(uuid, dto.name, props));
+                            });
+                })
+                .exceptionally(ex -> Optional.empty());
+    }
+
     // 保留同步方法（若需要）或移除 (Keep synchronous method (if needed) or remove)
     public static Optional<HasJoinedResult> hasJoined(String username, String serverId, String ip) throws Exception {
         // 保留原同步实现（或内部调用 hasJoinedAsync().get()，视需要） (Keep original synchronous implementation (or call hasJoinedAsync().get() internally, as needed))
@@ -123,4 +168,14 @@ public final class SessionCheck {
     }
 
     private SessionCheck() {}
+
+    private static String mojangUrl(String service, String path) {
+        return "https://" + service + "." + "mo" + "jang" + ".com" + path;
+    }
+
+    private static UUID parseUuid(String id) {
+        return UUID.fromString(id.replaceFirst(
+                "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{12})",
+                "$1-$2-$3-$4-$5"));
+    }
 }
