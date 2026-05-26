@@ -14,15 +14,21 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 登录后刷新外观，并在“离线放行”时提示玩家；同时显示屏幕标题提示当前模式。
  */
 @EventBusSubscriber(modid = Trueuuid.MODID)
 public class SkinRefreshHandler {
+    private static final int LOCAL_SELF_REFRESH_DELAY_TICKS = 20;
+    private static final Map<UUID, Integer> PENDING_LOCAL_SELF_REFRESH = new ConcurrentHashMap<>();
     private static final int SUBTITLE_MAX_CHARS = 64; // 保护：过长截断，避免越界
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
@@ -44,6 +50,10 @@ public class SkinRefreshHandler {
         });
 
         // 2) 判断是否离线放行，并发送聊天提示 + 屏幕标题（副标题使用短文案）
+        if (isIntegratedLocalPlayer(server, sp)) {
+            PENDING_LOCAL_SELF_REFRESH.put(sp.getUUID(), LOCAL_SELF_REFRESH_DELAY_TICKS);
+        }
+
         var netConn = sp.connection.getConnection(); // ServerGamePacketListenerImpl.connection
         var fallbackOpt = AuthState.consume(netConn);
         var successOpt = AuthState.consumeAuthSuccess(netConn, sp.getUUID(), sp.getGameProfile().getName());
@@ -90,6 +100,7 @@ public class SkinRefreshHandler {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+        PENDING_LOCAL_SELF_REFRESH.remove(sp.getUUID());
         String ip = trueuuid$ipOf(sp);
         if (ip == null || ip.isBlank()) return;
         TrueuuidRuntime.IP_GRACE.activateAfterLogout(sp.getGameProfile().getName(), ip);
@@ -98,11 +109,38 @@ public class SkinRefreshHandler {
         }
     }
 
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        if (PENDING_LOCAL_SELF_REFRESH.isEmpty()) return;
+        var server = event.getServer();
+        if (server == null || server.isDedicatedServer()) return;
+
+        PENDING_LOCAL_SELF_REFRESH.replaceAll((uuid, ticks) -> ticks - 1);
+        PENDING_LOCAL_SELF_REFRESH.entrySet().removeIf(entry -> {
+            if (entry.getValue() > 0) return false;
+
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (player == null || player.hasDisconnected()) return true;
+            if (!isIntegratedLocalPlayer(server, player)) return true;
+
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] Refresh integrated host skin for self: player=" + player.getGameProfile().getName());
+            }
+            player.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player)));
+            return true;
+        });
+    }
+
     private static String trueuuid$ipOf(ServerPlayer sp) {
         if (sp.connection.getConnection().getRemoteAddress() instanceof InetSocketAddress isa) {
             return isa.getAddress().getHostAddress();
         }
         return null;
+    }
+
+    private static boolean isIntegratedLocalPlayer(net.minecraft.server.MinecraftServer server, ServerPlayer sp) {
+        if (server == null || server.isDedicatedServer() || sp == null) return false;
+        return !(sp.connection.getConnection().getRemoteAddress() instanceof InetSocketAddress);
     }
 
     private static void sendTitleNextTick(net.minecraft.server.MinecraftServer server, ServerPlayer sp, Component title, Component subtitle, String mode) {
