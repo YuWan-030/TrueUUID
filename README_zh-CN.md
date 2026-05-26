@@ -2,154 +2,216 @@
 
 [English](README.md) | 简体中文
 
-这是一个适用于 Forge 1.20.x 的服务端/客户端同装模组。在离线模式服务器的“登录阶段”安全校验玩家是否为正版账号，且不会把玩家的访问令牌发送到服务器。
+TrueUUID 是一个用于离线模式 Minecraft 服务器的登录阶段账号校验 Mod。
 
-TrueUUID 让离线服也能：
-- 让客户端本地执行 Mojang 的 “joinServer”。
-- 服务器用一次性 nonce 调用 Mojang Session Server 验证。
-- 验证成功：将玩家的 UUID 替换为正版 UUID，修正名字大小写，注入皮肤属性。
-- 验证失败或超时：可配置策略（默认超时踢出；失败按策略决定兜底）。
-- 玩家进服时通过标题提示“正版模式/离线模式”，离线兜底时发送聊天说明。
+它可以让离线模式服务器验证 Mojang 正版账号，以及受支持的 Yggdrasil/authlib-injector 皮肤站账号，同时不会把玩家的 access token 发送给服务器。
 
-注意：客户端与服务端都必须安装本模组；服务器需设置为离线模式（online-mode=false）。
+客户端和服务端都必须安装本 Mod。服务端必须设置：
 
-## 特性亮点
+```properties
+online-mode=false
+```
 
-- 隐私友好：访问令牌只在客户端本地使用，不发送给服务器。
-- 身份一致性：即使在离线服，验证成功的玩家也使用正版 UUID 与皮肤。
-- 体验清晰：标题提示模式，离线兜底时额外聊天说明。
-- 数据安全策略：减少/避免“正版与离线两套 UUID 存档”的分叉风险。
+## 功能
 
-## 新增能力与策略
+- 隐私安全的账号校验：玩家 access token 只在客户端本地使用。
+- 在离线模式服务器上支持正版/Yggdrasil UUID。
+- 验证成功后修正玩家名大小写。
+- 登录阶段注入带签名的皮肤 textures 属性。
+- 玩家进服后刷新玩家信息，帮助皮肤正确更新。
+- 清晰提示玩家当前是正版、皮肤站还是离线兜底状态。
+- 支持离线玩家数据迁移到正版/皮肤站 UUID，迁移前需要确认并自动备份。
+- 防止已验证过的玩家名再次被同名离线账号冒用。
 
-- 名字注册表：持久记录“已成功通过正版校验”的名字及其正版 UUID。
-- 策略：knownPremiumDenyOffline
-    - 一旦某名字被验证为正版，之后该名字鉴权失败时不再允许离线兜底（从源头杜绝数据分叉）。
-- 策略：allowOfflineForUnknownOnly
-    - 仅允许“从未验证为正版”的新名字走离线兜底。
-- 近期同 IP 容错（可选）
-    - 玩家已经成功完成正版/皮肤站校验并退出后，仅在同名同 IP 的短时间重连窗口内（默认 10 秒）允许复用上次验证 UUID；命中一次后即消费。用于处理刚掉线立刻重连，不再从“验证成功时间”开始按分钟计时。
-- 管理员命令：/trueuuid link <name>
-    - 将该名字对应“离线 UUID”的玩家数据迁移/合并到“正版 UUID”。支持 dry-run 预览与备份。
-- 可靠显示踢出原因（Forge 1.20.x）
-    - 登录阶段显式发送登录/游戏断开包，确保客户端不再只显示“连接中断”，而是展示自定义中文原因。
+## 为什么需要它
+
+离线模式服务器默认无法信任玩家 UUID。TrueUUID 可以在保持服务器离线模式的同时，提高玩家身份一致性。
+
+验证成功的玩家可以继续使用 Mojang 或 Yggdrasil 返回的正式 UUID 和皮肤数据，而服务器不会接触玩家的 access token。
+
+它适合整合包、局域网式服务器、私人离线模式社区，以及希望改善身份一致性但不想直接开启 Mojang 在线模式的服务器。
 
 ## 工作流程
 
-1. 服务器为离线模式。在登录阶段（HELLO），服务器发送自定义登录查询（transactionId + 标识 `trueuuid:auth` + 随机 nonce）。
-2. 客户端拦截该查询，读取 nonce，在本地调用 `MinecraftSessionService.joinServer(profile, token, nonce)`（令牌不出本地）。
-3. 客户端仅回传一个布尔确认（不含敏感数据）。
-4. 服务器调用 Mojang `/hasJoined?username={name}&serverId={nonce}[&ip={ip}]` 进行验证。
-5. 验证成功：
-    - 替换待登录的 `GameProfile` 为正版 UUID 与 Mojang 返回的规范名字。
-    - 注入皮肤 `textures` 属性（含签名）。
-    - 进服后强制刷新玩家信息以更新皮肤。
-    - 显示绿色标题“正版模式”（副标题可配置短语）。
-6. 验证失败：
-    - 默认：
-        - 超时：按配置踢出。
-        - 失败：由下述策略决定（见“配置”）。离线兜底会显示红色标题“离线模式”和聊天说明。
+1. 服务端运行在离线模式。
+2. 玩家登录时，服务端发送带 nonce 的自定义登录查询。
+3. 安装了 Mod 的客户端收到查询后，在本地使用玩家 profile、token 和 nonce 调用 `joinServer`。token 不会离开客户端。
+4. 客户端返回认证结果和选择的认证来源。
+5. 服务端通过 Mojang Session Server 或受支持的 Yggdrasil `hasJoined` 接口验证 nonce。
+6. 如果验证成功：
+   - 将待登录 profile 替换为验证后的 UUID。
+   - 修正玩家名大小写。
+   - 注入带签名的皮肤 textures 属性。
+   - 记录认证来源。
+   - 玩家进入后刷新玩家列表和皮肤信息。
+7. 如果验证失败或超时：
+   - 行为由配置决定。
+   - 已验证过的名字可以禁止离线兜底。
+   - 未知名字可以按配置允许离线兜底。
 
-## 环境需求
+## 离线数据迁移
 
-- Minecraft：1.20.x
-- Forge：47.x（如 47.4.0+）
-- Java：17
-- 客户端与服务端都需安装本模组
-- 服务器需设为 `online-mode=false`
+TrueUUID 1.0.9 增加了更安全的离线数据迁移流程，用于玩家原本使用离线账号游玩，后来改用同名正版账号或皮肤站账号的情况。
 
-## 配置项
+当验证登录时检测到同名离线 UUID 数据，客户端会显示确认迁移窗口。只有玩家确认后才会执行迁移。
 
-首次运行会生成：
-- `config/trueuuid-common.toml`
+迁移前，TrueUUID 会同时备份旧的离线数据，以及目标正版/皮肤站 UUID 已有的数据。
 
-主要键与默认值：
+目前支持迁移的数据包括：
 
-- auth.timeoutMs = 10000
-    - 登录阶段等待客户端回包的时间（毫秒）。
-- auth.allowOfflineOnTimeout = false
-    - false：超时踢出（默认）
-    - true：超时时允许离线兜底
-- auth.allowOfflineOnFailure = true
-    - 旧式总开关；更推荐使用下面更细粒度的新策略。
-- auth.timeoutKickMessage = "登录超时，未完成账号校验"
-    - 超时时展示的踢出原因。
-- auth.offlineFallbackMessage = "注意：你当前以离线模式进入服务器；如果你是正版账号..."
-    - 离线兜底进入时发送的聊天说明。
-- auth.offlineShortSubtitle = "鉴权失败：离线模式"
-    - 离线模式时标题的短副标题。
-- auth.onlineShortSubtitle = "已通过正版校验"
-    - 正版模式时标题的短副标题。
-- auth.knownPremiumDenyOffline = true
-    - 已验证过正版的名字，之后鉴权失败不允许离线兜底（防止分叉）。
-- auth.allowOfflineForUnknownOnly = true
-    - 仅“从未验证为正版”的名字可离线兜底。
-- auth.recentIpGrace.enabled = true
-    - 启用“退出后同 IP 短时重连”容错。
-- auth.recentIpGrace.ttlSeconds = 10
-    - 玩家退出后允许同名同 IP 复用上次验证 UUID 的秒数。有效范围：1–60。命中一次后即消费。
-- auth.yggdrasil.apiRootWhitelist = []
-    - authlib-injector/Yggdrasil 皮肤站 hasJoined URL 白名单。留空表示信任客户端上报的皮肤站端点；可填如 `["littleskin.cn"]`，只允许匹配的皮肤站通过。
+- 原版 `playerdata`
+- 原版 `playerdata_old`
+- 进度 `advancements`
+- 统计 `stats`
+- Cosmetic Armor 的 `.cosarmor` 数据
+- Open Parties and Claims
+- FTB Chunks
+- FTB Essentials
+- FTB Teams
+- FTB Quests
+- FTB Ranks
+- CustomNPCs 玩家数据
 
-说明：
-- 同 IP 容错重在可用性，并非强安全；请保持退出重连窗口很短，公共/共享网络慎用。
-- 旧开关 `allowOfflineOnFailure` 仍有效，但建议优先使用新策略。
+## 环境要求
 
-## 管理命令
+Forge 版本：
 
-- /trueuuid link <name>
-    - 将该名字对应的“离线 UUID”数据迁移到“正版 UUID”（从注册表中读取正版 UUID）。
-    - 子命令示例：
-        - /trueuuid link dryrun <name>  — 预览操作，不写盘
-        - /trueuuid link run <name>     — 执行迁移（示例实现中默认会先备份）
-    - 行为：
-        - 若正版数据文件不存在，则把离线文件“移动”为正版。
-        - 若两者都存在，默认保留正版（合并背包/末影箱/统计可按需实现，已预留 TODO）。
+- Minecraft: 1.20.1
+- Forge: 47.x
+- Java: 17
 
-涉及文件（按 UUID）：
-- world/playerdata/<uuid>.dat
-- world/advancements/<uuid>.json
-- world/stats/<uuid>.json
+NeoForge 版本：
 
-备份目录：
-- world/backups/trueuuid/<时间戳>/<name>/
+- Minecraft: 1.21.1
+- NeoForge: 21.1.x
+- Java: 21
 
-## 故障排查
+客户端和服务端必须都安装 TrueUUID。
 
-- 客户端只显示“连接中断”而非自定义原因：
-    - 在 Forge 47.4.x 的登录/配置握手阶段可能存在并行。服务端已在登录阶段显式发送“登录断开包 + 游戏断开包”后再断开，通常可正确展示原因。若仍无效，请用“纯净客户端”（无 UI 改造模组）测试。
+## 安装
 
-- 皮肤未及时刷新：
-    - 服务端会在玩家进服后一帧广播 PlayerInfo 刷新。若客户端有改造皮肤的模组，请确保不拦截原版刷新。
+服务端：
 
-## 兼容与注意
+1. 在 `server.properties` 中设置 `online-mode=false`。
+2. 将对应版本的 TrueUUID jar 放入服务端 `mods` 文件夹。
 
-- 代理（Bungee/Velocity）：若能获取真实 IP，会将其带入 `/hasJoined`；即使没有 IP 参数也能正常验证（IP 对 Mojang 接口是可选）。
-- 数据一致性：结合“已知正版名禁止离线 + 仅未知名可离线”，可有效避免“同名不同 UUID”与存档分叉。
-- 若客户端未安装本模组：将无法回传预期负载，具体行为由配置/策略决定（可能踢出或仅允许未知新名字离线）。
+客户端：
+
+1. 将对应版本的 TrueUUID jar 放入客户端 `mods` 文件夹。
+
+如果客户端没有安装本 Mod，服务端将收不到预期的登录查询响应。根据配置不同，该玩家可能会被踢出，也可能会进入离线兜底流程。
+
+## 配置
+
+首次运行后会生成配置文件：
+
+```text
+config/trueuuid-common.toml
+```
+
+常用配置：
+
+```toml
+auth.timeoutMs = 30000
+```
+
+登录阶段等待客户端认证响应的时间，单位为毫秒。
+
+```toml
+auth.allowOfflineOnTimeout = false
+```
+
+`false`：认证超时后踢出。
+
+`true`：认证超时后允许离线兜底。
+
+```toml
+auth.allowOfflineOnFailure = true
+```
+
+`true`：普通认证失败时允许进入离线兜底流程。
+
+`false`：认证失败时直接断开连接。
+
+```toml
+auth.knownPremiumDenyOffline = true
+```
+
+如果某个名字已经成功验证为正版或 Yggdrasil 账号，后续不允许该名字再通过离线兜底进入。
+
+```toml
+auth.allowOfflineForUnknownOnly = true
+```
+
+只允许从未验证过的名字使用离线兜底。
+
+```toml
+auth.recentIpGrace.enabled = true
+auth.recentIpGrace.ttlSeconds = 10
+```
+
+允许已验证玩家退出后，在短时间内使用同名同 IP 重连时复用上一次验证 UUID。该机制不会用于明确拒绝认证或明确离线登录的客户端。
+
+```toml
+auth.nomojang.enabled = false
+```
+
+开启后会禁用 Mojang 会话校验。通常不建议开启。
+
+```toml
+auth.yggdrasil.apiRootWhitelist = []
+```
+
+Yggdrasil/authlib-injector `hasJoined` URL 白名单。空列表表示信任客户端上报的接口地址。可以添加 `"littleskin.cn"` 等条目来限制允许的皮肤站来源。
+
+NeoForge 1.21.1 额外提供：
+
+```toml
+auth.mojangReverseProxy = "https://sessionserver.mojang.com"
+```
+
+Mojang Session Server 地址。如有需要，可以改为反代地址。
+
+## 兼容性说明
+
+- 代理服：Mojang `hasJoined` 的 IP 参数是可选项。即使代理隐藏了真实客户端 IP，通常仍可完成验证。
+- 皮肤：TrueUUID 会在登录阶段注入带签名的皮肤属性，并在玩家进服后刷新玩家信息。如果客户端仍显示旧皮肤，可以尝试重新进服或清理皮肤缓存。
+- 离线兜底：离线兜底行为可配置。推荐配置下，已经验证过的名字不能再被离线客户端复用。
+- 注册表：TrueUUID 会把已验证过的名字记录在 `trueuuid-registry.json`。如果清空该文件，服务端会忘记之前的正版/Yggdrasil 绑定记录。
 
 ## 构建
 
-- 克隆仓库
-- 执行：
-    - Windows：`gradlew.bat build`
-    - macOS/Linux：`./gradlew build`
-- 成品在：`build/libs/trueuuid-<version>.jar`
+Windows：
+
+```powershell
+.\gradlew.bat build
+```
+
+macOS/Linux：
+
+```bash
+./gradlew build
+```
+
+构建产物会输出到 `build/libs/`。
 
 ## 隐私
 
-- 访问令牌仅在客户端本地使用，不会发送至服务器。
-- 服务器仅收到布尔确认，随后自行请求 Mojang Session Server 完成校验。
+玩家 access token 永远不会发送给服务器。
 
-## 许可
+客户端只在本地使用 token 调用 `joinServer`。服务端只接收认证结果，并自行通过 Mojang Session Server 或受支持的 Yggdrasil 接口验证 nonce。
 
-- GNU LGPL 3.0（详见 `gradle.properties` / 仓库 License）
+## 许可证
+
+GNU LGPL 3.0
 
 ## 致谢
 
-- Mojang authlib 与 session API
+- Mojang authlib and session API
 - Sponge Mixin
 - ForgeGradle
+- NeoForge / ModDevGradle
 
 ---
-维护者: [@YuWan-030](https://github.com/YuWan-030)
+
+维护者：[@YuWan-030](https://github.com/YuWan-030)
