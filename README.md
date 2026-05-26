@@ -2,154 +2,216 @@
 
 English | [简体中文](README_zh-CN.md)
 
-A Forge 1.20.x mod that securely verifies premium accounts on an offline-mode server during the login phase, without sending the player's access token to the server.
+TrueUUID is a login-phase authentication mod for offline-mode Minecraft servers.
 
-TrueUUID lets an offline-mode server:
-- Ask the client to perform Mojang "joinServer" locally.
-- Verify with Mojang Session Server from the server using a nonce.
-- If verification passes: replace the player's UUID with the official premium UUID, fix username casing, and inject skin properties.
-- If verification fails or times out: configurable behavior (kick on timeout by default; controlled fallbacks for failures).
-- Inform the player on join with a Title whether they are in "Online/Premium Mode" or "Offline Mode" and send an explanatory chat message for offline fallback.
+It lets an offline-mode server verify premium Mojang accounts, and supported Yggdrasil/authlib-injector skin-site accounts, without ever receiving the player's access token.
 
-Note: Client and server must both install this mod. The server must run in offline mode.
+Both the client and the server must install this mod. The server must run with:
 
-## Highlights
+```properties
+online-mode=false
+```
 
-- Privacy-preserving: the player's access token never leaves the client. The client calls `joinServer(profile, token, nonce)` locally.
-- Better identity integrity: even in offline mode, verified players keep their official UUID and skins.
-- Clear UX: Title messages for premium vs offline mode, plus a chat hint when falling back to offline.
-- Data safety policies to prevent data split between online/offline UUIDs.
+## Features
 
-## New features and policies
+- Privacy-preserving authentication: the player's access token is only used locally on the client.
+- Premium/Yggdrasil UUID support on offline-mode servers.
+- Correct username casing after successful verification.
+- Signed skin texture injection during login.
+- Player info refresh after joining, helping skins update correctly.
+- Clear join feedback for premium, skin-site, and offline fallback states.
+- Offline-to-verified player data migration with confirmation and backups.
+- Protection against known verified players rejoining with the same name in offline mode.
 
-- Name Registry: Persistently records names that have successfully verified as premium (name -> premium UUID).
-- Policy: knownPremiumDenyOffline
-    - Once a name has verified as premium, future auth failures will deny offline fallback for that name (to prevent data divergence).
-- Policy: allowOfflineForUnknownOnly
-    - Only allow offline fallback for names that have never verified as premium.
-- Recent IP Grace (optional)
-    - After a player has already verified successfully and then disconnects, the same name and IP may reuse that verified UUID only within a short logout window (default: 10 seconds) if the next verification fails. This is intended for immediate reconnects only and is consumed after one use.
-- Admin command: /trueuuid link <name>
-    - Migrate/merge an offline UUID’s data to the premium UUID. Supports dry-run and backups.
-- Reliable disconnect reason on 1.20.x Forge
-    - During login, the server now explicitly sends the login/game disconnect packet so the client shows the detailed reason, not just “Disconnected”.
+## Why
 
-## How it works
+Offline-mode servers normally cannot trust player UUIDs. TrueUUID improves identity integrity while keeping the server in offline mode.
 
-1. Server is in offline mode. During login (HELLO), the server sends a custom login query with a nonce (transactionId + identifier `trueuuid:auth` + data).
-2. The modded client intercepts this query, reads the nonce, and locally calls `MinecraftSessionService.joinServer(profile, token, nonce)` (token never sent to the server).
-3. The client replies with a boolean ack (no sensitive data).
-4. The server calls Mojang Session Server `/hasJoined?username={name}&serverId={nonce}[&ip={ip}]`.
-5. If success:
-    - Replace the pending login `GameProfile` with premium UUID and the name returned from Mojang (ensuring correct casing).
-    - Inject skin properties (textures) with signature into the `GameProfile` property map.
-    - After join, force-refresh player info so skins update.
-    - Show a green Title “Premium Mode” with a short subtitle (configurable).
-6. If failure:
-    - By default:
-        - Timeout: kick with configurable message.
-        - Failure: behavior governed by policies below (see Configuration). Offline fallback shows a red Title “Offline Mode” with a short subtitle and chat explanation.
+Verified players can keep their official Mojang or Yggdrasil UUID and skin data, while the server never sees their access token.
+
+This is useful for modpacks, LAN-style servers, private offline-mode communities, and servers that want better identity consistency without enabling Mojang online-mode directly.
+
+## How It Works
+
+1. The server runs in offline mode.
+2. During login, the server sends a custom login query with a nonce.
+3. The modded client receives the query and locally calls `joinServer` with the player's profile, token, and nonce. The token never leaves the client.
+4. The client replies with the authentication result and the selected authentication source.
+5. The server verifies the nonce through Mojang Session Server or a supported Yggdrasil `hasJoined` endpoint.
+6. If verification succeeds:
+   - The pending login profile is replaced with the verified UUID.
+   - Username casing is corrected.
+   - Signed skin texture properties are injected.
+   - The authentication source is recorded.
+   - Player info is refreshed after joining.
+7. If verification fails or times out:
+   - Behavior is controlled by the config.
+   - Known verified names can be prevented from falling back to offline mode.
+   - Unknown names may still be allowed to use offline fallback if configured.
+
+## Offline Data Migration
+
+TrueUUID 1.0.9 adds a safer migration flow for players who used to play offline and later switch to a premium or skin-site account with the same name.
+
+When a verified login detects matching offline UUID data, the player will see a confirmation screen. Migration only happens after confirmation.
+
+Before migration, TrueUUID backs up both the old offline data and any existing target verified UUID data.
+
+Supported migration targets include:
+
+- Vanilla `playerdata`
+- Vanilla `playerdata_old`
+- Advancements
+- Stats
+- Cosmetic Armor `.cosarmor` data
+- Open Parties and Claims
+- FTB Chunks
+- FTB Essentials
+- FTB Teams
+- FTB Quests
+- FTB Ranks
+- CustomNPCs playerdata
 
 ## Requirements
 
-- Minecraft: 1.20.x
-- Forge: 47.x (e.g., 47.4.0+)
+Forge build:
+
+- Minecraft: 1.20.1
+- Forge: 47.x
 - Java: 17
-- Client and server must both install this mod.
-- Server property: `online-mode=false`
+
+NeoForge build:
+
+- Minecraft: 1.21.1
+- NeoForge: 21.1.x
+- Java: 21
+
+Client and server must both install TrueUUID.
+
+## Installation
+
+Server:
+
+1. Set `online-mode=false` in `server.properties`.
+2. Place the matching TrueUUID jar in the server's `mods` folder.
+
+Client:
+
+1. Place the matching TrueUUID jar in the client's `mods` folder.
+
+If the client does not have this mod installed, the server will not receive the expected login query response. Depending on configuration, the player may be kicked or allowed to fall back to offline mode.
 
 ## Configuration
 
-Generated at first run:
-- `config/trueuuid-common.toml`
+After the first run, the config file is generated at:
 
-Keys and defaults:
+```text
+config/trueuuid-common.toml
+```
 
-- auth.timeoutMs = 10000
-    - Login-phase wait time (ms) for the client's reply.
-- auth.allowOfflineOnTimeout = false
-    - false: kick on timeout (default)
-    - true: allow offline fallback if timeout occurs
-- auth.allowOfflineOnFailure = true
-    - Legacy broad fallback switch; fine-grained new policies below take precedence in most flows.
-- auth.timeoutKickMessage = "登录超时，未完成账号校验"
-    - Kick reason shown on timeout.
-- auth.offlineFallbackMessage = "注意：你当前以离线模式进入服务器；如果你是正版账号，可能是网络原因导致无法成功鉴权，请重新登陆重试。继续游玩，若后续鉴权成功可能会丢失玩家数据。"
-    - Chat message shown to the player if they were allowed in via offline fallback.
-- auth.offlineShortSubtitle = "鉴权失败：离线模式"
-    - Short subtitle for Title when in offline mode.
-- auth.onlineShortSubtitle = "已通过正版校验"
-    - Short subtitle for Title when in premium mode.
-- auth.knownPremiumDenyOffline = true
-    - If a name has ever verified as premium, deny offline fallback on later failures (prevents data splitting).
-- auth.allowOfflineForUnknownOnly = true
-    - Only names that have never verified as premium may fall back to offline.
-- auth.recentIpGrace.enabled = true
-    - Enable same-IP short reconnect grace after a verified player disconnects.
-- auth.recentIpGrace.ttlSeconds = 10
-    - Seconds after logout during which the same name and IP may reuse the last verified UUID. Valid range: 1–60. The grace entry is consumed after one use.
-- auth.yggdrasil.apiRootWhitelist = []
-    - Optional authlib-injector/Yggdrasil skin-site URL whitelist. Empty means trust the client-reported skin-site `hasJoined` endpoint. Add entries such as `["littleskin.cn"]` to only accept matching endpoints.
+Important options:
 
-Notes:
-- Recent IP Grace is a usability feature, not strong security. Keep the logout window short and avoid enabling it on shared networks if you have strict identity requirements.
-- The legacy `allowOfflineOnFailure` is still respected, but the new policies are recommended.
+```toml
+auth.timeoutMs = 30000
+```
 
-## Commands
+Login-phase wait time in milliseconds.
 
-- /trueuuid link <name>
-    - Migrate data from the offline UUID (derived from name) to the premium UUID recorded in the registry.
-    - Subcommands (examples):
-        - /trueuuid link dryrun <name>  — show planned moves/merges, no writes.
-        - /trueuuid link run <name>     — perform migration (backs up by default in the example implementation).
-    - Behavior:
-        - If premium data files do not exist, offline files are moved to premium.
-        - If both exist, premium wins by default; merging of inventories/ender/stats can be implemented as needed (placeholders provided).
+```toml
+auth.allowOfflineOnTimeout = false
+```
 
-Affected files (per UUID):
-- world/playerdata/<uuid>.dat
-- world/advancements/<uuid>.json
-- world/stats/<uuid>.json
+`false`: kick on timeout.
 
-Backups:
-- Stored under world/backups/trueuuid/<timestamp>/<name>/
+`true`: allow offline fallback on timeout.
 
-## Troubleshooting
+```toml
+auth.allowOfflineOnFailure = true
+```
 
-- Client shows “Disconnected” without the custom reason:
-    - On Forge 47.4.x, login/config stages can race. The server side now explicitly sends both login and game disconnect packets before closing to ensure the client UI displays the reason. If you still see plain “Disconnected”, test with a clean client (no UI/GUI overhaul mods).
+`true`: allow offline fallback for normal verification failures.
 
-- Skins not updating immediately:
-    - The server broadcasts a PlayerInfo refresh on join. If a client-side mod overrides skin handling, ensure it does not block vanilla updates.
+`false`: disconnect on verification failure.
 
-## Compatibility and notes
+```toml
+auth.knownPremiumDenyOffline = true
+```
 
-- Proxies (Bungee/Velocity): The server optionally includes the client IP in the Mojang `/hasJoined` call when available. If behind a proxy that hides the real IP, verification still works (the IP parameter is optional).
-- Data integrity: With the new policies, once a name is proven premium, offline fallback is denied to prevent “dual identity” and data split.
-- If the client is unmodded: it will not respond to the custom login query. Depending on config/policies, the server may kick or fall back to offline only for unknown names.
+If a name has already been verified as premium or Yggdrasil, deny later offline fallback for that name.
+
+```toml
+auth.allowOfflineForUnknownOnly = true
+```
+
+Only allow offline fallback for names that have never been verified before.
+
+```toml
+auth.recentIpGrace.enabled = true
+auth.recentIpGrace.ttlSeconds = 10
+```
+
+Allows a short same-IP reconnect grace period after a verified player disconnects. This grace is not used when the client explicitly rejects authentication or logs in as offline.
+
+```toml
+auth.nomojang.enabled = false
+```
+
+Disables Mojang session verification when enabled. This is usually not recommended.
+
+```toml
+auth.yggdrasil.apiRootWhitelist = []
+```
+
+Whitelist for Yggdrasil/authlib-injector `hasJoined` URLs. An empty list trusts the endpoint reported by the client. Add entries such as `"littleskin.cn"` to restrict accepted skin-site sources.
+
+NeoForge 1.21.1 also provides:
+
+```toml
+auth.mojangReverseProxy = "https://sessionserver.mojang.com"
+```
+
+Mojang Session Server endpoint. This can be changed to a reverse proxy if needed.
+
+## Compatibility Notes
+
+- Proxies: Mojang's `hasJoined` IP parameter is optional. Verification can still work when the real client IP is hidden by a proxy.
+- Skins: TrueUUID injects signed skin properties during login and refreshes player info after joining. If a client still shows stale skins, rejoining or clearing the skin cache may help.
+- Offline fallback: Offline fallback is configurable. In the recommended setup, previously verified names cannot be reused by offline clients.
+- Registry: TrueUUID stores known verified names in `trueuuid-registry.json`. If this file is cleared, the server forgets previous premium/Yggdrasil bindings.
 
 ## Building
 
-- Clone the repo.
-- Run:
-    - Windows: `gradlew.bat build`
-    - macOS/Linux: `./gradlew build`
-- The built mod is at: `build/libs/trueuuid-<version>.jar`
+Windows:
+
+```powershell
+.\gradlew.bat build
+```
+
+macOS/Linux:
+
+```bash
+./gradlew build
+```
+
+The built mod is written to `build/libs/`.
 
 ## Privacy
 
-- The player's access token is never sent to your server. The token is used locally on the client to call `joinServer`.
-- The server only receives a boolean ack and then itself contacts Mojang's session server to verify the nonce.
+The player's access token is never sent to the server.
+
+The client uses the token locally for `joinServer`. The server only receives the authentication result and verifies the nonce through Mojang Session Server or a supported Yggdrasil endpoint.
 
 ## License
 
-- GNU LGPL 3.0 (see `gradle.properties` / project license)
+GNU LGPL 3.0
 
 ## Credits
 
-- Mojang authlib and session API.
-- Sponge Mixin.
-- ForgeGradle.
+- Mojang authlib and session API
+- Sponge Mixin
+- ForgeGradle
+- NeoForge / ModDevGradle
 
 ---
-Maintained by: [@YuWan-030](https://github.com/YuWan-030)
+
+Maintained by [@YuWan-030](https://github.com/YuWan-030).

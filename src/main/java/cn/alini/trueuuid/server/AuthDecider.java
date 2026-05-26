@@ -17,6 +17,10 @@ public final class AuthDecider {
     }
 
     public static Decision onFailure(String name, String ip) {
+        return onFailure(name, ip, false);
+    }
+
+    public static Decision onFailure(String name, String ip, boolean explicitOfflineClient) {
         Decision d = new Decision();
 
         boolean known = TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(name);
@@ -24,7 +28,7 @@ public final class AuthDecider {
         // Velocity/VC proxy compatibility: if the modded client answered the
         // trueuuid:auth query but Mojang hasJoined still fails behind a local
         // proxy, preserve the already-bound premium UUID instead of denying.
-        if (known && isLocalProxyAddress(ip)) {
+        if (known && !explicitOfflineClient && isLocalProxyAddress(ip)) {
             Optional<UUID> premiumUuid = TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name);
             if (premiumUuid.isPresent()) {
                 d.kind = Decision.Kind.PREMIUM_GRACE;
@@ -38,7 +42,7 @@ public final class AuthDecider {
         // 1) 近期同 IP 成功容错：临时按正版处理。
         // 必须优先于 knownPremiumDenyOffline，否则“刚刚成功验证过的正版名”在 Mojang 短暂失败时会被直接拒绝，
         // 配置里的 recentIpGrace.enabled/ttlSeconds 就失去意义。
-        if (TrueuuidConfig.recentIpGraceEnabled()) {
+        if (TrueuuidConfig.recentIpGraceEnabled() && !explicitOfflineClient) {
             Optional<RecentIpGraceCache.GraceResult> p = TrueuuidRuntime.IP_GRACE.tryGraceResult(name, ip, TrueuuidConfig.recentIpGraceTtlSeconds());
             if (p.isPresent()) {
                 d.kind = Decision.Kind.PREMIUM_GRACE;

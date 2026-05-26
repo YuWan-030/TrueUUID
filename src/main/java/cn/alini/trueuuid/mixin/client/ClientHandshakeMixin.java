@@ -5,6 +5,7 @@ import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.net.NetIds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -20,7 +21,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
+import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +34,8 @@ import java.util.function.Consumer;
 
 @Mixin(ClientHandshakePacketListenerImpl.class)
 public abstract class ClientHandshakeMixin {
+    @Unique private static final HttpClient TRUEUUID$HTTP = HttpClient.newHttpClient();
+
     @Shadow private Connection connection;
     @Shadow private Consumer<Component> updateStatus;
 
@@ -35,7 +43,8 @@ public abstract class ClientHandshakeMixin {
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
         CustomQueryPayload payload = packet.payload();
         if (!NetIds.AUTH.equals(payload.id())) return;
-        if(!(payload instanceof AuthPayload(String serverId))) return;
+        if (!(payload instanceof AuthPayload authPayload)) return;
+        String serverId = authPayload.serverId();
 
         Minecraft mc = Minecraft.getInstance();
         User user = mc.getUser();
@@ -46,7 +55,7 @@ public abstract class ClientHandshakeMixin {
 
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
-            trueuuid$sendAuthAck(loginConnection, transactionId, false, "");
+            trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
             return;
         }
@@ -64,12 +73,21 @@ public abstract class ClientHandshakeMixin {
                         mc.getMinecraftSessionService().joinServer(profile, token, serverId);
                         return true;
                     } catch (Throwable t) {
+                        if (hasJoinedUrl.isEmpty()) {
+                            return trueuuid$joinMojangDirect(profile, token, serverId);
+                        }
                         return false;
                     }
                 })
-                .orTimeout(30, TimeUnit.SECONDS)
+                .orTimeout(24, TimeUnit.SECONDS)
                 .exceptionally(t -> false)
-                .thenAccept(ok -> trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl));
+                .thenAccept(ok -> {
+                    if (!ok || !authPayload.offlineUpgradeAvailable()) {
+                        trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl, false, false);
+                        return;
+                    }
+                    trueuuid$confirmOfflinePlayerDataUpgrade(mc, authPayload, hasJoinedUrl, loginConnection, transactionId);
+                });
 
         ci.cancel();
     }
@@ -81,8 +99,79 @@ public abstract class ClientHandshakeMixin {
     }
 
     @Unique
-    private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok, String hasJoinedUrl) {
-        connection.send(new ServerboundCustomQueryAnswerPacket(transactionId, new AuthAnswerPayload(ok, hasJoinedUrl)));
+    private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok, String hasJoinedUrl, boolean migrationConfirmed, boolean missingSessionToken) {
+        connection.send(new ServerboundCustomQueryAnswerPacket(transactionId, new AuthAnswerPayload(ok, hasJoinedUrl, migrationConfirmed, missingSessionToken)));
+    }
+
+    @Unique
+    private static void trueuuid$confirmOfflinePlayerDataUpgrade(Minecraft mc, AuthPayload payload, String hasJoinedUrl, Connection connection, int transactionId) {
+        mc.execute(() -> {
+            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
+            Component title = Component.literal("确认迁移离线玩家数据");
+            Component message = Component.literal(
+                    "检测到同名离线玩家数据。\n\n"
+                            + "当前登录方式：" + mode + "\n"
+                            + "离线 UUID：" + payload.offlineUuid() + "\n"
+                            + "可迁移数据：" + payload.offlineDataSummary() + "\n\n"
+                            + "继续进入将先备份离线玩家数据，再迁移到当前账号。\n"
+                            + "迁移后该名称将绑定当前账号，后续不再允许离线身份进入。"
+            );
+            mc.setScreen(new ConfirmScreen(
+                    confirmed -> {
+                        trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
+                        mc.setScreen(null);
+                    },
+                    title,
+                    message,
+                    Component.literal("确认迁移数据并进入"),
+                    Component.literal("取消进入")
+            ));
+        });
+    }
+
+    @Unique
+    private static void trueuuid$confirmOfflineUpgrade(Minecraft mc, AuthPayload payload, String hasJoinedUrl, Connection connection, int transactionId) {
+        mc.execute(() -> {
+            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
+            Component title = Component.literal("确认迁移离线存档");
+            Component message = Component.literal(
+                    "检测到你曾以离线身份游玩过该名称。\n\n"
+                            + "当前登录方式：" + mode + "\n"
+                            + "离线 UUID：" + payload.offlineUuid() + "\n"
+                            + "可迁移数据：" + payload.offlineDataSummary() + "\n\n"
+                            + "继续进入将先备份离线存档，再迁移到当前账号。\n"
+                            + "迁移后该名称将绑定当前账号，后续不再允许离线身份进入。"
+            );
+            mc.setScreen(new ConfirmScreen(
+                    confirmed -> {
+                        trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
+                        mc.setScreen(null);
+                    },
+                    title,
+                    message,
+                    Component.literal("确认迁移并进入"),
+                    Component.literal("取消进入")
+            ));
+        });
+    }
+
+    @Unique
+    private static boolean trueuuid$joinMojangDirect(java.util.UUID profile, String token, String serverId) {
+        try {
+            String body = "{"
+                    + "\"accessToken\":\"" + trueuuid$jsonEscape(token) + "\","
+                    + "\"selectedProfile\":\"" + profile.toString().replace("-", "") + "\","
+                    + "\"serverId\":\"" + trueuuid$jsonEscape(serverId) + "\""
+                    + "}";
+            HttpRequest req = HttpRequest.newBuilder(URI.create(trueuuid$mojangUrl("sessionserver", "/session/minecraft/join")))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                    .build();
+            HttpResponse<String> resp = TRUEUUID$HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+            return resp.statusCode() == 204;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /**
@@ -197,5 +286,36 @@ public abstract class ClientHandshakeMixin {
         }
 
         return url;
+    }
+
+    @Unique
+    private static String trueuuid$mojangUrl(String service, String path) {
+        return "https://" + service + "." + "mo" + "jang" + ".com" + path;
+    }
+
+    @Unique
+    private static String trueuuid$jsonEscape(String value) {
+        if (value == null) return "";
+        StringBuilder out = new StringBuilder(value.length() + 8);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\b' -> out.append("\\b");
+                case '\f' -> out.append("\\f");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
+        }
+        return out.toString();
     }
 }

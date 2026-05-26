@@ -25,6 +25,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -39,11 +40,19 @@ public abstract class ServerLoginMixin {
 
     @Shadow public abstract void disconnect(Component reason);
 
+    @Invoker("startClientVerification")
+    public abstract void trueuuid$startClientVerification(GameProfile profile);
+
+    @Invoker("verifyLoginAndFinishConnectionSetup")
+    public abstract void trueuuid$verifyLoginAndFinishConnectionSetup(GameProfile profile);
+
     // 握手状态
     @Unique private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(0x4F000000);
     @Unique private int trueuuid$txId = 0;
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
+    @Unique private boolean trueuuid$offlineUpgradeOffered = false;
+    @Unique private static final java.util.concurrent.ConcurrentHashMap<String, Long> TRUEUUID$MIGRATION_PENDING = new java.util.concurrent.ConcurrentHashMap<>();
 
 
     // 新增：防止重复处理客户端认证包（同次握手只处理一次）
@@ -110,7 +119,19 @@ public abstract class ServerLoginMixin {
         }
 
         AuthQueryTracker.mark(this.trueuuid$txId);
-        AuthPayload auth =new AuthPayload(this.trueuuid$nonce);
+        PlayerDataMigration.OfflineData offlineData = null;
+        if (this.authenticatedProfile != null && !TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(this.authenticatedProfile.getName())) {
+            offlineData = PlayerDataMigration.findOfflineData(this.server, this.authenticatedProfile.getName());
+        }
+        if (offlineData != null && this.authenticatedProfile != null && trueuuid$isMigrationPending(this.authenticatedProfile.getName())) {
+            sendDisconnectWithReason(Component.literal("离线玩家数据迁移正在完成，请稍后重新进入。"));
+            reset();
+            return;
+        }
+        this.trueuuid$offlineUpgradeOffered = offlineData != null;
+        AuthPayload auth = offlineData == null
+                ? new AuthPayload(this.trueuuid$nonce)
+                : new AuthPayload(this.trueuuid$nonce, true, offlineData.offlineUuid().toString(), offlineData.summary());
         this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, auth));
     }
 
@@ -118,7 +139,7 @@ public abstract class ServerLoginMixin {
     private void trueuuid$onTick(CallbackInfo ci) {
         if (this.trueuuid$txId == 0 || this.trueuuid$sentAt == 0L) return;
         ci.cancel(); // 阻止原版 tick 推进登录状
-        long timeoutMs = TrueuuidConfig.timeoutMs();
+        long timeoutMs = this.trueuuid$offlineUpgradeOffered ? Math.max(TrueuuidConfig.timeoutMs(), 180_000L) : TrueuuidConfig.timeoutMs();
         if (timeoutMs <= 0) return;
 
         long now = System.currentTimeMillis();
@@ -128,11 +149,15 @@ public abstract class ServerLoginMixin {
             System.out.println("[TrueUUID] 握手超时, txId: " + this.trueuuid$txId);
         }
 
-        if (TrueuuidConfig.allowOfflineOnTimeout()) {
+        if (this.trueuuid$offlineUpgradeOffered) {
+            sendDisconnectWithReason(Component.literal("离线玩家数据迁移确认超时，未修改任何玩家数据。请重新进入并确认。"));
+            reset();
+        } else if (TrueuuidConfig.allowOfflineOnTimeout() || TrueuuidConfig.allowOfflineOnFailure()) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 超时允许离线进入");
             }
             AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.TIMEOUT);
+            trueuuid$resumeLogin();
             reset();
         } else {
             String msg = TrueuuidConfig.timeoutKickMessage();
@@ -162,12 +187,20 @@ public abstract class ServerLoginMixin {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 缺少数据");
             }
-            handleAuthFailure(ip, "缺少数据");
+            handleAuthFailure(ip, "缺少数据", false);
             reset(); ci.cancel(); return;
         }
 
         boolean ackOk =  payload.ok();
         String clientHasJoinedUrl = payload.hasJoinedUrl() == null ? "" : payload.hasJoinedUrl().trim();
+        boolean migrationConfirmed = payload.migrationConfirmed();
+        if (migrationConfirmed && this.authenticatedProfile != null) {
+            trueuuid$markMigrationPending(this.authenticatedProfile.getName());
+        }
+        if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] auth answer flags: migrationConfirmed=" + migrationConfirmed
+                    + ", missingSessionToken=" + payload.missingSessionToken());
+        }
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 客户端认证包ackOk: " + ackOk + ", hasJoinedUrl: " + (clientHasJoinedUrl.isEmpty() ? "(mojang default)" : clientHasJoinedUrl));
         }
@@ -175,7 +208,7 @@ public abstract class ServerLoginMixin {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
             }
-            handleAuthFailure(ip, "客户端拒绝");
+            handleAuthFailure(ip, "客户端拒绝", true);
             reset(); ci.cancel(); return;
         }
 
@@ -194,7 +227,7 @@ public abstract class ServerLoginMixin {
                     if (TrueuuidConfig.debug()) {
                         System.out.println("[TrueUUID] 客户端上报的 hasJoined URL 不在白名单中: " + clientHasJoinedUrl);
                     }
-                    handleAuthFailure(ip, "不受信任的认证服务器");
+                    handleAuthFailure(ip, "不受信任的认证服务器", false);
                     reset(); ci.cancel(); return;
                 }
             }
@@ -217,6 +250,15 @@ public abstract class ServerLoginMixin {
             ci.cancel();
 
             SessionCheck.hasJoinedAsync(this.authenticatedProfile.getName(), this.trueuuid$nonce, ip, hasJoinedUrl)
+                    .thenCompose(resOpt -> {
+                        if (resOpt.isPresent() || !hasJoinedUrl.isEmpty() || !trueuuid$isLocalAddress(ip)) {
+                            return java.util.concurrent.CompletableFuture.completedFuture(resOpt);
+                        }
+                        if (TrueuuidConfig.debug()) {
+                            System.out.println("[TrueUUID] Mojang hasJoined failed for local connection; trying signed Mojang profile fallback, player=" + this.authenticatedProfile.getName() + ", ip=" + ip);
+                        }
+                        return SessionCheck.lookupMojangProfileAsync(this.authenticatedProfile.getName());
+                    })
                     .whenComplete((resOpt, throwable) -> {
                         // 始终在主线程处理后续逻辑
                         server.execute(() -> {
@@ -225,7 +267,7 @@ public abstract class ServerLoginMixin {
                                     if (TrueuuidConfig.debug()) {
                                         System.out.println("[TrueUUID] 认证异步回调发生异常: " + throwable);
                                     }
-                                    handleAuthFailure(ip, "服务器异常");
+                                    handleAuthFailure(ip, "服务器异常", false);
                                     return;
                                 }
 
@@ -233,7 +275,7 @@ public abstract class ServerLoginMixin {
                                     if (TrueuuidConfig.debug()) {
                                         System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 会话无效");
                                     }
-                                    handleAuthFailure(ip, "会话无效");
+                                    handleAuthFailure(ip, "会话无效", false);
                                     return;
                                 }
 
@@ -244,9 +286,6 @@ public abstract class ServerLoginMixin {
                                         ? AuthState.AuthSource.MOJANG
                                         : AuthState.AuthSource.YGGDRASIL;
                                 String displayName = trueuuid$authDisplayName(hasJoinedUrl);
-
-                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip, source, displayName);
-                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid(), source, displayName);
 
                                 GameProfile newProfile = new GameProfile(res.uuid(), res.name());
                                 var propMap = newProfile.getProperties();
@@ -264,6 +303,12 @@ public abstract class ServerLoginMixin {
                                 // second time can inject Forge's login pipeline handlers twice.
                                 this.authenticatedProfile = newProfile;
                                 AuthState.markAuthSuccess(this.connection, res.uuid(), res.name(), source, displayName);
+                                if (!trueuuid$handleOfflineUpgradeIfNeeded(res.name(), res.uuid(), source, displayName, migrationConfirmed)) {
+                                    return;
+                                }
+                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip, source, displayName);
+                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid(), source, displayName);
+                                trueuuid$resumeLogin();
                                 if (TrueuuidConfig.debug()) {
                                     System.out.println("[TrueUUID] 记录认证成功来源: " + source + ", displayName=" + displayName);
                                 }
@@ -271,8 +316,11 @@ public abstract class ServerLoginMixin {
                                 if (TrueuuidConfig.debug()) {
                                     System.out.println("[TrueUUID] 认证异步处理时发生异常: " + t);
                                 }
-                                handleAuthFailure(ip, "服务器异常");
+                                handleAuthFailure(ip, "服务器异常", false);
                             } finally {
+                                if (this.authenticatedProfile != null) {
+                                    trueuuid$clearMigrationPending(this.authenticatedProfile.getName());
+                                }
                                 reset();
                             }
                         });
@@ -283,20 +331,20 @@ public abstract class ServerLoginMixin {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 启动异步认证时出错: " + t);
             }
-            handleAuthFailure(ip, "服务器异常");
+            handleAuthFailure(ip, "服务器异常", false);
             reset();
             this.trueuuid$ackHandled = false;
         }
     }
 
     @Unique
-    private void handleAuthFailure(String ip, String why) {
+    private void handleAuthFailure(String ip, String why, boolean explicitOfflineClient) {
         String name = this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>";
         System.out.println("[TrueUUID] 认证失败, 玩家: " + name + ", ip: " + ip + ", 原因: " + why);
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 会话无效, 玩家: " + name + ", ip: " + ip + ", 失败原因: " + why);
         }
-        AuthDecider.Decision d = AuthDecider.onFailure(name, ip);
+        AuthDecider.Decision d = AuthDecider.onFailure(name, ip, explicitOfflineClient);
 
         switch (d.kind) {
             case PREMIUM_GRACE -> {
@@ -308,9 +356,11 @@ public abstract class ServerLoginMixin {
                     AuthState.AuthSource cachedSource = d.graceSource != null ? d.graceSource : AuthState.AuthSource.MOJANG;
                     String cachedName = d.graceDisplayName != null ? d.graceDisplayName : "近期同IP容错";
                     AuthState.markAuthSuccess(this.connection, premium, name, cachedSource, cachedName);
+                    trueuuid$resumeLogin();
                 } else {
                     System.out.println("[TrueUUID] 容错未找到正版 UUID，改为离线兜底, 玩家: " + name + ", ip: " + ip);
                     AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.FAILURE);
+                    trueuuid$resumeLogin();
                 }
             }
             case OFFLINE -> {
@@ -319,6 +369,7 @@ public abstract class ServerLoginMixin {
                     System.out.println("[TrueUUID] 离线进入");
                 }
                 AuthState.markOfflineFallback(this.connection, AuthState.FallbackReason.FAILURE);
+                trueuuid$resumeLogin();
             }
             case DENY -> {
                 String msg = d.denyMessage != null ? d.denyMessage
@@ -354,6 +405,85 @@ public abstract class ServerLoginMixin {
     }
 
     @Unique
+    private static boolean trueuuid$isLocalAddress(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return false;
+        }
+        return "127.0.0.1".equals(ip)
+                || "0:0:0:0:0:0:0:1".equals(ip)
+                || "::1".equals(ip)
+                || "localhost".equalsIgnoreCase(ip);
+    }
+
+    @Unique
+    private static void trueuuid$markMigrationPending(String name) {
+        if (name == null || name.isBlank()) return;
+        TRUEUUID$MIGRATION_PENDING.put(name.toLowerCase(java.util.Locale.ROOT), System.currentTimeMillis());
+    }
+
+    @Unique
+    private static void trueuuid$clearMigrationPending(String name) {
+        if (name == null || name.isBlank()) return;
+        TRUEUUID$MIGRATION_PENDING.remove(name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    @Unique
+    private static boolean trueuuid$isMigrationPending(String name) {
+        if (name == null || name.isBlank()) return false;
+        String key = name.toLowerCase(java.util.Locale.ROOT);
+        Long since = TRUEUUID$MIGRATION_PENDING.get(key);
+        if (since == null) return false;
+        if (System.currentTimeMillis() - since > 30_000L) {
+            TRUEUUID$MIGRATION_PENDING.remove(key, since);
+            return false;
+        }
+        return true;
+    }
+
+    @Unique
+    private boolean trueuuid$handleOfflineUpgradeIfNeeded(String name, UUID verifiedUuid, AuthState.AuthSource source, String displayName, boolean confirmed) {
+        if (!PlayerDataMigration.needsOfflineUpgrade(this.server, name, verifiedUuid)) {
+            return true;
+        }
+        PlayerDataMigration.OfflineData data = PlayerDataMigration.findOfflineData(this.server, name);
+        if (data == null) {
+            return true;
+        }
+        if (!confirmed) {
+            String sourceName = source == AuthState.AuthSource.YGGDRASIL
+                    ? (displayName == null || displayName.isBlank() ? "皮肤站登录" : "皮肤站登录(" + displayName + ")")
+                    : "正版验证";
+            sendDisconnectWithReason(Component.literal(
+                    "检测到同名离线玩家数据，但你取消了迁移。\n\n"
+                            + "当前登录方式：" + sourceName + "\n"
+                            + "离线 UUID：" + data.offlineUuid() + "\n"
+                            + "当前 UUID：" + verifiedUuid + "\n\n"
+                            + "未迁移前不会修改任何玩家数据。"
+            ));
+            return false;
+        }
+        try {
+            PlayerDataMigration.migrateOfflineToVerified(this.server, name, verifiedUuid);
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] migrated offline data before login: player=" + name
+                        + ", offlineUuid=" + data.offlineUuid() + ", verifiedUuid=" + verifiedUuid);
+            }
+            return true;
+        } catch (Exception ex) {
+            System.out.println("[TrueUUID] 离线玩家数据迁移失败, player=" + name + ", offlineUuid=" + data.offlineUuid()
+                    + ", verifiedUuid=" + verifiedUuid + ", error=" + ex);
+            sendDisconnectWithReason(Component.literal(
+                    "离线玩家数据迁移失败，已取消进入以避免数据错乱。\n\n"
+                            + "玩家：" + name + "\n"
+                            + "离线 UUID：" + data.offlineUuid() + "\n"
+                            + "当前 UUID：" + verifiedUuid + "\n\n"
+                            + "原因：" + ex.getMessage()
+            ));
+            return false;
+        }
+    }
+
+    @Unique
     private void reset() {
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 状态重置, txId: " + this.trueuuid$txId);
@@ -361,6 +491,26 @@ public abstract class ServerLoginMixin {
         this.trueuuid$txId = 0;
         this.trueuuid$nonce = null;
         this.trueuuid$sentAt = 0L;
+        this.trueuuid$offlineUpgradeOffered = false;
+    }
+
+    @Unique
+    private void trueuuid$resumeLogin() {
+        if (this.authenticatedProfile == null) {
+            return;
+        }
+        GameProfile profile = this.authenticatedProfile;
+        if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] resume vanilla login verification: player=" + profile.getName()
+                    + ", uuid=" + profile.getId());
+        }
+        this.server.execute(() -> {
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] finish vanilla login now: player=" + profile.getName()
+                        + ", uuid=" + profile.getId());
+            }
+            trueuuid$verifyLoginAndFinishConnectionSetup(profile);
+        });
     }
 
 }

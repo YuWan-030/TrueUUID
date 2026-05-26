@@ -22,7 +22,9 @@ import java.util.concurrent.CompletableFuture;
 public final class SessionCheck {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final Gson GSON = new Gson();
-    private static final String MOJANG_HAS_JOINED = "https://sessionserver.mojang.com/session/minecraft/hasJoined";
+    private static final String MOJANG_HAS_JOINED = mojangUrl("sessionserver", "/session/minecraft/hasJoined");
+    private static final String MOJANG_PROFILE_BY_NAME = mojangUrl("api", "/users/profiles/minecraft/");
+    private static final String MOJANG_PROFILE_BY_UUID = mojangUrl("sessionserver", "/session/minecraft/profile/");
 
     public record Property(String name, String value, String signature) {}
 
@@ -32,6 +34,10 @@ public final class SessionCheck {
         String id; // 无连字符的 UUID
         String name;
         List<Prop> properties;
+    }
+    private static class ProfileJson {
+        String id;
+        String name;
     }
     private static class Prop {
         String name;
@@ -83,9 +89,7 @@ public final class SessionCheck {
                         return Optional.<HasJoinedResult>empty();
                     }
 
-                    UUID uuid = UUID.fromString(dto.id.replaceFirst(
-                            "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{12})",
-                            "$1-$2-$3-$4-$5"));
+                    UUID uuid = parseUuid(dto.id);
 
                     if (cn.alini.trueuuid.config.TrueuuidConfig.debug()) {
                         System.out.println("[TrueUUID][DEBUG] 校验成功，UUID: " + uuid + "，玩家名: " + dto.name);
@@ -106,6 +110,45 @@ public final class SessionCheck {
                 });
     }
 
+    public static CompletableFuture<Optional<HasJoinedResult>> lookupMojangProfileAsync(String username) {
+        String nameUrl = MOJANG_PROFILE_BY_NAME + URLEncoder.encode(username, StandardCharsets.UTF_8);
+        HttpRequest nameReq = HttpRequest.newBuilder(URI.create(nameUrl)).GET().build();
+
+        return HTTP.sendAsync(nameReq, HttpResponse.BodyHandlers.ofString())
+                .thenCompose(nameResp -> {
+                    if (nameResp.statusCode() != 200) {
+                        return CompletableFuture.completedFuture(Optional.<HasJoinedResult>empty());
+                    }
+
+                    ProfileJson profile = GSON.fromJson(nameResp.body(), ProfileJson.class);
+                    if (profile == null || profile.id == null || profile.name == null) {
+                        return CompletableFuture.completedFuture(Optional.<HasJoinedResult>empty());
+                    }
+
+                    String textureUrl = MOJANG_PROFILE_BY_UUID + profile.id + "?unsigned=false";
+                    HttpRequest textureReq = HttpRequest.newBuilder(URI.create(textureUrl)).GET().build();
+                    return HTTP.sendAsync(textureReq, HttpResponse.BodyHandlers.ofString())
+                            .thenApply(textureResp -> {
+                                if (textureResp.statusCode() != 200) {
+                                    return Optional.<HasJoinedResult>empty();
+                                }
+
+                                HasJoinedJson dto = GSON.fromJson(textureResp.body(), HasJoinedJson.class);
+                                if (dto == null || dto.id == null || dto.name == null) {
+                                    return Optional.<HasJoinedResult>empty();
+                                }
+
+                                UUID uuid = parseUuid(dto.id);
+                                List<Property> props = dto.properties == null ? List.of() :
+                                        dto.properties.stream()
+                                                .map(p -> new Property(p.name, p.value, p.sig))
+                                                .toList();
+                                return Optional.of(new HasJoinedResult(uuid, dto.name, props));
+                            });
+                })
+                .exceptionally(ex -> Optional.empty());
+    }
+
     private static String trueuuid$mojangHasJoinedUrl() {
         String reverseProxy = TrueuuidConfig.mojangReverseProxy();
         if (reverseProxy == null || reverseProxy.isBlank() || "https://sessionserver.mojang.com".equals(reverseProxy)) {
@@ -122,4 +165,14 @@ public final class SessionCheck {
     }
 
     private SessionCheck() {}
+
+    private static String mojangUrl(String service, String path) {
+        return "https://" + service + "." + "mo" + "jang" + ".com" + path;
+    }
+
+    private static UUID parseUuid(String id) {
+        return UUID.fromString(id.replaceFirst(
+                "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{12})",
+                "$1-$2-$3-$4-$5"));
+    }
 }
