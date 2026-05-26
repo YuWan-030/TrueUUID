@@ -3,6 +3,7 @@ package cn.alini.trueuuid.mixin.client;
 import cn.alini.trueuuid.net.NetIds;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.User; // official 映射 (mapping)
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.Connection;
@@ -36,6 +37,22 @@ public abstract class ClientHandshakeMixin {
 
         FriendlyByteBuf buf = packet.getData();
         String serverId = buf.readUtf();
+        boolean offlineUpgradeAvailable = false;
+        String offlineUuid = "";
+        String offlineDataSummary = "";
+        try {
+            if (buf.isReadable()) {
+                offlineUpgradeAvailable = buf.readBoolean();
+                if (offlineUpgradeAvailable) {
+                    offlineUuid = buf.readUtf();
+                    offlineDataSummary = buf.readUtf();
+                }
+            }
+        } catch (Throwable ignored) {
+            offlineUpgradeAvailable = false;
+            offlineUuid = "";
+            offlineDataSummary = "";
+        }
 
         Minecraft mc = Minecraft.getInstance();
         User user = mc.getUser();
@@ -46,13 +63,16 @@ public abstract class ClientHandshakeMixin {
 
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
-            trueuuid$sendAuthAck(loginConnection, transactionId, false, "");
+            trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
             return;
         }
 
         // 在调用 joinServer 之前先读取 CHECK_URL，因为 joinServer 是一次性的。
         String hasJoinedUrl = trueuuid$resolveHasJoinedUrl();
+        final boolean upgradeAvailable = offlineUpgradeAvailable;
+        final String upgradeOfflineUuid = offlineUuid;
+        final String upgradeDataSummary = offlineDataSummary;
 
         // 复用原版正版登录文案，中文客户端会显示"正在登录中..."。
         this.updateStatus.accept(Component.translatable("connect.authorizing"));
@@ -69,7 +89,13 @@ public abstract class ClientHandshakeMixin {
                 })
                 .orTimeout(30, TimeUnit.SECONDS)
                 .exceptionally(t -> false)
-                .thenAccept(ok -> trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl));
+                .thenAccept(ok -> {
+                    if (!ok || !upgradeAvailable) {
+                        trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl, false, false);
+                        return;
+                    }
+                    trueuuid$confirmOfflinePlayerDataUpgrade(mc, upgradeOfflineUuid, upgradeDataSummary, hasJoinedUrl, loginConnection, transactionId);
+                });
 
         ci.cancel();
     }
@@ -81,13 +107,65 @@ public abstract class ClientHandshakeMixin {
     }
 
     @Unique
-    private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok, String hasJoinedUrl) {
+    private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok, String hasJoinedUrl, boolean migrationConfirmed, boolean missingSessionToken) {
         // LOGIN 自定义查询必须回复 LOGIN 阶段的 ServerboundCustomQueryPacket，不能切到 PLAY 包。
         FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.buffer());
         resp.writeBoolean(ok);
         // 附带 hasJoined URL：空字符串表示使用 Mojang 默认。
         resp.writeUtf(hasJoinedUrl != null ? hasJoinedUrl : "");
+        resp.writeBoolean(migrationConfirmed);
+        resp.writeBoolean(missingSessionToken);
         connection.send(new ServerboundCustomQueryPacket(transactionId, resp));
+    }
+
+    @Unique
+    private static void trueuuid$confirmOfflinePlayerDataUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
+        mc.execute(() -> {
+            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
+            Component title = Component.literal("确认迁移离线玩家数据");
+            Component message = Component.literal(
+                    "检测到同名离线玩家数据。\n\n"
+                            + "当前登录方式: " + mode + "\n"
+                            + "离线 UUID: " + offlineUuid + "\n"
+                            + "可迁移数据: " + offlineDataSummary + "\n\n"
+                            + "继续进入会先备份离线玩家数据，再迁移到当前账号。迁移后该名称会绑定当前账号。"
+            );
+            mc.setScreen(new ConfirmScreen(
+                    confirmed -> {
+                        trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
+                        mc.setScreen(null);
+                    },
+                    title,
+                    message,
+                    Component.literal("确认迁移数据并进入"),
+                    Component.literal("取消进入")
+            ));
+        });
+    }
+
+    @Unique
+    private static void trueuuid$confirmOfflineUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
+        mc.execute(() -> {
+            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
+            Component title = Component.literal("确认迁移离线存档");
+            Component message = Component.literal(
+                    "检测到同名离线存档。\n\n"
+                            + "当前登录方式: " + mode + "\n"
+                            + "离线 UUID: " + offlineUuid + "\n"
+                            + "可迁移数据: " + offlineDataSummary + "\n\n"
+                            + "继续进入会先备份离线存档，再迁移到当前账号。迁移后该名称会绑定当前账号。"
+            );
+            mc.setScreen(new ConfirmScreen(
+                    confirmed -> {
+                        trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
+                        mc.setScreen(null);
+                    },
+                    title,
+                    message,
+                    Component.literal("确认迁移并进入"),
+                    Component.literal("取消进入")
+            ));
+        });
     }
 
     /**
