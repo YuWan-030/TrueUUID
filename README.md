@@ -152,6 +152,18 @@ auth.recentIpGrace.ttlSeconds = 10
 
 Allows a short same-IP reconnect grace period after a verified player disconnects. This grace is not used when the client explicitly rejects authentication or logs in as offline.
 
+```text
+/trueuuid cleanupuuid <name>
+```
+
+Admin-only command, permission level 4. It backs up and removes the duplicate offline UUID data for a player name without touching the verified UUID data.
+
+```text
+/trueuuid migrateuuid <name>
+```
+
+Admin-only command, permission level 4. It approves inheriting the same-name offline UUID data by migrating it to the verified Mojang/Yggdrasil UUID with backups.
+
 ```toml
 auth.nomojang.enabled = false
 ```

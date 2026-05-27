@@ -122,13 +122,14 @@ public abstract class ClientHandshakeMixin {
     private static void trueuuid$confirmOfflinePlayerDataUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
         mc.execute(() -> {
             String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
-            Component title = Component.literal("确认迁移离线玩家数据");
+            Component title = Component.literal("确认继承离线玩家数据");
             Component message = Component.literal(
                     "检测到同名离线玩家数据。\n\n"
-                            + "当前登录方式: " + mode + "\n"
-                            + "离线 UUID: " + offlineUuid + "\n"
-                            + "可迁移数据: " + offlineDataSummary + "\n\n"
-                            + "继续进入会先备份离线玩家数据，再迁移到当前账号。迁移后该名称会绑定当前账号。"
+                            + "当前登录方式：" + mode + "\n"
+                            + "离线 UUID：" + offlineUuid + "\n"
+                            + "可继承数据：" + offlineDataSummary + "\n\n"
+                            + "继续进入将先备份离线玩家数据，再继承到当前账号。\n"
+                            + "继承后该名称将绑定当前账号，后续不再允许离线身份进入。"
             );
             mc.setScreen(new ConfirmScreen(
                     confirmed -> {
@@ -137,8 +138,8 @@ public abstract class ClientHandshakeMixin {
                     },
                     title,
                     message,
-                    Component.literal("确认迁移数据并进入"),
-                    Component.literal("暂不迁移并退出")
+                    Component.literal("确认继承数据并进入"),
+                    Component.literal("退出并联系管理员")
             ));
         });
     }
@@ -147,13 +148,14 @@ public abstract class ClientHandshakeMixin {
     private static void trueuuid$confirmOfflineUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
         mc.execute(() -> {
             String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
-            Component title = Component.literal("确认迁移离线存档");
+            Component title = Component.literal("确认继承离线存档");
             Component message = Component.literal(
                     "检测到同名离线存档。\n\n"
-                            + "当前登录方式: " + mode + "\n"
-                            + "离线 UUID: " + offlineUuid + "\n"
-                            + "可迁移数据: " + offlineDataSummary + "\n\n"
-                            + "继续进入会先备份离线存档，再迁移到当前账号。迁移后该名称会绑定当前账号。"
+                            + "当前登录方式：" + mode + "\n"
+                            + "离线 UUID：" + offlineUuid + "\n"
+                            + "可继承数据：" + offlineDataSummary + "\n\n"
+                            + "继续进入将先备份离线存档，再继承到当前账号。\n"
+                            + "继承后该名称将绑定当前账号，后续不再允许离线身份进入。"
             );
             mc.setScreen(new ConfirmScreen(
                     confirmed -> {
@@ -162,8 +164,8 @@ public abstract class ClientHandshakeMixin {
                     },
                     title,
                     message,
-                    Component.literal("确认迁移并进入"),
-                    Component.literal("暂不迁移并退出")
+                    Component.literal("确认继承并进入"),
+                    Component.literal("退出并联系管理员")
             ));
         });
     }
