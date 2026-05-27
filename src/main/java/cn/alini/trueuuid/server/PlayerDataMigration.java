@@ -17,6 +17,7 @@ import java.util.UUID;
 
 public final class PlayerDataMigration {
     public record OfflineData(UUID offlineUuid, String summary) {}
+    public record CleanupResult(UUID offlineUuid, String summary, int cleanedFiles, boolean cleanedGlobalRefs, Path backupDir) {}
 
     private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -93,6 +94,48 @@ public final class PlayerDataMigration {
         replaceGlobalTextFile(ftbRanksPlayers(server), data.offlineUuid(), verifiedUuid, backupDir.resolve("ftbranks").resolve("players.snbt"));
     }
 
+    public static CleanupResult cleanupOfflineData(MinecraftServer server, String name) throws IOException {
+        OfflineData data = findOfflineData(server, name);
+        if (data == null) {
+            return null;
+        }
+
+        List<FilePair> files = List.of(
+                new FilePair(playerData(server, data.offlineUuid()), playerData(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, data.offlineUuid()), false, "cosarmor"),
+                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(stats(server, data.offlineUuid()), stats(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, data.offlineUuid()), false, "opac"),
+                new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, data.offlineUuid()), true, "opac"),
+                new FilePair(ftbChunksPlayer(server, data.offlineUuid()), ftbChunksPlayer(server, data.offlineUuid()), true, "ftbchunks"),
+                new FilePair(ftbEssentialsPlayer(server, data.offlineUuid()), ftbEssentialsPlayer(server, data.offlineUuid()), true, "ftbessentials"),
+                new FilePair(ftbTeamsPlayer(server, data.offlineUuid()), ftbTeamsPlayer(server, data.offlineUuid()), true, "ftbteams"),
+                new FilePair(ftbQuestsPlayer(server, data.offlineUuid()), ftbQuestsPlayer(server, data.offlineUuid()), true, "ftbquests"),
+                new FilePair(customNpcsPlayer(server, data.offlineUuid()), customNpcsPlayer(server, data.offlineUuid()), true, "customnpcs")
+        );
+
+        Path backupDir = cleanupBackupDir(server, name, data.offlineUuid());
+        Files.createDirectories(backupDir);
+
+        int cleaned = 0;
+        for (FilePair file : files) {
+            if (!Files.exists(file.from())) continue;
+            Path backup = backupDir.resolve(file.backupGroup()).resolve(file.from().getFileName());
+            Files.createDirectories(backup.getParent());
+            Files.move(file.from(), backup, StandardCopyOption.REPLACE_EXISTING);
+            cleaned++;
+        }
+
+        boolean cleanedGlobalRefs = removeUuidLinesFromGlobalTextFile(
+                ftbRanksPlayers(server),
+                data.offlineUuid(),
+                backupDir.resolve("ftbranks").resolve("players.snbt")
+        );
+
+        return new CleanupResult(data.offlineUuid(), data.summary(), cleaned, cleanedGlobalRefs, backupDir);
+    }
+
     private static void replaceGlobalTextFile(Path file, UUID from, UUID to, Path backup) throws IOException {
         if (!containsUuid(file, from)) return;
         backupFile(file, backup);
@@ -103,6 +146,22 @@ public final class PlayerDataMigration {
     private static void backupFile(Path source, Path backup) throws IOException {
         Files.createDirectories(backup.getParent());
         Files.copy(source, backup, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static boolean removeUuidLinesFromGlobalTextFile(Path file, UUID uuid, Path backup) throws IOException {
+        if (!containsUuid(file, uuid)) return false;
+        backupFile(file, backup);
+        String hyphen = uuid.toString();
+        String compact = hyphen.replace("-", "");
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        List<String> kept = new ArrayList<>();
+        for (String line : lines) {
+            if (!line.contains(hyphen) && !line.contains(compact)) {
+                kept.add(line);
+            }
+        }
+        Files.write(file, kept, StandardCharsets.UTF_8);
+        return true;
     }
 
     private static boolean containsUuid(Path file, UUID uuid) {
@@ -191,6 +250,15 @@ public final class PlayerDataMigration {
                 .resolve("trueuuid-backups")
                 .resolve("offline-upgrades")
                 .resolve(stamp + "-" + safeName + "-" + offlineUuid + "-to-" + verifiedUuid);
+    }
+
+    private static Path cleanupBackupDir(MinecraftServer server, String name, UUID offlineUuid) {
+        String safeName = name == null ? "unknown" : name.replaceAll("[^A-Za-z0-9_.-]", "_").toLowerCase(Locale.ROOT);
+        String stamp = LocalDateTime.now().format(BACKUP_TIME);
+        return server.getWorldPath(LevelResource.ROOT)
+                .resolve("trueuuid-backups")
+                .resolve("offline-cleanups")
+                .resolve(stamp + "-" + safeName + "-" + offlineUuid);
     }
 
     private record FilePair(Path from, Path to, boolean replaceUuidText, String backupGroup) {}
