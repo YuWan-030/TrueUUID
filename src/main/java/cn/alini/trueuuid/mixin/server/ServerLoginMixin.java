@@ -454,7 +454,7 @@ public abstract class ServerLoginMixin {
                     ? (displayName == null || displayName.isBlank() ? "皮肤站登录" : "皮肤站登录(" + displayName + ")")
                     : "正版验证";
             sendDisconnectWithReason(Component.literal(
-                    "检测到同名离线玩家数据，但你取消了迁移。\n\n"
+                    "检测到同名离线玩家数据，但你未确认迁移。\n\n"
                             + "当前登录方式：" + sourceName + "\n"
                             + "离线 UUID：" + data.offlineUuid() + "\n"
                             + "当前 UUID：" + verifiedUuid + "\n\n"
