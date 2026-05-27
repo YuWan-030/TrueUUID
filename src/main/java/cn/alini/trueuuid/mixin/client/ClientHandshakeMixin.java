@@ -138,7 +138,7 @@ public abstract class ClientHandshakeMixin {
                     title,
                     message,
                     Component.literal("确认迁移数据并进入"),
-                    Component.literal("取消进入")
+                    Component.literal("暂不迁移并退出")
             ));
         });
     }
@@ -163,7 +163,7 @@ public abstract class ClientHandshakeMixin {
                     title,
                     message,
                     Component.literal("确认迁移并进入"),
-                    Component.literal("取消进入")
+                    Component.literal("暂不迁移并退出")
             ));
         });
     }
