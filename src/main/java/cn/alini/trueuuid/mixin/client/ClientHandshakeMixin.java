@@ -121,25 +121,16 @@ public abstract class ClientHandshakeMixin {
     @Unique
     private static void trueuuid$confirmOfflinePlayerDataUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
         mc.execute(() -> {
-            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
-            Component title = Component.literal("确认继承离线玩家数据");
-            Component message = Component.literal(
-                    "检测到同名离线玩家数据。\n\n"
-                            + "当前登录方式：" + mode + "\n"
-                            + "离线 UUID：" + offlineUuid + "\n"
-                            + "可继承数据：" + offlineDataSummary + "\n\n"
-                            + "继续进入将先备份离线玩家数据，再继承到当前账号。\n"
-                            + "继承后该名称将绑定当前账号，后续不再允许离线身份进入。"
-            );
+            Component mode = trueuuid$authSourceComponent(hasJoinedUrl);
             mc.setScreen(new ConfirmScreen(
                     confirmed -> {
                         trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
                         mc.setScreen(null);
                     },
-                    title,
-                    message,
-                    Component.literal("确认继承数据并进入"),
-                    Component.literal("退出并联系管理员")
+                    Component.translatable("trueuuid.confirm.offline_player.title"),
+                    Component.translatable("trueuuid.confirm.offline_player.message", mode, offlineUuid, offlineDataSummary),
+                    Component.translatable("trueuuid.confirm.migrate_join"),
+                    Component.translatable("trueuuid.confirm.exit_admin")
             ));
         });
     }
@@ -147,27 +138,25 @@ public abstract class ClientHandshakeMixin {
     @Unique
     private static void trueuuid$confirmOfflineUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
         mc.execute(() -> {
-            String mode = hasJoinedUrl == null || hasJoinedUrl.isBlank() ? "正版验证" : "皮肤站登录";
-            Component title = Component.literal("确认继承离线存档");
-            Component message = Component.literal(
-                    "检测到同名离线存档。\n\n"
-                            + "当前登录方式：" + mode + "\n"
-                            + "离线 UUID：" + offlineUuid + "\n"
-                            + "可继承数据：" + offlineDataSummary + "\n\n"
-                            + "继续进入将先备份离线存档，再继承到当前账号。\n"
-                            + "继承后该名称将绑定当前账号，后续不再允许离线身份进入。"
-            );
+            Component mode = trueuuid$authSourceComponent(hasJoinedUrl);
             mc.setScreen(new ConfirmScreen(
                     confirmed -> {
                         trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
                         mc.setScreen(null);
                     },
-                    title,
-                    message,
-                    Component.literal("确认继承并进入"),
-                    Component.literal("退出并联系管理员")
+                    Component.translatable("trueuuid.confirm.offline_save.title"),
+                    Component.translatable("trueuuid.confirm.offline_save.message", mode, offlineUuid, offlineDataSummary),
+                    Component.translatable("trueuuid.confirm.migrate_join"),
+                    Component.translatable("trueuuid.confirm.exit_admin")
             ));
         });
+    }
+
+    @Unique
+    private static Component trueuuid$authSourceComponent(String hasJoinedUrl) {
+        return hasJoinedUrl == null || hasJoinedUrl.isBlank()
+                ? Component.translatable("trueuuid.auth_source.premium")
+                : Component.translatable("trueuuid.auth_source.skin_site");
     }
 
     /**
