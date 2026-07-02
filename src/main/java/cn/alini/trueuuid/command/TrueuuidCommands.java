@@ -28,17 +28,6 @@ public class TrueuuidCommands {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("trueuuid")
                 .requires(src -> src.hasPermission(3))
-                .then(Commands.literal("config")
-                        .requires(src -> src.hasPermission(3))
-                        .then(Commands.literal("nomojang")
-                                .then(Commands.literal("status")
-                                        .executes(ctx -> cmdNomojangStatus(ctx.getSource())))
-                                .then(Commands.literal("on")
-                                        .executes(ctx -> cmdNomojangSet(ctx.getSource(), true)))
-                                .then(Commands.literal("off")
-                                        .executes(ctx -> cmdNomojangSet(ctx.getSource(), false)))
-                                .then(Commands.literal("toggle")
-                                        .executes(ctx -> cmdNomojangToggle(ctx.getSource())))))
                 .then(Commands.literal("mojang")
                         .then(Commands.literal("status")
                                 .executes(ctx -> mojangStatus(ctx.getSource()))))
@@ -70,9 +59,6 @@ public class TrueuuidCommands {
             };
 
             Object v;
-            v = getVal.apply("auth.nomojang.enabled", "nomojang.enabled");
-            if (v instanceof Boolean value) TrueuuidConfig.COMMON.nomojangEnabled.set(value);
-
             v = getVal.apply("auth.debug", "debug");
             if (v instanceof Boolean value) TrueuuidConfig.COMMON.debug.set(value);
 
@@ -109,38 +95,18 @@ public class TrueuuidCommands {
             v = getVal.apply("auth.onlineShortSubtitle", "onlineShortSubtitle");
             if (v != null) TrueuuidConfig.COMMON.onlineShortSubtitle.set(String.valueOf(v));
 
+            v = getVal.apply("auth.showJoinFeedback", "showJoinFeedback");
+            if (v instanceof Boolean value) TrueuuidConfig.COMMON.showJoinFeedback.set(value);
+
             v = getVal.apply("auth.mojangReverseProxy", "mojangReverseProxy");
             if (v != null) TrueuuidConfig.COMMON.mojangReverseProxy.set(String.valueOf(v));
 
-            src.sendSuccess(() -> Component.literal("[TrueUUID] 配置已从磁盘重载").withStyle(ChatFormatting.GREEN), false);
+            src.sendSuccess(() -> Component.translatable("trueuuid.command.reload.success").withStyle(ChatFormatting.GREEN), false);
             return 1;
         } catch (Exception ex) {
-            src.sendFailure(Component.literal("[TrueUUID] 重载配置失败: " + ex.getMessage()).withStyle(ChatFormatting.RED));
+            src.sendFailure(Component.translatable("trueuuid.command.reload.failure", ex.getMessage()).withStyle(ChatFormatting.RED));
             return 0;
         }
-    }
-
-    private static int cmdNomojangStatus(CommandSourceStack src) {
-        boolean enabled = TrueuuidConfig.nomojangEnabled();
-        src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang: " + (enabled ? "已启用" : "已禁用"))
-                .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED), false);
-        return 1;
-    }
-
-    private static int cmdNomojangSet(CommandSourceStack src, boolean value) {
-        try {
-            TrueuuidConfig.COMMON.nomojangEnabled.set(value);
-            src.sendSuccess(() -> Component.literal("[TrueUUID] NoMojang 已" + (value ? "启用" : "禁用"))
-                    .withStyle(value ? ChatFormatting.GREEN : ChatFormatting.RED), false);
-            return 1;
-        } catch (Throwable t) {
-            src.sendFailure(Component.literal("[TrueUUID] 无法设置 NoMojang: " + t.getMessage()).withStyle(ChatFormatting.RED));
-            return 0;
-        }
-    }
-
-    private static int cmdNomojangToggle(CommandSourceStack src) {
-        return cmdNomojangSet(src, !TrueuuidConfig.nomojangEnabled());
     }
 
     private static int mojangStatus(CommandSourceStack src) {
@@ -155,15 +121,15 @@ public class TrueuuidCommands {
 
             int responseCode = conn.getResponseCode();
             if (responseCode == 200 || responseCode == 204 || responseCode == 403) {
-                src.sendSuccess(() -> Component.literal("[TrueUUID] Mojang 会话服务器可访问，响应码: " + responseCode)
+                src.sendSuccess(() -> Component.translatable("trueuuid.command.mojang.reachable", responseCode)
                         .withStyle(ChatFormatting.GREEN), false);
             } else {
-                src.sendFailure(Component.literal("[TrueUUID] Mojang 会话服务器响应异常，响应码: " + responseCode)
+                src.sendFailure(Component.translatable("trueuuid.command.mojang.unexpected", responseCode)
                         .withStyle(ChatFormatting.RED));
             }
             return 1;
         } catch (Exception e) {
-            src.sendFailure(Component.literal("[TrueUUID] 无法连接到 Mojang 会话服务器: " + e.getMessage())
+            src.sendFailure(Component.translatable("trueuuid.command.mojang.connect_failed", e.getMessage())
                     .withStyle(ChatFormatting.RED));
             return 0;
         }
@@ -173,20 +139,26 @@ public class TrueuuidCommands {
         try {
             PlayerDataMigration.CleanupResult result = PlayerDataMigration.cleanupOfflineData(src.getServer(), name);
             if (result == null) {
-                src.sendFailure(Component.literal("[TrueUUID] 未找到 " + name + " 的重复离线 UUID 数据。"));
+                src.sendFailure(Component.translatable("trueuuid.command.cleanup.not_found", name));
                 return 0;
             }
 
-            src.sendSuccess(() -> Component.literal(
-                    "[TrueUUID] 已清理 " + name + " 的重复离线 UUID 数据。"
-                            + "\n离线 UUID: " + result.offlineUuid()
-                            + "\n发现数据: " + result.summary()
-                            + "\n移动文件数: " + result.cleanedFiles()
-                            + (result.cleanedGlobalRefs() ? "\n已清理全局 UUID 引用。" : "")
-                            + "\n备份目录: " + result.backupDir()), false);
+            Component message = Component.translatable(
+                    "trueuuid.command.cleanup.success",
+                    name,
+                    result.offlineUuid(),
+                    result.summary(),
+                    result.cleanedFiles(),
+                    result.backupDir()
+            );
+            if (result.cleanedGlobalRefs()) {
+                message = message.copy().append(Component.translatable("trueuuid.command.cleanup.global_refs"));
+            }
+            final Component finalMessage = message;
+            src.sendSuccess(() -> finalMessage, false);
             return 1;
         } catch (Exception ex) {
-            src.sendFailure(Component.literal("[TrueUUID] 清理重复 UUID 失败: " + ex.getMessage()));
+            src.sendFailure(Component.translatable("trueuuid.command.cleanup.failure", ex.getMessage()));
             ex.printStackTrace();
             return 0;
         }
@@ -196,26 +168,27 @@ public class TrueuuidCommands {
         try {
             Optional<UUID> verifiedUuid = TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name);
             if (verifiedUuid.isEmpty()) {
-                src.sendFailure(Component.literal("[TrueUUID] 未找到 " + name + " 的正版/皮肤站 UUID 绑定记录。请先让玩家成功完成一次验证登录。"));
+                src.sendFailure(Component.translatable("trueuuid.command.migrate.no_verified", name));
                 return 0;
             }
 
             PlayerDataMigration.OfflineData offlineData = PlayerDataMigration.findOfflineData(src.getServer(), name);
             if (offlineData == null) {
-                src.sendFailure(Component.literal("[TrueUUID] 未找到 " + name + " 的同名离线 UUID 数据。"));
+                src.sendFailure(Component.translatable("trueuuid.command.migrate.no_offline", name));
                 return 0;
             }
 
             PlayerDataMigration.migrateOfflineToVerified(src.getServer(), name, verifiedUuid.get());
-            src.sendSuccess(() -> Component.literal(
-                    "[TrueUUID] 已将 " + name + " 的离线 UUID 数据继承到正版/皮肤站 UUID。"
-                            + "\n离线 UUID: " + offlineData.offlineUuid()
-                            + "\n目标 UUID: " + verifiedUuid.get()
-                            + "\n继承数据: " + offlineData.summary()
-                            + "\n已自动备份，备份目录位于存档 trueuuid-backups/offline-upgrades 下。"), false);
+            src.sendSuccess(() -> Component.translatable(
+                    "trueuuid.command.migrate.success",
+                    name,
+                    offlineData.offlineUuid(),
+                    verifiedUuid.get(),
+                    offlineData.summary()
+            ), false);
             return 1;
         } catch (Exception ex) {
-            src.sendFailure(Component.literal("[TrueUUID] 继承离线 UUID 数据失败: " + ex.getMessage()));
+            src.sendFailure(Component.translatable("trueuuid.command.migrate.failure", ex.getMessage()));
             ex.printStackTrace();
             return 0;
         }

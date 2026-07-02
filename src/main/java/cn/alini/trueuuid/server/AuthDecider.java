@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import net.minecraft.network.chat.Component;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,7 @@ public final class AuthDecider {
         public AuthState.AuthSource graceSource;
         public String graceDisplayName;
         public String denyMessage;
+        public Component denyComponent;
     }
 
     public static Decision onFailure(String name, String ip) {
@@ -34,7 +36,7 @@ public final class AuthDecider {
                 d.kind = Decision.Kind.PREMIUM_GRACE;
                 d.premiumUuid = premiumUuid.get();
                 d.graceSource = AuthState.AuthSource.MOJANG;
-                d.graceDisplayName = "本地代理容错";
+                d.graceDisplayName = "本地代理容错 / Local proxy grace";
                 return d;
             }
         }
@@ -59,9 +61,9 @@ public final class AuthDecider {
             String displayName = TrueuuidRuntime.NAME_REGISTRY.getAuthDisplayName(name);
             d.kind = Decision.Kind.DENY;
             if (source == AuthState.AuthSource.YGGDRASIL) {
-                d.denyMessage = "该名称已绑定皮肤站 UUID（" + displayName + "），鉴权失败时不允许以离线模式进入。请使用对应皮肤站登录后重试。";
+                d.denyComponent = Component.translatable("trueuuid.disconnect.bound_skin_site", displayName);
             } else {
-                d.denyMessage = "该名称已绑定正版 UUID，鉴权失败时不允许以离线模式进入。请检查网络后重试。";
+                d.denyComponent = Component.translatable("trueuuid.disconnect.bound_premium");
             }
             return d;
         }
@@ -74,7 +76,7 @@ public final class AuthDecider {
 
         // 4) 否则拒绝
         d.kind = Decision.Kind.DENY;
-        d.denyMessage = "鉴权失败，已禁止离线进入以保护你的正版存档。请稍后重试。";
+        d.denyComponent = Component.translatable("trueuuid.disconnect.auth_denied");
         return d;
     }
 

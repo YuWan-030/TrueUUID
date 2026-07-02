@@ -2,6 +2,7 @@ package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.util.TrueuuidText;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
@@ -58,38 +59,46 @@ public class SkinRefreshHandler {
         var fallbackOpt = AuthState.consume(netConn);
         var successOpt = AuthState.consumeAuthSuccess(netConn, sp.getUUID(), sp.getGameProfile().getName());
 
-        if (fallbackOpt.isPresent()) {
-            // 聊天提示：长文案
-            String longMsg = TrueuuidConfig.offlineFallbackMessage();
-            if (longMsg == null || longMsg.isEmpty()) {
-                longMsg = "注意：你当前以离线模式进入服务器；如果你是正版账号，可能是网络原因导致无法成功鉴权，请重新登陆重试。";
+        if (!TrueuuidConfig.showJoinFeedback()) {
+            if (TrueuuidConfig.debug()) {
+                System.out.println("[TrueUUID] 跳过登录提示: 玩家=" + sp.getGameProfile().getName() + ", 原因=showJoinFeedback=false");
             }
-            sp.sendSystemMessage(Component.literal(longMsg).withStyle(ChatFormatting.RED));
+            return;
+        }
 
-            // Title：红色“离线模式”，副标题短文案（黄色）
-            var title = Component.literal("离线模式").withStyle(ChatFormatting.RED);
-            String shortSubtitle = TrueuuidConfig.offlineShortSubtitle();
-            var subtitle = Component.literal(clamp(shortSubtitle, SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.YELLOW);
+        if (fallbackOpt.isPresent()) {
+            sp.sendSystemMessage(TrueuuidText.configComponent(
+                    TrueuuidConfig.offlineFallbackMessage(),
+                    "trueuuid.chat.offline_fallback"
+            ).withStyle(ChatFormatting.RED));
+
+            var title = Component.translatable("trueuuid.title.offline").withStyle(ChatFormatting.RED);
+            var subtitle = TrueuuidText.configComponent(
+                    TrueuuidConfig.offlineShortSubtitle(),
+                    "trueuuid.subtitle.offline"
+            ).withStyle(ChatFormatting.YELLOW);
 
             sendTitleNextTick(server, sp, title, subtitle, "OFFLINE");
         } else if (successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL) {
             AuthState.AuthSuccess success = successOpt.get();
-            var title = Component.literal("皮肤站登录").withStyle(ChatFormatting.AQUA);
+            var title = Component.translatable("trueuuid.title.skin_site").withStyle(ChatFormatting.AQUA);
             String sourceName = success.displayName();
-            var subtitle = Component.literal(clamp("已通过 " + sourceName + " 校验", SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.GREEN);
+            var subtitle = Component.translatable("trueuuid.subtitle.skin_site", sourceName).withStyle(ChatFormatting.GREEN);
 
             sendTitleNextTick(server, sp, title, subtitle, "YGGDRASIL:" + sourceName);
         } else if (successOpt.isPresent()) {
             // 正版模式：绿色标题，副标题短文案（灰色）
-            var title = Component.literal("正版模式").withStyle(ChatFormatting.GREEN);
-            String shortSubtitle = TrueuuidConfig.onlineShortSubtitle();
-            var subtitle = Component.literal(clamp(shortSubtitle, SUBTITLE_MAX_CHARS)).withStyle(ChatFormatting.GRAY);
+            var title = Component.translatable("trueuuid.title.premium").withStyle(ChatFormatting.GREEN);
+            var subtitle = TrueuuidText.configComponent(
+                    TrueuuidConfig.onlineShortSubtitle(),
+                    "trueuuid.subtitle.online"
+            ).withStyle(ChatFormatting.GRAY);
 
             String mode = "MOJANG:" + successOpt.get().displayName();
             sendTitleNextTick(server, sp, title, subtitle, mode);
         } else if (!server.isDedicatedServer()) {
-            var title = Component.literal("单人模式").withStyle(ChatFormatting.GOLD);
-            var subtitle = Component.literal("未进行服务器鉴权").withStyle(ChatFormatting.GRAY);
+            var title = Component.translatable("trueuuid.title.singleplayer").withStyle(ChatFormatting.GOLD);
+            var subtitle = Component.translatable("trueuuid.subtitle.singleplayer").withStyle(ChatFormatting.GRAY);
 
             sendTitleNextTick(server, sp, title, subtitle, "SINGLEPLAYER");
         } else if (TrueuuidConfig.debug()) {
@@ -157,9 +166,4 @@ public class SkinRefreshHandler {
         });
     }
 
-    private static String clamp(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, Math.max(0, max - 1)) + "…";
-    }
 }
