@@ -18,9 +18,7 @@ public class Trueuuid {
         // 初始化运行时单例（注册表、最近 IP 容错缓存等） (Initialize runtime singleton (registry, recent IP grace cache, etc.))
         TrueuuidRuntime.init();
 
-        // 构造阶段 Forge common config 还没有完成加载，不能在这里读取 ConfigValue；登录认证阶段再按配置判断。
-        LOGGER.info("TrueUUID 已注册配置，登录阶段再读取 NoMojang/认证策略。");
-
+        LOGGER.info("TrueUUID 已注册配置");
         LOGGER.info("TrueUUID 已经加载");
     }
 }
