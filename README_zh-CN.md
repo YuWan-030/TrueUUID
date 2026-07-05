@@ -20,6 +20,7 @@ online-mode=false
 - 登录阶段注入带签名的皮肤 textures 属性。
 - 玩家进服后刷新玩家信息，帮助皮肤正确更新。
 - 清晰提示玩家当前是正版、皮肤站还是离线兜底状态。
+- 通过 Minecraft 语言文件显示界面文案，不同客户端会按自己的语言设置看到对应文字。
 - 支持离线玩家数据迁移到正版/皮肤站 UUID，迁移前需要确认并自动备份。
 - 防止已验证过的玩家名再次被同名离线账号冒用。
 
@@ -152,6 +153,14 @@ auth.recentIpGrace.ttlSeconds = 10
 
 允许已验证玩家退出后，在短时间内使用同名同 IP 重连时复用上一次验证 UUID。该机制不会用于明确拒绝认证或明确离线登录的客户端。
 
+```toml
+auth.showJoinFeedback = true
+```
+
+是否在玩家进服后显示正版、皮肤站、离线兜底、单人模式等状态提示。设为 `false` 后不再发送这些 Title/聊天提示，但不影响鉴权和皮肤刷新。
+
+默认进服提示和断开连接文案会以 Minecraft 翻译 key 发送，并由玩家客户端的语言文件（`zh_cn` / `en_us`）渲染。如果服务器之前已经生成过带中英双语自定义文字的配置，请把这些 message 值改回 `trueuuid.*` key，或删除配置后重新生成，才能按客户端语言显示。
+
 ```text
 /trueuuid cleanupuuid <name>
 ```
@@ -163,12 +172,6 @@ auth.recentIpGrace.ttlSeconds = 10
 ```
 
 仅管理员可用，权限等级 4。该指令表示管理员同意玩家继承同名离线 UUID 数据，会先备份再迁移到正版/皮肤站 UUID。
-
-```toml
-auth.nomojang.enabled = false
-```
-
-开启后会禁用 Mojang 会话校验。通常不建议开启。
 
 ```toml
 auth.yggdrasil.apiRootWhitelist = []
