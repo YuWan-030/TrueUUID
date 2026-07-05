@@ -46,7 +46,7 @@ public class NameRegistry {
     public synchronized String getAuthDisplayName(String name) {
         Entry e = map.get(name.toLowerCase(Locale.ROOT));
         if (e == null || e.authDisplayName == null || e.authDisplayName.isBlank()) {
-            return getAuthSource(name) == AuthState.AuthSource.YGGDRASIL ? "Yggdrasil 皮肤站" : "Mojang";
+            return getAuthSource(name) == AuthState.AuthSource.YGGDRASIL ? "Yggdrasil skin site" : "Mojang";
         }
         return e.authDisplayName;
     }
