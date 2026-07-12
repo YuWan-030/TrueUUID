@@ -68,8 +68,19 @@ public final class AuthDecider {
             return d;
         }
 
+        if (!TrueuuidConfig.allowOfflineOnFailure()) {
+            d.kind = Decision.Kind.DENY;
+            d.denyComponent = Component.translatable("trueuuid.disconnect.auth_denied");
+            return d;
+        }
+
         // 3) 未知名字：可允许离线兜底 (Unknown names: Allow offline fallback)
         if (TrueuuidConfig.allowOfflineForUnknownOnly() && !known) {
+            d.kind = Decision.Kind.OFFLINE;
+            return d;
+        }
+
+        if (!TrueuuidConfig.allowOfflineForUnknownOnly()) {
             d.kind = Decision.Kind.OFFLINE;
             return d;
         }
