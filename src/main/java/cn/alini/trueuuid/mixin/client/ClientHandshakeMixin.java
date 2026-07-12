@@ -61,6 +61,12 @@ public abstract class ClientHandshakeMixin {
         Connection loginConnection = this.connection;
         int transactionId = packet.getTransactionId();
 
+        if (offlineUpgradeAvailable && NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId)) {
+            trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, "", loginConnection, transactionId);
+            ci.cancel();
+            return;
+        }
+
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
