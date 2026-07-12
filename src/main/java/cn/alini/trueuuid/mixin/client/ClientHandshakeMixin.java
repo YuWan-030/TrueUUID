@@ -30,6 +30,7 @@ import java.util.function.Consumer;
 public abstract class ClientHandshakeMixin {
     @Shadow private Connection connection;
     @Shadow private Consumer<Component> updateStatus;
+    @Unique private String trueuuid$lastHasJoinedUrl = "";
 
     @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
@@ -62,7 +63,7 @@ public abstract class ClientHandshakeMixin {
         int transactionId = packet.getTransactionId();
 
         if (offlineUpgradeAvailable && NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId)) {
-            trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, "", loginConnection, transactionId);
+            trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, this.trueuuid$lastHasJoinedUrl, loginConnection, transactionId);
             ci.cancel();
             return;
         }
@@ -76,6 +77,7 @@ public abstract class ClientHandshakeMixin {
 
         // 在调用 joinServer 之前先读取 CHECK_URL，因为 joinServer 是一次性的。
         String hasJoinedUrl = trueuuid$resolveHasJoinedUrl();
+        this.trueuuid$lastHasJoinedUrl = hasJoinedUrl;
         final boolean upgradeAvailable = offlineUpgradeAvailable;
         final String upgradeOfflineUuid = offlineUuid;
         final String upgradeDataSummary = offlineDataSummary;

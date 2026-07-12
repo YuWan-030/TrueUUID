@@ -61,7 +61,7 @@ public final class PlayerDataMigration {
                 new FilePair(playerData(server, data.offlineUuid()), playerData(server, verifiedUuid), false, "vanilla"),
                 new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, verifiedUuid), false, "vanilla"),
                 new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, verifiedUuid), false, "cosarmor"),
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, verifiedUuid), false, "vanilla"),
+                new FilePair(advancements(server, data.offlineUuid()), advancements(server, verifiedUuid), false, "vanilla/advancements"),
                 new FilePair(stats(server, data.offlineUuid()), stats(server, verifiedUuid), false, "vanilla"),
                 new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, verifiedUuid), false, "opac"),
                 new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, verifiedUuid), true, "opac"),
@@ -78,9 +78,9 @@ public final class PlayerDataMigration {
         for (FilePair pair : pairs) {
             if (!Files.exists(pair.from())) continue;
             Files.createDirectories(pair.to().getParent());
-            backupFile(pair.from(), backupDir.resolve("offline").resolve(pair.backupGroup()).resolve(pair.from().getFileName()));
+            backupFile(pair.from(), backupDir.resolve("offline").resolve(pair.backupRelativeDir()).resolve(pair.from().getFileName()));
             if (Files.exists(pair.to())) {
-                backupFile(pair.to(), backupDir.resolve("verified-existing").resolve(pair.backupGroup()).resolve(pair.to().getFileName()));
+                backupFile(pair.to(), backupDir.resolve("verified-existing").resolve(pair.backupRelativeDir()).resolve(pair.to().getFileName()));
             }
             if (pair.replaceUuidText()) {
                 String text = Files.readString(pair.from(), StandardCharsets.UTF_8);
@@ -104,7 +104,7 @@ public final class PlayerDataMigration {
                 new FilePair(playerData(server, data.offlineUuid()), playerData(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, data.offlineUuid()), false, "cosarmor"),
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla/advancements"),
                 new FilePair(stats(server, data.offlineUuid()), stats(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, data.offlineUuid()), false, "opac"),
                 new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, data.offlineUuid()), true, "opac"),
@@ -121,7 +121,7 @@ public final class PlayerDataMigration {
         int cleaned = 0;
         for (FilePair file : files) {
             if (!Files.exists(file.from())) continue;
-            Path backup = backupDir.resolve(file.backupGroup()).resolve(file.from().getFileName());
+            Path backup = backupDir.resolve(file.backupRelativeDir()).resolve(file.from().getFileName());
             Files.createDirectories(backup.getParent());
             Files.move(file.from(), backup, StandardCopyOption.REPLACE_EXISTING);
             cleaned++;
@@ -261,7 +261,7 @@ public final class PlayerDataMigration {
                 .resolve(stamp + "-" + safeName + "-" + offlineUuid);
     }
 
-    private record FilePair(Path from, Path to, boolean replaceUuidText, String backupGroup) {}
+    private record FilePair(Path from, Path to, boolean replaceUuidText, String backupRelativeDir) {}
 
     private PlayerDataMigration() {}
 }
