@@ -177,7 +177,7 @@ Admin-only command, permission level 4. It approves inheriting the same-name off
 auth.yggdrasil.apiRootWhitelist = []
 ```
 
-Whitelist for Yggdrasil/authlib-injector `hasJoined` URLs. An empty list trusts the endpoint reported by the client. Add entries such as `"littleskin.cn"` to restrict accepted skin-site sources.
+Allowlist for Yggdrasil/authlib-injector `hasJoined` hosts. An empty list rejects all client-reported endpoints and keeps Mojang as the safe default. Add an exact host such as `"littleskin.cn"`, or an explicit wildcard such as `"*.example.com"`. Custom endpoints must pass HTTPS/443, path, DNS/IP, response-size, timeout, and no-redirect checks.
 
 NeoForge 1.21.1 also provides:
 
@@ -208,7 +208,7 @@ macOS/Linux:
 ./gradlew build
 ```
 
-The built mod is written to `build/libs/`.
+The Forge 1.20.1 mod is written to `platform/forge-1.20.1/build/libs/`.
 
 ## Privacy
 

@@ -177,7 +177,7 @@ auth.showJoinFeedback = true
 auth.yggdrasil.apiRootWhitelist = []
 ```
 
-Yggdrasil/authlib-injector `hasJoined` URL 白名单。空列表表示信任客户端上报的接口地址。可以添加 `"littleskin.cn"` 等条目来限制允许的皮肤站来源。
+Yggdrasil/authlib-injector `hasJoined` 主机白名单。空列表会拒绝全部客户端上报接口，并安全地默认使用 Mojang。可以填写精确主机名（例如 `"littleskin.cn"`）或明确的通配符（例如 `"*.example.com"`）。自定义接口还必须通过 HTTPS/443、路径、DNS/IP、响应大小、超时和禁止重定向检查。
 
 NeoForge 1.21.1 额外提供：
 
@@ -208,7 +208,7 @@ macOS/Linux：
 ./gradlew build
 ```
 
-构建产物会输出到 `build/libs/`。
+Forge 1.20.1 构建产物会输出到 `platform/forge-1.20.1/build/libs/`。
 
 ## 隐私
 
