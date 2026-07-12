@@ -30,6 +30,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,6 +54,11 @@ public abstract class ServerLoginMixin {
     @Unique private String trueuuid$nonce = null;
     @Unique private long trueuuid$sentAt = 0L;
     @Unique private boolean trueuuid$offlineUpgradeOffered = false;
+    @Unique private boolean trueuuid$migrationConfirmation = false;
+    @Unique private GameProfile trueuuid$pendingVerifiedProfile = null;
+    @Unique private AuthState.AuthSource trueuuid$pendingAuthSource = null;
+    @Unique private String trueuuid$pendingAuthDisplayName = null;
+    @Unique private String trueuuid$pendingIp = null;
     @Unique private static final java.util.concurrent.ConcurrentHashMap<String, Long> TRUEUUID$MIGRATION_PENDING = new java.util.concurrent.ConcurrentHashMap<>();
 
 
@@ -75,21 +81,16 @@ public abstract class ServerLoginMixin {
             System.out.println("[TrueUUID] 握手 nonce: " + this.trueuuid$nonce + ", txId: " + this.trueuuid$txId);
         }
 
-        AuthQueryTracker.mark(this.trueuuid$txId);
-        PlayerDataMigration.OfflineData offlineData = null;
-        if (this.authenticatedProfile != null && !TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(this.authenticatedProfile.getName())) {
-            offlineData = PlayerDataMigration.findOfflineData(this.server, this.authenticatedProfile.getName());
-        }
-        if (offlineData != null && this.authenticatedProfile != null && trueuuid$isMigrationPending(this.authenticatedProfile.getName())) {
+        if (this.authenticatedProfile != null && trueuuid$isMigrationPending(this.authenticatedProfile.getName())) {
             sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_pending"));
             reset();
             return;
         }
-        this.trueuuid$offlineUpgradeOffered = offlineData != null;
-        AuthPayload auth = !this.trueuuid$offlineUpgradeOffered
-                ? new AuthPayload(this.trueuuid$nonce)
-                : new AuthPayload(this.trueuuid$nonce, true, offlineData.offlineUuid().toString(), offlineData.summary());
-        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, auth));
+        this.trueuuid$offlineUpgradeOffered = false;
+        this.trueuuid$migrationConfirmation = false;
+
+        AuthQueryTracker.mark(this.trueuuid$txId);
+        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, new AuthPayload(this.trueuuid$nonce)));
     }
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
@@ -109,7 +110,7 @@ public abstract class ServerLoginMixin {
         if (this.trueuuid$offlineUpgradeOffered) {
             sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_confirm_timeout"));
             reset();
-        } else if (TrueuuidConfig.allowOfflineOnTimeout() || TrueuuidConfig.allowOfflineOnFailure()) {
+        } else if (TrueuuidConfig.allowOfflineOnTimeout()) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 超时允许离线进入");
             }
@@ -162,6 +163,38 @@ public abstract class ServerLoginMixin {
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 客户端认证包ackOk: " + ackOk + ", hasJoinedUrl: " + (clientHasJoinedUrl.isEmpty() ? "(mojang default)" : clientHasJoinedUrl));
         }
+        if (this.trueuuid$migrationConfirmation) {
+            if (this.trueuuid$ackHandled) {
+                if (TrueuuidConfig.debug()) {
+                    System.out.println("[TrueUUID] duplicate migration confirmation ignored, txId=" + this.trueuuid$txId);
+                }
+                ci.cancel();
+                return;
+            }
+            this.trueuuid$ackHandled = true;
+            try {
+                if (!ackOk || !migrationConfirmed || this.trueuuid$pendingVerifiedProfile == null || this.trueuuid$pendingAuthSource == null) {
+                    trueuuid$sendDuplicateUuidDisconnect();
+                    return;
+                }
+
+                trueuuid$markMigrationPending(this.trueuuid$pendingVerifiedProfile.getName());
+                trueuuid$completeVerifiedLogin(
+                        this.trueuuid$pendingIp != null ? this.trueuuid$pendingIp : ip,
+                        this.trueuuid$pendingVerifiedProfile,
+                        this.trueuuid$pendingAuthSource,
+                        this.trueuuid$pendingAuthDisplayName,
+                        true
+                );
+            } finally {
+                if (this.trueuuid$pendingVerifiedProfile != null) {
+                    trueuuid$clearMigrationPending(this.trueuuid$pendingVerifiedProfile.getName());
+                }
+                reset();
+            }
+            ci.cancel();
+            return;
+        }
         if (!ackOk) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (this.authenticatedProfile != null ? this.authenticatedProfile.getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
@@ -174,13 +207,7 @@ public abstract class ServerLoginMixin {
         if (!clientHasJoinedUrl.isEmpty()) {
             var whitelist = TrueuuidConfig.apiRootWhitelist();
             if (!whitelist.isEmpty()) {
-                boolean allowed = false;
-                for (String entry : whitelist) {
-                    if (entry != null && !entry.isBlank() && clientHasJoinedUrl.contains(entry)) {
-                        allowed = true;
-                        break;
-                    }
-                }
+                boolean allowed = trueuuid$isWhitelistedAuthEndpoint(clientHasJoinedUrl, whitelist);
                 if (!allowed) {
                     if (TrueuuidConfig.debug()) {
                         System.out.println("[TrueUUID] 客户端上报的 hasJoined URL 不在白名单中: " + clientHasJoinedUrl);
@@ -255,20 +282,8 @@ public abstract class ServerLoginMixin {
                                         propMap.put(p.name(), new Property(p.name(), p.value()));
                                     }
                                 }
-                                // Vanilla has already started the offline login flow before
-                                // our custom query runs. Replace the profile in-place and let
-                                // the original login tick continue; starting verification a
-                                // second time can inject Forge's login pipeline handlers twice.
-                                this.authenticatedProfile = newProfile;
-                                AuthState.markAuthSuccess(this.connection, res.uuid(), res.name(), source, displayName);
-                                if (!trueuuid$handleOfflineUpgradeIfNeeded(res.name(), res.uuid(), source, displayName, migrationConfirmed)) {
+                                if (!trueuuid$completeVerifiedLogin(ip, newProfile, source, displayName, migrationConfirmed)) {
                                     return;
-                                }
-                                TrueuuidRuntime.NAME_REGISTRY.recordSuccess(res.name(), res.uuid(), ip, source, displayName);
-                                TrueuuidRuntime.IP_GRACE.record(res.name(), ip, res.uuid(), source, displayName);
-                                trueuuid$resumeLogin();
-                                if (TrueuuidConfig.debug()) {
-                                    System.out.println("[TrueUUID] 记录认证成功来源: " + source + ", displayName=" + displayName);
                                 }
                             } catch (Throwable t) {
                                 if (TrueuuidConfig.debug()) {
@@ -276,10 +291,12 @@ public abstract class ServerLoginMixin {
                                 }
                                 handleAuthFailure(ip, "服务器异常", false);
                             } finally {
-                                if (this.authenticatedProfile != null) {
-                                    trueuuid$clearMigrationPending(this.authenticatedProfile.getName());
+                                if (!this.trueuuid$migrationConfirmation) {
+                                    if (this.authenticatedProfile != null) {
+                                        trueuuid$clearMigrationPending(this.authenticatedProfile.getName());
+                                    }
+                                    reset();
                                 }
-                                reset();
                             }
                         });
                     });
@@ -400,46 +417,155 @@ public abstract class ServerLoginMixin {
     }
 
     @Unique
-    private boolean trueuuid$handleOfflineUpgradeIfNeeded(String name, UUID verifiedUuid, AuthState.AuthSource source, String displayName, boolean confirmed) {
-        if (!PlayerDataMigration.needsOfflineUpgrade(this.server, name, verifiedUuid)) {
-            return true;
+    private boolean trueuuid$completeVerifiedLogin(String ip, GameProfile verifiedProfile, AuthState.AuthSource source, String displayName, boolean migrationConfirmed) {
+        if (verifiedProfile == null || verifiedProfile.getId() == null || verifiedProfile.getName() == null || verifiedProfile.getName().isBlank()) {
+            sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.auth_denied"));
+            return false;
         }
+
+        String name = verifiedProfile.getName();
+        UUID verifiedUuid = verifiedProfile.getId();
         PlayerDataMigration.OfflineData data = PlayerDataMigration.findOfflineData(this.server, name);
-        if (data == null) {
-            return true;
-        }
-        Component sourceName = source == AuthState.AuthSource.YGGDRASIL
-                ? Component.translatable("trueuuid.auth_source.skin_site.with_name", displayName == null || displayName.isBlank() ? "Yggdrasil" : displayName)
-                : Component.translatable("trueuuid.auth_source.premium");
-        if (!confirmed) {
-            sendDisconnectWithReason(Component.translatable(
-                    "trueuuid.disconnect.duplicate_uuid",
-                    sourceName,
-                    data.offlineUuid(),
-                    verifiedUuid,
-                    name
-            ));
-            return false;
-        }
-        try {
-            PlayerDataMigration.migrateOfflineToVerified(this.server, name, verifiedUuid);
-            if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] migrated offline data before login: player=" + name
-                        + ", offlineUuid=" + data.offlineUuid() + ", verifiedUuid=" + verifiedUuid);
+        if (data != null && !data.offlineUuid().equals(verifiedUuid)) {
+            if (!migrationConfirmed) {
+                trueuuid$requestOfflineUpgradeConfirmation(data, verifiedProfile, source, displayName, ip);
+                return false;
             }
-            return true;
-        } catch (Exception ex) {
-            System.out.println("[TrueUUID] 离线玩家数据继承失败, player=" + name + ", offlineUuid=" + data.offlineUuid()
-                    + ", verifiedUuid=" + verifiedUuid + ", error=" + ex);
-            sendDisconnectWithReason(Component.translatable(
-                    "trueuuid.disconnect.migration_failed",
-                    name,
-                    data.offlineUuid(),
-                    verifiedUuid,
-                    ex.getMessage()
-            ));
+            try {
+                PlayerDataMigration.migrateOfflineToVerified(this.server, name, verifiedUuid);
+                if (TrueuuidConfig.debug()) {
+                    System.out.println("[TrueUUID] migrated offline data before login: player=" + name
+                            + ", offlineUuid=" + data.offlineUuid() + ", verifiedUuid=" + verifiedUuid);
+                }
+            } catch (Exception ex) {
+                System.out.println("[TrueUUID] offline player data migration failed, player=" + name + ", offlineUuid=" + data.offlineUuid()
+                        + ", verifiedUuid=" + verifiedUuid + ", error=" + ex);
+                sendDisconnectWithReason(Component.translatable(
+                        "trueuuid.disconnect.migration_failed",
+                        name,
+                        data.offlineUuid(),
+                        verifiedUuid,
+                        ex.getMessage()
+                ));
+                return false;
+            }
+        }
+
+        this.authenticatedProfile = verifiedProfile;
+        AuthState.markAuthSuccess(this.connection, verifiedUuid, name, source, displayName);
+        TrueuuidRuntime.NAME_REGISTRY.recordSuccess(name, verifiedUuid, ip, source, displayName);
+        TrueuuidRuntime.IP_GRACE.record(name, ip, verifiedUuid, source, displayName);
+        trueuuid$resumeLogin();
+        if (TrueuuidConfig.debug()) {
+            System.out.println("[TrueUUID] recorded successful authentication source=" + source + ", displayName=" + displayName);
+        }
+        return true;
+    }
+
+    @Unique
+    private void trueuuid$requestOfflineUpgradeConfirmation(PlayerDataMigration.OfflineData data, GameProfile verifiedProfile, AuthState.AuthSource source, String displayName, String ip) {
+        this.trueuuid$pendingVerifiedProfile = verifiedProfile;
+        this.trueuuid$pendingAuthSource = source;
+        this.trueuuid$pendingAuthDisplayName = displayName;
+        this.trueuuid$pendingIp = ip;
+        this.trueuuid$migrationConfirmation = true;
+        this.trueuuid$offlineUpgradeOffered = true;
+        this.trueuuid$ackHandled = false;
+        this.trueuuid$txId = TRUEUUID$NEXT_TX_ID.getAndIncrement();
+        this.trueuuid$nonce = NetIds.MIGRATION_CONFIRM_SERVER_ID;
+        this.trueuuid$sentAt = System.currentTimeMillis();
+
+        AuthQueryTracker.mark(this.trueuuid$txId);
+        AuthPayload payload = new AuthPayload(
+                NetIds.MIGRATION_CONFIRM_SERVER_ID,
+                true,
+                data.offlineUuid().toString(),
+                data.summary()
+        );
+        this.connection.send(new ClientboundCustomQueryPacket(this.trueuuid$txId, payload));
+    }
+
+    @Unique
+    private void trueuuid$sendDuplicateUuidDisconnect() {
+        if (this.trueuuid$pendingVerifiedProfile == null || this.trueuuid$pendingAuthSource == null) {
+            sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.auth_denied"));
+            return;
+        }
+        String name = this.trueuuid$pendingVerifiedProfile.getName();
+        UUID verifiedUuid = this.trueuuid$pendingVerifiedProfile.getId();
+        PlayerDataMigration.OfflineData data = PlayerDataMigration.findOfflineData(this.server, name);
+        if (data == null || verifiedUuid == null) {
+            sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.auth_denied"));
+            return;
+        }
+
+        Component sourceName = this.trueuuid$pendingAuthSource == AuthState.AuthSource.YGGDRASIL
+                ? Component.translatable(
+                "trueuuid.auth_source.skin_site.with_name",
+                this.trueuuid$pendingAuthDisplayName == null || this.trueuuid$pendingAuthDisplayName.isBlank()
+                        ? "Yggdrasil"
+                        : this.trueuuid$pendingAuthDisplayName
+        )
+                : Component.translatable("trueuuid.auth_source.premium");
+        sendDisconnectWithReason(Component.translatable(
+                "trueuuid.disconnect.duplicate_uuid",
+                sourceName,
+                data.offlineUuid(),
+                verifiedUuid,
+                name
+        ));
+    }
+
+    @Unique
+    private static boolean trueuuid$isWhitelistedAuthEndpoint(String hasJoinedUrl, List<String> whitelist) {
+        if (hasJoinedUrl == null || hasJoinedUrl.isBlank()) {
             return false;
         }
+        String host;
+        try {
+            host = URI.create(hasJoinedUrl).getHost();
+        } catch (Throwable ignored) {
+            return false;
+        }
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String normalizedHost = host.toLowerCase(java.util.Locale.ROOT);
+        for (String entry : whitelist) {
+            String allowed = trueuuid$normalizeWhitelistHost(entry);
+            if (!allowed.isEmpty() && (normalizedHost.equals(allowed) || normalizedHost.endsWith("." + allowed))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Unique
+    private static String trueuuid$normalizeWhitelistHost(String entry) {
+        if (entry == null || entry.isBlank()) {
+            return "";
+        }
+        String value = entry.trim().toLowerCase(java.util.Locale.ROOT);
+        try {
+            if (value.contains("://")) {
+                String host = URI.create(value).getHost();
+                return host == null ? "" : host.toLowerCase(java.util.Locale.ROOT);
+            }
+        } catch (Throwable ignored) {
+            return "";
+        }
+        while (value.startsWith(".")) {
+            value = value.substring(1);
+        }
+        int slash = value.indexOf('/');
+        if (slash >= 0) {
+            value = value.substring(0, slash);
+        }
+        int port = value.indexOf(':');
+        if (port >= 0) {
+            value = value.substring(0, port);
+        }
+        return value;
     }
 
     @Unique
@@ -447,10 +573,16 @@ public abstract class ServerLoginMixin {
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 状态重置, txId: " + this.trueuuid$txId);
         }
+        AuthQueryTracker.consume(this.trueuuid$txId);
         this.trueuuid$txId = 0;
         this.trueuuid$nonce = null;
         this.trueuuid$sentAt = 0L;
         this.trueuuid$offlineUpgradeOffered = false;
+        this.trueuuid$migrationConfirmation = false;
+        this.trueuuid$pendingVerifiedProfile = null;
+        this.trueuuid$pendingAuthSource = null;
+        this.trueuuid$pendingAuthDisplayName = null;
+        this.trueuuid$pendingIp = null;
     }
 
     @Unique

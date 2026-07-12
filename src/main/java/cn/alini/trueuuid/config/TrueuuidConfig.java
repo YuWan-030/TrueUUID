@@ -99,10 +99,12 @@ public final class TrueuuidConfig {
             debug = b.comment("启用调试日志输出。/ Enable debug logging.").define("debug", false);
             mojangReverseProxy = b.comment("Mojang 会话服务器地址，可改为反代地址。/ Mojang Session Server endpoint. You may change this to a reverse proxy if needed.").define("mojangReverseProxy", "https://sessionserver.mojang.com");
             apiRootWhitelist = b.comment(
-                            "authlib-injector/Yggdrasil 皮肤站 hasJoined URL 白名单。/ Whitelist for authlib-injector/Yggdrasil skin-site hasJoined URLs.",
-                            "默认空列表表示信任客户端上报的皮肤站端点；填写 littleskin.cn 等关键字后，只允许匹配项通过。/ Empty by default: trust the skin-site endpoint reported by the client. Add entries such as littleskin.cn to allow only matching endpoints."
+                            "Whitelist for authlib-injector/Yggdrasil skin-site domains. / authlib-injector/Yggdrasil 皮肤站域名白名单。",
+                            "Empty by default: trust any skin-site URL reported by the client. / 留空表示信任客户端上报的任何皮肤站 URL。",
+                            "When configured, only skin-site hosts matching a whitelist entry are accepted. / 配置后，只有主机名匹配白名单条目的皮肤站才会被接受。",
+                            "Example: [\"littleskin.cn\", \"skin.example.com\"] / 示例: [\"littleskin.cn\", \"skin.example.com\"]"
                     )
-                    .defineListAllowEmpty(List.of("yggdrasil.apiRootWhitelist"), List::of, o -> o instanceof String);
+                    .defineListAllowEmpty(List.of("yggdrasil", "apiRootWhitelist"), List::of, o -> o instanceof String);
             b.pop();
         }
     }
