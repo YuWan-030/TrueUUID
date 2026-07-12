@@ -13,3 +13,6 @@ plugins {
 }
 
 rootProject.name = 'TrueUUID'
+
+include 'shared:protocol'
+include 'platform:forge-1.20.1'
