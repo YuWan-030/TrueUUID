@@ -38,6 +38,7 @@ public abstract class ClientHandshakeMixin {
 
     @Shadow private Connection connection;
     @Shadow private Consumer<Component> updateStatus;
+    @Unique private String trueuuid$lastHasJoinedUrl = "";
 
     @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
@@ -53,6 +54,12 @@ public abstract class ClientHandshakeMixin {
         Connection loginConnection = this.connection;
         int transactionId = packet.transactionId();
 
+        if (authPayload.offlineUpgradeAvailable() && NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId)) {
+            trueuuid$confirmOfflinePlayerDataUpgrade(mc, authPayload, this.trueuuid$lastHasJoinedUrl, loginConnection, transactionId);
+            ci.cancel();
+            return;
+        }
+
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
@@ -62,6 +69,7 @@ public abstract class ClientHandshakeMixin {
 
         // 在调用 joinServer 之前先读取 hasJoined URL，authlib-injector 会影响该端点。
         String hasJoinedUrl = trueuuid$resolveHasJoinedUrl();
+        this.trueuuid$lastHasJoinedUrl = hasJoinedUrl;
 
         // 复用原版正版登录文案，中文客户端会显示“正在登录中...”。
         this.updateStatus.accept(Component.translatable("connect.authorizing"));
