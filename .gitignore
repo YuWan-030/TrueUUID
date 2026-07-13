@@ -101,6 +101,7 @@ $RECYCLE.BIN/
 *.lnk
 
 .gradle
+.vscode
 build/
 
 # Ignore Gradle GUI config
