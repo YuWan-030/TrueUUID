@@ -1,4 +1,4 @@
-package cn.alini.trueuuid.server;
+package cn.alini.trueuuid.protocol;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -11,7 +11,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public final class AuthRequestCoordinator implements AutoCloseable {
+/** Bounded, cancellable request execution shared by all platform adapters. */
+public final class BoundedRequestCoordinator implements AutoCloseable {
     private static final int MAX_IN_FLIGHT = 64;
     private static final int MAX_PER_NAME = 2;
     private static final int MAX_PER_IP = 2;
@@ -19,9 +20,9 @@ public final class AuthRequestCoordinator implements AutoCloseable {
 
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(4, 4, 30, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(MAX_IN_FLIGHT), r -> {
-        Thread t = new Thread(r, "TrueUUID-AuthWorker");
-        t.setDaemon(true);
-        return t;
+        Thread thread = new Thread(r, "TrueUUID-AuthWorker");
+        thread.setDaemon(true);
+        return thread;
     }, new ThreadPoolExecutor.AbortPolicy());
     private final Map<Key, CancellableFuture<?>> inFlight = new HashMap<>();
     private final Map<String, Integer> byName = new HashMap<>();
@@ -45,12 +46,11 @@ public final class AuthRequestCoordinator implements AutoCloseable {
         byName.merge(normalizedName, 1, Integer::sum);
         byIp.merge(normalizedIp, 1, Integer::sum);
         try {
-            Future<?> task = executor.submit(() -> {
+            result.task = executor.submit(() -> {
                 if (result.isCancelled()) return;
                 try { result.complete(request.call()); }
                 catch (Throwable ex) { result.completeExceptionally(ex); }
             });
-            result.task = task;
         } catch (Throwable ex) {
             result.completeExceptionally(ex);
         }
@@ -71,9 +71,9 @@ public final class AuthRequestCoordinator implements AutoCloseable {
     @Override public synchronized void close() {
         if (closed) return;
         closed = true;
-        java.util.List<CancellableFuture<?>> pending = java.util.List.copyOf(inFlight.values());
+        var pending = java.util.List.copyOf(inFlight.values());
         inFlight.clear(); byName.clear(); byIp.clear();
-        pending.forEach(f -> f.cancel(true));
+        pending.forEach(future -> future.cancel(true));
         executor.shutdownNow();
     }
 

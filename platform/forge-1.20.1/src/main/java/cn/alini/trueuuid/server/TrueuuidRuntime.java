@@ -1,11 +1,13 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
+
 public final class TrueuuidRuntime {
     private static volatile boolean INIT = false;
     public static NameRegistry NAME_REGISTRY;
     public static RecentIpGraceCache IP_GRACE;
     public static AuthState AUTH_STATE;
-    public static AuthRequestCoordinator AUTH_REQUESTS;
+    public static BoundedRequestCoordinator AUTH_REQUESTS;
     public static MigrationCoordinator MIGRATIONS;
     public static MigrationLockRegistry MIGRATION_LOCKS;
 
@@ -16,7 +18,7 @@ public final class TrueuuidRuntime {
             NAME_REGISTRY = new NameRegistry();
             IP_GRACE = new RecentIpGraceCache();
             AUTH_STATE = new AuthState();
-            AUTH_REQUESTS = new AuthRequestCoordinator();
+            AUTH_REQUESTS = new BoundedRequestCoordinator();
             MIGRATIONS = new MigrationCoordinator();
             MIGRATION_LOCKS = new MigrationLockRegistry();
             INIT = true;

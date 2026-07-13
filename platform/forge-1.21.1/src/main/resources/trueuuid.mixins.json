@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "priority": 900,
+  "minVersion": "0.8",
+  "package": "cn.alini.trueuuid.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "trueuuid.refmap.json",
+  "client": [
+    "client.ForgeClientQueryDecodeMixin",
+    "client.ForgeClientHandshakeMixin"
+  ],
+  "mixins": [
+    "server.ForgeServerAnswerDecodeMixin",
+    "server.ForgeServerLoginMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -75,17 +75,16 @@ Supported migration targets include:
 
 ## Requirements
 
-Forge build:
+Current repository target:
 
 - Minecraft: 1.20.1
-- Forge: 47.x
+- Forge: 47.4.10 (recommended)
 - Java: 17
 
-NeoForge build:
-
-- Minecraft: 1.21.1
-- NeoForge: 21.1.x
-- Java: 21
+The repository is structured for additional independent loader/version
+adapters, but no other adapter is currently an active build target. The former
+NeoForge 1.21.1 implementation is retained as historical reference work; it
+is not a supported module in this branch.
 
 Client and server must both install TrueUUID.
 
@@ -179,14 +178,6 @@ auth.yggdrasil.apiRootWhitelist = []
 
 Allowlist for Yggdrasil/authlib-injector `hasJoined` hosts. An empty list rejects all client-reported endpoints and keeps Mojang as the safe default. Add an exact host such as `"littleskin.cn"`, or an explicit wildcard such as `"*.example.com"`. Custom endpoints must pass HTTPS/443, path, DNS/IP, response-size, timeout, and no-redirect checks.
 
-NeoForge 1.21.1 also provides:
-
-```toml
-auth.mojangReverseProxy = "https://sessionserver.mojang.com"
-```
-
-Mojang Session Server endpoint. This can be changed to a reverse proxy if needed.
-
 ## Compatibility Notes
 
 - Proxies: Mojang's `hasJoined` IP parameter is optional. Verification can still work when the real client IP is hidden by a proxy.
@@ -208,7 +199,10 @@ macOS/Linux:
 ./gradlew build
 ```
 
-The Forge 1.20.1 mod is written to `platform/forge-1.20.1/build/libs/`.
+The active Forge 1.20.1 mod is written to
+`platform/forge-1.20.1/build/libs/`. See
+[`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
+the target status and release model.
 
 ## Privacy
 

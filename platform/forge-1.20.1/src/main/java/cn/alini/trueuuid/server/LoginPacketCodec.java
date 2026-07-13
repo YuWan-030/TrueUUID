@@ -2,35 +2,31 @@ package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.AuthWireCodec;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 
 final class LoginPacketCodec {
-    record Answer(boolean joined, String endpoint, boolean migrationConfirmed, boolean missingSessionToken) {}
-
-    static Answer decode(FriendlyByteBuf data) {
+    static AuthMessages.Answer decode(FriendlyByteBuf data) {
         if (data == null) throw new IllegalArgumentException("missing login answer payload");
-        boolean joined = data.readBoolean();
-        String endpoint = data.isReadable() ? data.readUtf(AuthMessages.MAX_ENDPOINT_CHARS) : "";
-        boolean migration = data.isReadable() && data.readBoolean();
-        boolean missingToken = data.isReadable() && data.readBoolean();
-        return new Answer(joined, endpoint, migration, missingToken);
+        byte[] payload = new byte[data.readableBytes()];
+        data.readBytes(payload);
+        return AuthWireCodec.decodeAnswer(payload);
     }
 
     static ClientboundCustomQueryPacket initial(int transactionId, String nonce) {
-        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        buffer.writeUtf(nonce, AuthMessages.MAX_NONCE_CHARS);
-        buffer.writeBoolean(false);
-        return new ClientboundCustomQueryPacket(transactionId, NetIds.AUTH, buffer);
+        return query(transactionId, new AuthMessages.Query(nonce, false, "", ""));
     }
 
     static ClientboundCustomQueryPacket migration(int transactionId, PlayerDataMigration.OfflineData data) {
+        return query(transactionId, new AuthMessages.Query(NetIds.MIGRATION_CONFIRM_SERVER_ID, true,
+                data.offlineUuid().toString(), data.summary()));
+    }
+
+    private static ClientboundCustomQueryPacket query(int transactionId, AuthMessages.Query query) {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        buffer.writeUtf(NetIds.MIGRATION_CONFIRM_SERVER_ID, AuthMessages.MAX_NONCE_CHARS);
-        buffer.writeBoolean(true);
-        buffer.writeUtf(data.offlineUuid().toString(), 64);
-        buffer.writeUtf(data.summary(), AuthMessages.MAX_SUMMARY_CHARS);
+        buffer.writeBytes(AuthWireCodec.encodeQuery(query));
         return new ClientboundCustomQueryPacket(transactionId, NetIds.AUTH, buffer);
     }
 

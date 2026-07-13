@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[52,)"
+license="GNU LGPL 3.0"
+
+[[mods]]
+modId="trueuuid"
+version="${mod_version}"
+displayName="TrueUUID"
+authors="_YuWan"
+description='''Secure login verification for offline-mode servers.'''
+
+[[mixins]]
+config="trueuuid.mixins.json"
+
+[[dependencies.trueuuid]]
+modId="forge"
+mandatory=true
+versionRange="[${forge_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.trueuuid]]
+modId="minecraft"
+mandatory=true
+versionRange="[${minecraft_version},1.22)"
+ordering="NONE"
+side="BOTH"

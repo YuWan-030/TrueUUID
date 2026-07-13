@@ -1,8 +1,13 @@
 // java
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.net.NetIds;
+import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.LoginStateMachine;
+import cn.alini.trueuuid.protocol.MigrationTransaction;
+import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.util.TrueuuidText;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.network.Connection;
@@ -30,13 +35,19 @@ public final class ServerLoginController {
     }
 
     private final Access access;
+    private final LoginStateMachine loginState = new LoginStateMachine();
     public ServerLoginController(Access access) { this.access = access; }
     // 握手状态 (handshake state)
     // 使用高位事务号，避免和 Forge/FML 登录握手从 0 开始分配的 CustomQuery 事务号撞车。
     private static final AtomicInteger TRUEUUID$NEXT_TX_ID = new AtomicInteger(0x4F000000);
-    private int trueuuid$txId = 0;
+    private volatile int trueuuid$txId = 0;
     private String trueuuid$nonce = null;
-    private long trueuuid$sentAt = 0L;
+    private volatile long trueuuid$sentAt = 0L;
+    /** Set by the Netty hello handler and consumed only after Forge has
+     * completed its LOGIN negotiation on the server thread. */
+    private volatile boolean trueuuid$queryPending = false;
+    /** True only after this offline login has reached a final auth decision. */
+    private volatile boolean trueuuid$authFinalized = false;
     private boolean trueuuid$offlineUpgradeOffered = false;
     private boolean trueuuid$migrationConfirmation = false;
     private GameProfile trueuuid$pendingVerifiedProfile = null;
@@ -51,29 +62,68 @@ public final class ServerLoginController {
     private volatile boolean trueuuid$ackHandled = false;
 
     public void afterHello(ServerboundHelloPacket pkt, CallbackInfo ci) {
-        if (access.server().usesAuthentication() || access.profile() == null) return;
+        if (access.server().usesAuthentication()) {
+            debug("skipping TrueUUID query because the server is in online mode");
+            return;
+        }
+        if (access.profile() == null) {
+            debug("skipping TrueUUID query because the login profile is unavailable");
+            return;
+        }
 
         // 清理 ack 处理标志（新握手重新可处理） (Clear ack handled flag (new handshake can be processed again))
         this.trueuuid$ackHandled = false;
 
+        // Forge owns the LOGIN custom-payload phase. Sending another custom
+        // query here races its indexed handshake replies and corrupts the
+        // packet stream.  tick() will dispatch ours immediately before the
+        // vanilla READY_TO_ACCEPT path, after Forge negotiation is complete.
+        this.trueuuid$authFinalized = false;
+        this.trueuuid$queryPending = true;
+    }
+
+    /**
+     * Called immediately before vanilla accepts a READY_TO_ACCEPT login.  At
+     * this point Forge's LOGIN negotiation is complete, so a separate custom
+     * query cannot be mistaken for an FML indexed reply.
+     */
+    public void onReadyToAccept(CallbackInfo ci) {
+        if (!this.trueuuid$queryPending) {
+            // Forge re-enters READY_TO_ACCEPT on every server tick.  Keep the
+            // final accept call blocked while a TrueUUID query is outstanding;
+            // the async verifier releases it by reset() on success/fallback.
+            if (this.trueuuid$txId != 0) ci.cancel();
+            // Fail closed if a loader/lifecycle edge reaches READY_TO_ACCEPT
+            // without our hello hook having scheduled the required query.
+            if (!this.trueuuid$authFinalized && !access.server().usesAuthentication() && access.profile() != null) {
+                this.trueuuid$queryPending = true;
+                onReadyToAccept(ci);
+            }
+            return;
+        }
+        this.trueuuid$queryPending = false;
+
+        if (access.server().usesAuthentication() || access.profile() == null) return;
+        if (trueuuid$isMigrationPending(access.profile().getName())) {
+            sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_pending"));
+            reset();
+            ci.cancel();
+            return;
+        }
+
         this.trueuuid$nonce = UUID.randomUUID().toString().replace("-", "");
         this.trueuuid$txId = TRUEUUID$NEXT_TX_ID.getAndIncrement();
         this.trueuuid$sentAt = System.currentTimeMillis();
-
-        if (TrueuuidConfig.debug()) {
-            System.out.println("[TrueUUID] handleHello: 开始握手, 玩家: " + (access.profile() != null ? access.profile().getName() : "<unknown>"));
-            System.out.println("[TrueUUID] 握手 nonce: " + this.trueuuid$nonce + ", txId: " + this.trueuuid$txId);
-        }
-
-        if (access.profile() != null && trueuuid$isMigrationPending(access.profile().getName())) {
-            sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_pending"));
-            reset();
-            return;
-        }
+        this.loginState.reset();
+        this.loginState.beginAuthentication(this.trueuuid$txId, this.trueuuid$nonce, this.trueuuid$sentAt);
         this.trueuuid$offlineUpgradeOffered = false;
         this.trueuuid$migrationConfirmation = false;
+        debug("sending authentication query for " + access.profile().getName());
 
         access.connection().send(LoginPacketCodec.initial(this.trueuuid$txId, this.trueuuid$nonce));
+        // Do not let vanilla accept the offline profile while authentication
+        // is still in progress. onTick releases this once the state resets.
+        ci.cancel();
     }
 
     public void onTick(CallbackInfo ci) {
@@ -122,7 +172,11 @@ public final class ServerLoginController {
 
     public void onLoginCustom(ServerboundCustomQueryPacket packet, CallbackInfo ci) {
         if (this.trueuuid$txId == 0) return;
-        if (packet.getTransactionId() != this.trueuuid$txId) return;
+        if (packet.getTransactionId() != this.trueuuid$txId) {
+            debug("ignoring login query response for transaction " + packet.getTransactionId());
+            return;
+        }
+        debug("received authentication response for " + access.profile().getName());
 
         String ip;
         if (access.connection().getRemoteAddress() instanceof InetSocketAddress isa) {
@@ -134,17 +188,23 @@ public final class ServerLoginController {
             System.out.println("[TrueUUID] 收到客户端认证包, 玩家: " + (access.profile() != null ? access.profile().getName() : "<unknown>") + ", ip: " + ip);
         }
 
-        LoginPacketCodec.Answer answer;
+        AuthMessages.Answer answer;
         try {
             answer = LoginPacketCodec.decode(packet.getData());
         } catch (Throwable malformed) {
+            debug("received malformed TrueUUID answer: " + malformed.getClass().getName());
             handleAuthFailure(ip, "缺少数据");
             reset(); ci.cancel(); return;
         }
+        LoginStateMachine.AnswerResult stateResult = loginState.acceptAnswer(packet.getTransactionId(), answer);
+        if (stateResult == LoginStateMachine.AnswerResult.IGNORE) {
+            ci.cancel();
+            return;
+        }
         boolean ackOk = answer.joined();
-        String clientHasJoinedUrl = answer.endpoint();
+        String clientHasJoinedUrl = answer.customEndpoint();
         final boolean finalMigrationConfirmed = answer.migrationConfirmed();
-        if (finalMigrationConfirmed && access.profile() != null) {
+        if (this.trueuuid$migrationConfirmation && finalMigrationConfirmed && access.profile() != null) {
             trueuuid$markMigrationPending(access.profile().getName());
         }
 
@@ -176,8 +236,8 @@ public final class ServerLoginController {
                 String migrationName = this.trueuuid$pendingVerifiedProfile.getName();
                 trueuuid$markMigrationPending(migrationName);
                 int activeTx = this.trueuuid$txId;
-                this.trueuuid$currentWork = TrueuuidRuntime.MIGRATIONS.migrate(
-                        access.server(), migrationName, this.trueuuid$pendingVerifiedProfile.getId())
+                this.trueuuid$currentWork = TrueuuidRuntime.MIGRATIONS.forServer(access.server()).migrate(
+                        migrationName, this.trueuuid$pendingVerifiedProfile.getId())
                         .whenComplete((ignored, failure) -> access.server().execute(() -> {
                             if (this.trueuuid$txId != activeTx) return;
                             try {
@@ -228,20 +288,13 @@ public final class ServerLoginController {
             ci.cancel();
 
             int activeTx = this.trueuuid$txId;
-            CompletableFuture<Optional<SessionCheck.HasJoinedResult>> auth = SessionCheck.hasJoinedAsync(access.profile().getName(), this.trueuuid$nonce, ip, hasJoinedUrl)
-                    .thenCompose(resOpt -> {
-                        if (resOpt.isPresent() || !hasJoinedUrl.isEmpty() || !trueuuid$isLocalAddress(ip)) {
-                            return java.util.concurrent.CompletableFuture.completedFuture(resOpt);
-                        }
-                        if (TrueuuidConfig.debug()) {
-                            System.out.println("[TrueUUID] Mojang hasJoined failed for local connection; trying signed Mojang profile fallback, player=" + access.profile().getName() + ", ip=" + ip);
-                        }
-                        return SessionCheck.lookupMojangProfileAsync(access.profile().getName());
-                    });
+            CompletableFuture<Optional<VerifiedProfile>> auth = SessionCheck.hasJoinedAsync(access.profile().getName(),
+                    this.trueuuid$nonce, SessionCheck.publicClientIpOrEmpty(ip), hasJoinedUrl);
             this.trueuuid$currentWork = auth.thenCompose(resOpt -> {
                         if (resOpt.isEmpty()) return CompletableFuture.completedFuture(new AuthLookup(resOpt, null));
-                        return TrueuuidRuntime.MIGRATIONS.find(access.server(), resOpt.get().name())
-                                .thenApply(dataFound -> new AuthLookup(resOpt, dataFound));
+                        return TrueuuidRuntime.MIGRATIONS.forServer(access.server()).find(resOpt.get().name())
+                                .thenApply(dataFound -> new AuthLookup(resOpt, dataFound.map(offer ->
+                                        new PlayerDataMigration.OfflineData(offer.offlineUuid(), offer.summary())).orElse(null)));
                     }).whenComplete((lookup, throwable) -> {
                         // 始终在主线程处理后续逻辑 (Always process subsequent logic on main thread)
                         access.server().execute(() -> {
@@ -326,6 +379,12 @@ public final class ServerLoginController {
         access.disconnect(reason);
     }
 
+    private static void debug(String message) {
+        if (TrueuuidConfig.debug()) {
+            Trueuuid.LOGGER.info("[TrueUUID] {}", message);
+        }
+    }
+
     private String trueuuid$authDisplayName(String hasJoinedUrl) {
         if (hasJoinedUrl == null || hasJoinedUrl.isBlank()) {
             return "Mojang";
@@ -338,16 +397,6 @@ public final class ServerLoginController {
             }
         } catch (Throwable ignored) {}
         return "Yggdrasil skin site";
-    }
-
-    private static boolean trueuuid$isLocalAddress(String ip) {
-        if (ip == null || ip.isBlank()) {
-            return false;
-        }
-        return "127.0.0.1".equals(ip)
-                || "0:0:0:0:0:0:0:1".equals(ip)
-                || "::1".equals(ip)
-                || "localhost".equalsIgnoreCase(ip);
     }
 
     private static void trueuuid$markMigrationPending(String name) {
@@ -402,6 +451,8 @@ public final class ServerLoginController {
         this.trueuuid$txId = TRUEUUID$NEXT_TX_ID.getAndIncrement();
         this.trueuuid$nonce = NetIds.MIGRATION_CONFIRM_SERVER_ID;
         this.trueuuid$sentAt = System.currentTimeMillis();
+        this.loginState.beginMigration(this.trueuuid$txId,
+                new MigrationTransaction.Offer(data.offlineUuid(), data.summary()), this.trueuuid$sentAt);
 
         access.connection().send(LoginPacketCodec.migration(this.trueuuid$txId, data));
     }
@@ -439,6 +490,8 @@ public final class ServerLoginController {
         this.trueuuid$txId = 0;
         this.trueuuid$nonce = null;
         this.trueuuid$sentAt = 0L;
+        this.trueuuid$queryPending = false;
+        this.trueuuid$authFinalized = true;
         this.trueuuid$offlineUpgradeOffered = false;
         this.trueuuid$migrationConfirmation = false;
         this.trueuuid$pendingVerifiedProfile = null;
@@ -449,8 +502,9 @@ public final class ServerLoginController {
         CompletableFuture<?> work = this.trueuuid$currentWork;
         this.trueuuid$currentWork = null;
         if (work != null && !work.isDone()) work.cancel(true);
+        this.loginState.reset();
     }
 
-    private record AuthLookup(Optional<SessionCheck.HasJoinedResult> result,
+    private record AuthLookup(Optional<VerifiedProfile> result,
                               PlayerDataMigration.OfflineData offlineData) {}
 }

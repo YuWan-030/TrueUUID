@@ -1,5 +1,7 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.AuthSource;
+import cn.alini.trueuuid.protocol.VerifiedNameRegistry;
 import com.google.gson.*;
 import net.minecraftforge.fml.loading.FMLPaths;
 
@@ -11,7 +13,7 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
 
-public class NameRegistry implements AutoCloseable {
+public class NameRegistry implements AutoCloseable, VerifiedNameRegistry {
     private static final int MAX_ENTRIES = 100_000;
     private static final long MAX_REGISTRY_BYTES = 64L * 1024L * 1024L;
     public static class Entry {
@@ -45,6 +47,19 @@ public class NameRegistry implements AutoCloseable {
     public synchronized Optional<UUID> getPremiumUuid(String name) {
         Entry e = map.get(name.toLowerCase(Locale.ROOT));
         return e == null ? Optional.empty() : Optional.ofNullable(e.premiumUuid);
+    }
+
+    @Override public synchronized Optional<VerifiedNameRegistry.Entry> find(String name) {
+        Entry entry = map.get(name.toLowerCase(Locale.ROOT));
+        if (entry == null || entry.premiumUuid == null) return Optional.empty();
+        AuthState.AuthSource source = entry.authSource == null ? AuthState.AuthSource.MOJANG : entry.authSource;
+        return Optional.of(new VerifiedNameRegistry.Entry(entry.premiumUuid,
+                AuthSource.valueOf(source.name()), getAuthDisplayName(name)));
+    }
+
+    @Override public synchronized void record(String name, VerifiedNameRegistry.Entry entry, String clientIp) {
+        Objects.requireNonNull(entry, "entry");
+        recordSuccess(name, entry.uuid(), clientIp, AuthState.AuthSource.valueOf(entry.source().name()), entry.displayName());
     }
 
     public synchronized boolean isKnownPremiumName(String name) {

@@ -1,0 +1,73 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.118'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+
+group = 'cn.alini'
+version = '1.1.0'
+
+base {
+    archivesName = 'trueuuid'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+neoForge {
+    version = '21.1.213'
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+    mods {
+        trueuuid {
+            sourceSet(sourceSets.main)
+            sourceSet(sharedProtocolMain.get())
+        }
+    }
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+dependencies {
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge1.21.1.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

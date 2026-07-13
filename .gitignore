@@ -114,6 +114,21 @@ gradle-app.setting
 # Common working directory
 run/
 runs/
+**/run/
+**/runs/
+
+# Local credentials and runtime state. Never commit launcher accounts, generated
+# server worlds/configuration, crash reports, or private key material.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+accounts.json
+launcher_accounts.json
+secrets/
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar

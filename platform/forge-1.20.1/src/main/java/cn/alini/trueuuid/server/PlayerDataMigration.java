@@ -65,7 +65,9 @@ public final class PlayerDataMigration {
                 new FilePair(playerData(server, data.offlineUuid()), playerData(server, verifiedUuid), false, "vanilla"),
                 new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, verifiedUuid), false, "vanilla"),
                 new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, verifiedUuid), false, "cosarmor"),
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, verifiedUuid), false, "vanilla"),
+                // Advancements and stats both use <uuid>.json. Keep their
+                // backup trees distinct so one cannot overwrite the other.
+                new FilePair(advancements(server, data.offlineUuid()), advancements(server, verifiedUuid), false, "vanilla/advancements"),
                 new FilePair(stats(server, data.offlineUuid()), stats(server, verifiedUuid), false, "vanilla"),
                 new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, verifiedUuid), false, "opac"),
                 new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, verifiedUuid), true, "opac"),
@@ -208,7 +210,7 @@ public final class PlayerDataMigration {
                 new FilePair(playerData(server, data.offlineUuid()), playerData(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, data.offlineUuid()), false, "cosarmor"),
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla"),
+                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla/advancements"),
                 new FilePair(stats(server, data.offlineUuid()), stats(server, data.offlineUuid()), false, "vanilla"),
                 new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, data.offlineUuid()), false, "opac"),
                 new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, data.offlineUuid()), true, "opac"),

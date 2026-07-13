@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -10,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AuthRequestCoordinatorTest {
     @Test void deduplicatesOnlyTheSameNonceAndEndpoint() throws Exception {
-        try (AuthRequestCoordinator coordinator = new AuthRequestCoordinator()) {
+        try (BoundedRequestCoordinator coordinator = new BoundedRequestCoordinator()) {
             CountDownLatch release = new CountDownLatch(1);
             AtomicInteger calls = new AtomicInteger();
             var first = coordinator.submit("Alice", "203.0.113.1", "nonce-a\0endpoint", () -> {
@@ -32,7 +33,7 @@ class AuthRequestCoordinatorTest {
     }
 
     @Test void closeCancelsAndCleansMultipleInFlightRequests() throws Exception {
-        AuthRequestCoordinator coordinator = new AuthRequestCoordinator();
+        BoundedRequestCoordinator coordinator = new BoundedRequestCoordinator();
         CountDownLatch started = new CountDownLatch(2);
         var first = coordinator.submit("Alice", "203.0.113.1", "a", () -> {
             started.countDown(); Thread.sleep(5_000); return "a";

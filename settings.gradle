@@ -14,5 +14,9 @@ plugins {
 
 rootProject.name = 'TrueUUID'
 
+// The active target matrix is explicit. Add an adapter here only after it has
+// a self-contained build and the acceptance gates in docs/development pass.
 include 'shared:protocol'
 include 'platform:forge-1.20.1'
+include 'platform:neoforge-1.21.1'
+include 'platform:forge-1.21.1'

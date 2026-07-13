@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 @Mod(Trueuuid.MODID)
 public class Trueuuid {
     public static final String MODID = "trueuuid";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public Trueuuid() {
         // 注册并生成 config/trueuuid-common.toml (Register and generate config/trueuuid-common.toml)

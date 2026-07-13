@@ -1,10 +1,14 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.AuthSource;
+import cn.alini.trueuuid.protocol.GraceCache;
+
+import java.time.Duration;
 import java.time.Instant;
 import java.time.Clock;
 import java.util.*;
 
-public class RecentIpGraceCache implements AutoCloseable {
+public class RecentIpGraceCache implements AutoCloseable, GraceCache {
     private static final int MAX_ENTRIES = 4096;
     private static final long UNACTIVATED_TTL_MS = 300_000L;
     private final int maxEntries;
@@ -47,6 +51,11 @@ public class RecentIpGraceCache implements AutoCloseable {
         while (map.size() > maxEntries) map.remove(map.keySet().iterator().next());
     }
 
+    @Override public synchronized void record(String name, String ip, GraceCache.Entry entry) {
+        Objects.requireNonNull(entry, "entry");
+        record(name, ip, entry.uuid(), AuthState.AuthSource.valueOf(entry.source().name()), entry.displayName());
+    }
+
     public synchronized void activateAfterLogout(String name, String ip) {
         if (ip == null || ip.isEmpty()) return;
         Rec r = map.get(key(name, ip));
@@ -84,6 +93,14 @@ public class RecentIpGraceCache implements AutoCloseable {
         }
         map.remove(key(name, ip));
         return Optional.empty();
+    }
+
+    @Override public synchronized Optional<GraceCache.Entry> consume(String name, String ip, Duration ttl) {
+        if (ttl == null || ttl.isNegative() || ttl.isZero()) return Optional.empty();
+        long seconds = Math.max(1L, ttl.toSeconds());
+        Optional<GraceResult> result = tryGraceResult(name, ip, (int) Math.min(Integer.MAX_VALUE, seconds));
+        return result.map(value -> new GraceCache.Entry(value.premiumUuid(),
+                AuthSource.valueOf(value.source().name()), value.displayName()));
     }
 
     public synchronized void cleanup(int ttlSeconds) {

@@ -1,8 +1,11 @@
 package cn.alini.trueuuid.mixin.client;
 
 import cn.alini.trueuuid.client.ClientAuthExecutor;
+import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.AuthWireCodec;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -32,29 +35,32 @@ import java.util.function.Consumer;
 public abstract class ClientHandshakeMixin {
     @Shadow private Connection connection;
     @Shadow private Consumer<Component> updateStatus;
+    @Unique private String trueuuid$lastHasJoinedUrl = "";
 
     @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
         if (!NetIds.AUTH.equals(packet.getIdentifier())) return;
 
-        FriendlyByteBuf buf = packet.getData();
-        String serverId = buf.readUtf(AuthMessages.MAX_NONCE_CHARS);
-        boolean offlineUpgradeAvailable = false;
-        String offlineUuid = "";
-        String offlineDataSummary = "";
+        AuthMessages.Query query;
         try {
-            if (buf.isReadable()) {
-                offlineUpgradeAvailable = buf.readBoolean();
-                if (offlineUpgradeAvailable) {
-                    offlineUuid = buf.readUtf(64);
-                    offlineDataSummary = buf.readUtf(AuthMessages.MAX_SUMMARY_CHARS);
-                }
-            }
-        } catch (Throwable ignored) {
-            offlineUpgradeAvailable = false;
-            offlineUuid = "";
-            offlineDataSummary = "";
+            FriendlyByteBuf buf = packet.getData();
+            byte[] payload = new byte[buf.readableBytes()];
+            buf.readBytes(payload);
+            query = AuthWireCodec.decodeQuery(payload);
+        } catch (Throwable malformed) {
+            // Do not pass a TrueUUID payload to vanilla handling: it replies
+            // with a different packet shape, which turns a version/codec
+            // mismatch into an opaque disconnect. Reply once with the shared
+            // failure shape so the server can apply its configured policy.
+            trueuuid$debug("received an invalid TrueUUID query: " + malformed.getClass().getName());
+            trueuuid$sendAuthAck(this.connection, packet.getTransactionId(), false, "", false, false);
+            ci.cancel();
+            return;
         }
+        String serverId = query.nonce();
+        boolean offlineUpgradeAvailable = query.migrationAvailable();
+        String offlineUuid = query.offlineUuid();
+        String offlineDataSummary = query.summary();
 
         Minecraft mc = Minecraft.getInstance();
         User user = mc.getUser();
@@ -64,13 +70,15 @@ public abstract class ClientHandshakeMixin {
         int transactionId = packet.getTransactionId();
 
         if (offlineUpgradeAvailable && NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId)) {
-            trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, "", loginConnection, transactionId);
+            trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, this.trueuuid$lastHasJoinedUrl,
+                    loginConnection, transactionId);
             ci.cancel();
             return;
         }
 
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
+            trueuuid$debug("client session token is absent or is a development placeholder");
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
             return;
@@ -78,6 +86,7 @@ public abstract class ClientHandshakeMixin {
 
         // 在调用 joinServer 之前先读取 CHECK_URL，因为 joinServer 是一次性的。
         String hasJoinedUrl = trueuuid$resolveHasJoinedUrl();
+        this.trueuuid$lastHasJoinedUrl = hasJoinedUrl;
         final boolean upgradeAvailable = offlineUpgradeAvailable;
         final String upgradeOfflineUuid = offlineUuid;
         final String upgradeDataSummary = offlineDataSummary;
@@ -90,8 +99,13 @@ public abstract class ClientHandshakeMixin {
                     try {
                         // 令牌只在本地使用 (Token is only used locally)
                         mc.getMinecraftSessionService().joinServer(profile, token, serverId);
+                        trueuuid$debug("joinServer completed successfully");
                         return true;
                     } catch (Throwable t) {
+                        // Never log the access token, profile properties, nonce, endpoint,
+                        // or raw authlib response.  A small fixed category is enough to
+                        // tell a stale Prism session from a connectivity/service failure.
+                        trueuuid$debug("joinServer failed: " + trueuuid$authFailureCategory(t));
                         return false;
                     }
                 })
@@ -115,14 +129,32 @@ public abstract class ClientHandshakeMixin {
     }
 
     @Unique
+    private static String trueuuid$authFailureCategory(Throwable failure) {
+        String message = failure.getMessage();
+        String normalized = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("invalid token") || normalized.contains("invalid session")
+                || normalized.contains("unauthorized") || normalized.contains("forbidden")) {
+            return "account session rejected (refresh the launcher account)";
+        }
+        if (normalized.contains("timeout") || normalized.contains("connect")
+                || normalized.contains("unavailable") || normalized.contains("service")) {
+            return "authentication service unavailable";
+        }
+        return "authentication request rejected (" + failure.getClass().getSimpleName() + ")";
+    }
+
+    @Unique
+    private static void trueuuid$debug(String message) {
+        if (TrueuuidConfig.debug()) {
+            Trueuuid.LOGGER.info("[TrueUUID] {}", message);
+        }
+    }
+
+    @Unique
     private static void trueuuid$sendAuthAck(Connection connection, int transactionId, boolean ok, String hasJoinedUrl, boolean migrationConfirmed, boolean missingSessionToken) {
         // LOGIN 自定义查询必须回复 LOGIN 阶段的 ServerboundCustomQueryPacket，不能切到 PLAY 包。
-        FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.buffer());
-        resp.writeBoolean(ok);
-        // 附带 hasJoined URL：空字符串表示使用 Mojang 默认。
-        resp.writeUtf(hasJoinedUrl != null ? hasJoinedUrl : "", AuthMessages.MAX_ENDPOINT_CHARS);
-        resp.writeBoolean(migrationConfirmed);
-        resp.writeBoolean(missingSessionToken);
+        FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.wrappedBuffer(AuthWireCodec.encodeAnswer(
+                new AuthMessages.Answer(ok, hasJoinedUrl, migrationConfirmed, missingSessionToken))));
         connection.send(new ServerboundCustomQueryPacket(transactionId, resp));
     }
 

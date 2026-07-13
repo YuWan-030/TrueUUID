@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.MigrationTransaction;
 import net.minecraft.server.MinecraftServer;
 
 import java.util.UUID;
@@ -26,6 +27,20 @@ public final class MigrationCoordinator implements AutoCloseable {
 
     public CompletableFuture<PlayerDataMigration.CleanupResult> cleanup(MinecraftServer server, String name) {
         return submit(() -> PlayerDataMigration.cleanupOfflineData(server, name));
+    }
+
+    public MigrationTransaction forServer(MinecraftServer server) {
+        return new MigrationTransaction() {
+            @Override public CompletableFuture<java.util.Optional<Offer>> find(String verifiedName) {
+                return MigrationCoordinator.this.find(server, verifiedName)
+                        .thenApply(data -> data == null ? java.util.Optional.empty()
+                                : java.util.Optional.of(new Offer(data.offlineUuid(), data.summary())));
+            }
+
+            @Override public CompletableFuture<Void> migrate(String verifiedName, UUID verifiedUuid) {
+                return MigrationCoordinator.this.migrate(server, verifiedName, verifiedUuid);
+            }
+        };
     }
 
     public <T> CompletableFuture<T> io(java.util.concurrent.Callable<T> operation) {

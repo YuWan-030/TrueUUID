@@ -47,6 +47,15 @@ public abstract class ServerLoginMixin {
         trueuuid$controller().onTick(ci);
     }
 
+    @Inject(
+            method = "tick",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerLoginPacketListenerImpl;handleAcceptedLogin()V"),
+            cancellable = true
+    )
+    private void trueuuid$beforeAcceptedLogin(CallbackInfo ci) {
+        trueuuid$controller().onReadyToAccept(ci);
+    }
+
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
     private void trueuuid$onCustomQuery(ServerboundCustomQueryPacket packet, CallbackInfo ci) {
         trueuuid$controller().onLoginCustom(packet, ci);

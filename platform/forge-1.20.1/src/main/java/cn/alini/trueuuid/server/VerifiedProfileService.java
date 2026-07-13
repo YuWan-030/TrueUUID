@@ -1,13 +1,14 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.VerifiedProfile;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.network.Connection;
 
 final class VerifiedProfileService {
-    static GameProfile create(SessionCheck.HasJoinedResult result) {
+    static GameProfile create(VerifiedProfile result) {
         GameProfile profile = new GameProfile(result.uuid(), result.name());
-        for (SessionCheck.Property property : result.properties()) {
+        for (VerifiedProfile.Property property : result.properties()) {
             Property value = property.signature() == null
                     ? new Property(property.name(), property.value())
                     : new Property(property.name(), property.value(), property.signature());
