@@ -231,4 +231,4 @@ GNU LGPL 3.0
 
 ---
 
-Maintained by [@YuWan-030](https://github.com/YuWan-030).
+Maintained by [@YuWan-030](https://github.com/YuWan-030), [@wish131400](https://github.com/wish131400), and [@F1xGOD](https://github.com/F1xGOD).
