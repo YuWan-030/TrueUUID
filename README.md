@@ -1,10 +1,12 @@
 # TrueUUID
 
+![TrueUUID logo](TrueUUID.svg)
+
 English | [简体中文](README_zh-CN.md)
 
-TrueUUID is a login-phase authentication mod for offline-mode Minecraft servers.
+TrueUUID is a Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.
 
-It lets an offline-mode server verify premium Mojang accounts, and supported Yggdrasil/authlib-injector skin-site accounts, without ever receiving the player's access token.
+It also supports configured Yggdrasil/authlib-injector skin-site accounts. Forge 1.20.1 is runtime-proven today; Forge and NeoForge 1.21.1 adapters are in progress, with more loaders and Minecraft versions planned.
 
 Both the client and the server must install this mod. The server must run with:
 
@@ -75,16 +77,21 @@ Supported migration targets include:
 
 ## Requirements
 
-Current repository target:
+Runtime-proven target:
 
 - Minecraft: 1.20.1
 - Forge: 47.4.10 (recommended)
 - Java: 17
 
-The repository is structured for additional independent loader/version
-adapters, but no other adapter is currently an active build target. The former
-NeoForge 1.21.1 implementation is retained as historical reference work; it
-is not a supported module in this branch.
+Planned targets with passing declared-JDK builds and focused tests, but no
+completed real client/server acceptance matrix yet:
+
+- Minecraft 1.21.1, Forge 52.1.14, Java 21
+- Minecraft 1.21.1, NeoForge 21.1.213, Java 21
+
+Fabric and further loader/version adapters are planned. See
+[`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
+the exact support status.
 
 Client and server must both install TrueUUID.
 
@@ -199,10 +206,11 @@ macOS/Linux:
 ./gradlew build
 ```
 
-The active Forge 1.20.1 mod is written to
-`platform/forge-1.20.1/build/libs/`. See
+Each platform build writes its target-specific artifact to its own
+`platform/<loader>-<minecraft-version>/build/libs/` directory. Forge 1.20.1
+is the runtime-proven release; see
 [`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
-the target status and release model.
+the exact target status and release model.
 
 ## Privacy
 
