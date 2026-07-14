@@ -1,6 +1,8 @@
 # TrueUUID
 
-![TrueUUID logo](TrueUUID.svg)
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/YuWan-030/TrueUUID/main/TrueUUID-banner.svg" width="300" alt="TrueUUID">
+</h1>
 
 [English](README.md) | 简体中文
 
