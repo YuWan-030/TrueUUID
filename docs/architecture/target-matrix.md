@@ -21,6 +21,45 @@ not a support claim. Every supported target needs a real two-sided login run.
 The five modern Forge modules build and pass unit tests, but all remain Planned
 until each has its own login run.
 
+## Feature parity
+
+Every target verifies premium logins, but the 1.21 line is a login-verification
+core: it does not yet carry the surrounding features 1.20.1 grew. NeoForge is in
+step with the Forge 1.21 line — both trail 1.20.1 by the same gap.
+
+| Feature | Forge 1.20.1 | Forge 1.21.x | NeoForge 1.21.1 |
+|---|---|---|---|
+| Premium (Mojang) verification | yes | yes | yes |
+| Offline fallback + policy | yes | yes | yes |
+| Verified-name registry | yes | yes | yes |
+| Join feedback (chat, opt-in title) | yes | yes | yes |
+| Account-status badge | yes | yes | yes |
+| Addon API (`AccountStatus`, callbacks) | **no** — name lookups only | yes | yes |
+| Yggdrasil / skin-site accounts | yes | **no** | **no** |
+| Offline to premium data migration | yes | **no** | **no** |
+| Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** |
+| Skin refresh after join | yes | **no** | **no** |
+| Recent-IP reconnect grace | yes | **no** | **no** |
+| Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | **no** — 30s fixed | **no** — 30s fixed |
+| `debug` logging toggle | yes | **no** | **no** |
+
+Two traps behind that table:
+
+- **`auth.yggdrasil.apiRootWhitelist` is inert on the 1.21 line.** The option
+  exists and the server-side verifier honours it, but the 1.21 clients never
+  resolve an authlib-injector endpoint — they always answer with an empty one, so
+  verification always falls back to Mojang. 1.20.1's client reads the
+  `-javaagent:` argument and `YggdrasilMinecraftSessionService.CHECK_URL`; that
+  code has no 1.21 counterpart. Skin-site users are silently unsupported there.
+- **The addon API is inverted.** 1.20.1 predates it and still exposes only
+  `isPremium(name)` / `getPremiumUuid(name)`; the 1.21 line has the newer
+  `AccountStatus` + `registerLoginCallback` surface. Porting it back to 1.20.1 is
+  the smaller half of closing the gap.
+
+User-facing strings live once in `platform/common-assets` for the 1.21 line and
+NeoForge. `forge-1.20.1` keeps its own copy: it has ~34 extra keys and three
+shared keys whose wording and meaning differ, so it needs a deliberate merge.
+
 ## Recorded runtime evidence
 
 | Date | Target | Loader/JDK | Artifact | Result |
