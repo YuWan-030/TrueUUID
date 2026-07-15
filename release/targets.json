@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "id": "forge-1.20.1",
+      "build_task": ":platform:forge-1.20.1:build",
+      "artifact": "platform/forge-1.20.1/build/libs/trueuuid-%VERSION%-forge1.20.1.jar",
+      "loader": "forge",
+      "game_version": "1.20.1",
+      "java": 17,
+      "release": false
+    },
+    {
+      "id": "forge-1.21.1",
+      "build_task": ":platform:forge-1.21.1:build",
+      "artifact": "platform/forge-1.21.1/build/libs/trueuuid-%VERSION%-forge1.21.1.jar",
+      "loader": "forge",
+      "game_version": "1.21.1",
+      "java": 21,
+      "release": false
+    },
+    {
+      "id": "neoforge-1.21.1",
+      "build_task": ":platform:neoforge-1.21.1:build",
+      "artifact": "platform/neoforge-1.21.1/build/libs/trueuuid-%VERSION%-neoforge1.21.1.jar",
+      "loader": "neoforge",
+      "game_version": "1.21.1",
+      "java": 21,
+      "release": false
+    }
+  ]
+}

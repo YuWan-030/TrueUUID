@@ -5,7 +5,6 @@ import cn.alini.trueuuid.config.TrueuuidConfig;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
@@ -15,9 +14,10 @@ public final class Trueuuid {
     public static final String MODID = "trueuuid";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Trueuuid(ModContainer container) {
-        TrueuuidConfig.register(container);
+    public Trueuuid() {
+        TrueuuidConfig.register();
         ForgeAdapterRuntime.initialize();
+        MinecraftForge.EVENT_BUS.addListener(ForgeAdapterRuntime::onPlayerLoggedIn);
         MinecraftForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> ForgeAdapterRuntime.shutdown());
         LOGGER.info("TrueUUID Forge 1.21.1 adapter loaded");
     }

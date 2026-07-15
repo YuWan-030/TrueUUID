@@ -1,9 +1,13 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
+import io.netty.buffer.Unpooled;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -31,6 +35,39 @@ class ForgeLoginFlowTest {
         assertTrue(flow.timedOut(130, 30));
         flow.close();
         assertTrue(!flow.active());
+    }
+
+    @Test
+    void queryAnswerUsesTheVanillaNullableEnvelopeBeforeTheTrueuuidWirePayload() {
+        AuthMessages.Answer answer = new AuthMessages.Answer(true, "", false, false);
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        buffer.writeBoolean(true);
+        new ForgeAuthAnswerPayload(answer).write(buffer);
+
+        assertTrue(buffer.readBoolean());
+        assertEquals(answer, new ForgeAuthAnswerPayload(buffer).message());
+    }
+
+    @Test
+    void vanillaPacketCodecWritesTheNullableEnvelopeBeforeTheTrueuuidWirePayload() {
+        AuthMessages.Answer answer = new AuthMessages.Answer(true, "", false, false);
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+
+        ServerboundCustomQueryAnswerPacket.STREAM_CODEC.encode(buffer,
+                new ServerboundCustomQueryAnswerPacket(22, new ForgeAuthAnswerPayload(answer)));
+
+        assertEquals(22, buffer.readVarInt());
+        assertTrue(buffer.readBoolean());
+        assertEquals(answer, new ForgeAuthAnswerPayload(buffer).message());
+        assertEquals(0, buffer.readableBytes());
+    }
+
+    @Test
+    void offlineFallbackPolicyAllowsOnlyUnknownNamesByDefault() {
+        assertTrue(OfflineFallbackPolicy.permits(false, true, true, true));
+        assertTrue(!OfflineFallbackPolicy.permits(true, true, true, true));
+        assertTrue(!OfflineFallbackPolicy.permits(false, false, false, false));
+        assertTrue(OfflineFallbackPolicy.permits(true, true, false, false));
     }
 
     private static SessionVerifier verifier() {

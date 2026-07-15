@@ -33,6 +33,7 @@ public final class TrueuuidConfig {
     public static String offlineShortSubtitle() { return COMMON.offlineShortSubtitle.get(); }
     public static String onlineShortSubtitle() { return COMMON.onlineShortSubtitle.get(); }
     public static boolean showJoinFeedback() { return COMMON.showJoinFeedback.get(); }
+    public static boolean showAccountOverlay() { return COMMON.showAccountOverlay.get(); }
 
     // 新增：策略相关 (Added: Strategy related)
     public static boolean knownPremiumDenyOffline() { return COMMON.knownPremiumDenyOffline.get(); }
@@ -56,6 +57,7 @@ public final class TrueuuidConfig {
         public final ForgeConfigSpec.ConfigValue<String> offlineShortSubtitle;
         public final ForgeConfigSpec.ConfigValue<String> onlineShortSubtitle;
         public final ForgeConfigSpec.BooleanValue showJoinFeedback;
+        public final ForgeConfigSpec.BooleanValue showAccountOverlay;
 
         // authlib-injector / Yggdrasil 皮肤站白名单
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> apiRootWhitelist;
@@ -89,6 +91,8 @@ public final class TrueuuidConfig {
                     .define("onlineShortSubtitle",  "trueuuid.subtitle.online");
             showJoinFeedback = b.comment("Show join feedback after a player joins. When disabled, no premium/skin-site/offline/single-player title or offline fallback chat message is sent; authentication and skin refresh are unchanged. / 玩家进服后显示登录状态提示。关闭后不再发送正版、皮肤站、离线、单人模式标题，也不发送离线兜底聊天提示；不影响鉴权和皮肤刷新。")
                     .define("showJoinFeedback", true);
+            showAccountOverlay = b.comment("Show a small client account-status overlay after a TrueUUID login handshake. / 在 TrueUUID 登录握手后显示小型客户端账号状态覆盖层。")
+                    .define("showAccountOverlay", true);
 
             // 策略项 (Strategy items)
             knownPremiumDenyOffline   = b.comment("Once a name has been verified as premium/skin-site, deny later offline fallback for that name. / 一旦该名字成功验证过正版或皮肤站，后续鉴权失败时禁止以离线身份进入。")

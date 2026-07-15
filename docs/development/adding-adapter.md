@@ -14,9 +14,8 @@ compatibility.
 Start from `main` on `feature/<loader>-<minecraft-version>-adapter`. Do not
 fork a permanent target branch and do not copy an old branch wholesale.
 
-For the present 1.21 work, read
-[`next-agent-handoff.md`](next-agent-handoff.md) first: the preserved NeoForge
-branch builds, but is not a security-safe implementation template.
+The preserved NeoForge branch may provide API/lifecycle evidence, but it is not
+a security-safe implementation template.
 
 ## 2. Add a self-contained platform module
 
@@ -71,5 +70,7 @@ Before marking a target active, run:
    success, denial, timeout, disconnect, offline fallback policy, and migration
    rollback.
 
-Add the target to the aggregate build and CI matrix only after those gates
-pass. Then update the target matrix and release it with a loader/version tag.
+Add the target to the aggregate build and compile/test CI matrix after its
+self-contained build and focused tests pass. Enable it in
+`release/targets.json` only after every gate above passes. Then update the
+target matrix and release it with a signed repository version tag.

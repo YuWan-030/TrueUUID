@@ -131,5 +131,14 @@ accounts.json
 launcher_accounts.json
 secrets/
 
+# Local maintainer/AI workspace guidance. These files are not project docs and
+# must not be published with the repository.
+/AGENTS.md
+/AI_NOTES.md
+/CLAUDE.md
+/.codex/
+/.claude/
+/docs/development/next-agent-handoff.md
+
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar

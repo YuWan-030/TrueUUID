@@ -63,6 +63,16 @@ public class SkinRefreshHandler {
         var fallbackOpt = TrueuuidRuntime.AUTH_STATE.consume(netConn);
         var successOpt = TrueuuidRuntime.AUTH_STATE.consumeAuthSuccess(netConn, sp.getUUID(), sp.getGameProfile().getName());
 
+        if (fallbackOpt.isPresent()) {
+            Trueuuid.LOGGER.info("TrueUUID offline fallback login: player={}, uuid={}, reason={}",
+                    sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
+        } else if (successOpt.isPresent()) {
+            String loginType = successOpt.get().source() == AuthState.AuthSource.YGGDRASIL
+                    ? "session-verified skin-site login" : "session-verified premium login";
+            Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", loginType,
+                    sp.getGameProfile().getName(), sp.getUUID());
+        }
+
         if (!TrueuuidConfig.showJoinFeedback()) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 跳过登录提示: 玩家=" + sp.getGameProfile().getName() + ", 原因=showJoinFeedback=false");
@@ -80,12 +90,13 @@ public class SkinRefreshHandler {
             var subtitle = TrueuuidText.configComponent(
                     TrueuuidConfig.offlineShortSubtitle(),
                     "trueuuid.subtitle.offline"
-            ).withStyle(ChatFormatting.YELLOW);
+            ).withStyle(ChatFormatting.GRAY);
 
             sendTitleNextTick(server, sp, title, subtitle, "OFFLINE");
         } else if (successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL) {
             // 皮肤站模式：青绿色标题，明确区别于 Mojang 正版验证。
             AuthState.AuthSuccess success = successOpt.get();
+            sp.sendSystemMessage(Component.translatable("trueuuid.chat.skin_site", success.displayName()).withStyle(ChatFormatting.AQUA));
             var title = Component.translatable("trueuuid.title.skin_site").withStyle(ChatFormatting.AQUA);
             String sourceName = success.displayName();
             var subtitle = Component.translatable("trueuuid.subtitle.skin_site", sourceName).withStyle(ChatFormatting.GREEN);
@@ -93,6 +104,7 @@ public class SkinRefreshHandler {
             sendTitleNextTick(server, sp, title, subtitle, "YGGDRASIL:" + sourceName);
         } else if (successOpt.isPresent()) {
             // 正版模式：绿色标题，副标题短文案（灰色） (Premium Mode: Green title, subtitle short text (Gray))
+            sp.sendSystemMessage(Component.translatable("trueuuid.chat.premium").withStyle(ChatFormatting.GREEN));
             var title = Component.translatable("trueuuid.title.premium").withStyle(ChatFormatting.GREEN);
             var subtitle = TrueuuidText.configComponent(
                     TrueuuidConfig.onlineShortSubtitle(),

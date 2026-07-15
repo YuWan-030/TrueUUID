@@ -6,7 +6,9 @@ English | [简体中文](README_zh-CN.md)
 
 TrueUUID is a Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.
 
-It also supports configured Yggdrasil/authlib-injector skin-site accounts. Forge 1.20.1 is runtime-proven today; Forge and NeoForge 1.21.1 adapters are in progress, with more loaders and Minecraft versions planned.
+It also supports configured Yggdrasil/authlib-injector skin-site accounts. The
+current tested and planned target status is maintained in the
+[`target matrix`](docs/architecture/target-matrix.md).
 
 Both the client and the server must install this mod. The server must run with:
 
@@ -54,7 +56,7 @@ This is useful for modpacks, LAN-style servers, private offline-mode communities
 
 ## Offline Data Migration
 
-TrueUUID 1.0.9 adds a safer migration flow for players who used to play offline and later switch to a premium or skin-site account with the same name.
+TrueUUID includes a safer migration flow for players who used to play offline and later switch to a premium or skin-site account with the same name.
 
 When a verified login detects matching offline UUID data, the player will see a confirmation screen. Migration only happens after confirmation.
 
@@ -77,21 +79,15 @@ Supported migration targets include:
 
 ## Requirements
 
-Runtime-proven target:
+Current runtime-proven target:
 
 - Minecraft: 1.20.1
-- Forge: 47.4.10 (recommended)
+- Loader: Forge
 - Java: 17
 
-Planned targets with passing declared-JDK builds and focused tests, but no
-completed real client/server acceptance matrix yet:
-
-- Minecraft 1.21.1, Forge 52.1.14, Java 21
-- Minecraft 1.21.1, NeoForge 21.1.213, Java 21
-
-Fabric and further loader/version adapters are planned. See
+Do not infer support from a source directory or a successful build. See
 [`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
-the exact support status.
+the exact status of every adapter.
 
 Client and server must both install TrueUUID.
 
@@ -165,6 +161,15 @@ auth.showJoinFeedback = true
 
 Show join feedback Title/chat messages for premium, skin-site, offline fallback, and single-player states. Set to `false` to silence those messages without changing authentication or skin refresh behavior.
 
+```toml
+auth.showAccountOverlay = true
+```
+
+Shows a small top-left client badge after a TrueUUID handshake. Green means
+premium verified; red means the server accepted its configured offline
+fallback. It is client-local and only appears after a TrueUUID-enabled server
+has responded.
+
 Default feedback and disconnect messages are sent as Minecraft translation keys and rendered by the player's client language files (`en_us` / `zh_cn`). If you previously generated a config with custom bilingual strings, change those message values back to `trueuuid.*` keys or regenerate the config to use client-side localization.
 
 ```text
@@ -208,7 +213,7 @@ macOS/Linux:
 
 Each platform build writes its target-specific artifact to its own
 `platform/<loader>-<minecraft-version>/build/libs/` directory. Forge 1.20.1
-is the runtime-proven release; see
+is the runtime-proven target; see
 [`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
 the exact target status and release model.
 

@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.mixin.client;
 
 import cn.alini.trueuuid.client.ClientAuthExecutor;
+import cn.alini.trueuuid.client.ClientAccountStatus;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.net.NetIds;
@@ -79,6 +80,7 @@ public abstract class ClientHandshakeMixin {
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
             trueuuid$debug("client session token is absent or is a development placeholder");
+            ClientAccountStatus.markOffline();
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
             return;
@@ -112,6 +114,8 @@ public abstract class ClientHandshakeMixin {
                 .orTimeout(30, TimeUnit.SECONDS)
                 .exceptionally(t -> false)
                 .thenAccept(ok -> {
+                    if (ok) ClientAccountStatus.markPremium();
+                    else ClientAccountStatus.markOffline();
                     if (!ok || !upgradeAvailable) {
                         trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl, false, false);
                         return;

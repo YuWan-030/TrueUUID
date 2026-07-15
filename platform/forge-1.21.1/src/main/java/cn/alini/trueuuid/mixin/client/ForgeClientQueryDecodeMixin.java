@@ -13,7 +13,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ClientboundCustomQueryPacket.class)
 abstract class ForgeClientQueryDecodeMixin {
-    @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true)
+    // Forge's distributed client jar retains Mojang's official private method
+    // name. Do not remap this to the userdev SRG name recorded in the refmap.
+    @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true, remap = false)
     private static void trueuuid$read(ResourceLocation id, FriendlyByteBuf data,
                                       CallbackInfoReturnable<CustomQueryPayload> callback) {
         if (ForgeNetIds.AUTH.equals(id)) callback.setReturnValue(new ForgeAuthPayload(data));

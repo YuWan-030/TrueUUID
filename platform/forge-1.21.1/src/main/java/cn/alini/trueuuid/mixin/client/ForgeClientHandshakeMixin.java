@@ -4,6 +4,7 @@ import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.client.ClientAccountStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
@@ -27,7 +28,9 @@ abstract class ForgeClientHandshakeMixin {
     @Shadow private Connection connection;
     @Shadow private Consumer<Component> updateStatus;
 
-    @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true)
+    // See ForgeClientQueryDecodeMixin: production Forge uses this official
+    // name while the userdev refmap contains its SRG alias.
+    @Inject(method = "handleCustomQuery", at = @At("HEAD"), cancellable = true, remap = false)
     private void trueuuid$join(ClientboundCustomQueryPacket packet, CallbackInfo callback) {
         CustomQueryPayload payload = packet.payload();
         if (!ForgeNetIds.AUTH.equals(payload.id()) || !(payload instanceof ForgeAuthPayload query)) return;
@@ -35,6 +38,7 @@ abstract class ForgeClientHandshakeMixin {
         User user = minecraft.getUser();
         String accessToken = user.getAccessToken();
         if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken)) {
+            ClientAccountStatus.markOffline();
             trueuuid$reply(connection, packet.transactionId(), false, true);
             callback.cancel();
             return;
@@ -52,7 +56,11 @@ abstract class ForgeClientHandshakeMixin {
                 })
                 .orTimeout(25, TimeUnit.SECONDS)
                 .exceptionally(error -> false)
-                .thenAccept(joined -> trueuuid$reply(loginConnection, packet.transactionId(), joined, false));
+                .thenAccept(joined -> {
+                    if (joined) ClientAccountStatus.markPremium();
+                    else ClientAccountStatus.markOffline();
+                    trueuuid$reply(loginConnection, packet.transactionId(), joined, false);
+                });
         callback.cancel();
     }
 

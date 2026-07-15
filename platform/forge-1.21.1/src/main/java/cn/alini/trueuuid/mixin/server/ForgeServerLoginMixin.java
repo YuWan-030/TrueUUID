@@ -7,6 +7,7 @@ import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import cn.alini.trueuuid.server.ForgeLoginFlow;
+import cn.alini.trueuuid.Trueuuid;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.network.Connection;
@@ -47,6 +48,7 @@ abstract class ForgeServerLoginMixin {
             trueuuid$transaction = TRUEUUID$TRANSACTIONS.nextInt(1, Integer.MAX_VALUE);
         } while (!ForgeQueryTracker.register(trueuuid$transaction));
         byte[] wire = trueuuid$flow.start(trueuuid$transaction, UUID.randomUUID().toString().replace("-", ""), System.currentTimeMillis());
+        Trueuuid.LOGGER.info("TrueUUID authentication challenge sent: player={}", authenticatedProfile.getName());
         connection.send(new ClientboundCustomQueryPacket(trueuuid$transaction,
                 new ForgeAuthPayload(AuthWireCodec.decodeQuery(wire))));
     }
@@ -66,6 +68,18 @@ abstract class ForgeServerLoginMixin {
         if (packet.transactionId() != trueuuid$transaction || !(packet.payload() instanceof ForgeAuthAnswerPayload answer)
                 || authenticatedProfile == null) return;
         callback.cancel();
+        if (!answer.message().joined()) {
+            String playerName = authenticatedProfile.getName();
+            if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
+                Trueuuid.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", playerName);
+                disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
+            } else {
+                ForgeAdapterRuntime.recordOfflineFallback(authenticatedProfile);
+                trueuuid$completeNativeLogin(authenticatedProfile);
+            }
+            trueuuid$closeFlow();
+            return;
+        }
         String ip = connection.getRemoteAddress() instanceof InetSocketAddress address && address.getAddress() != null
                 ? address.getAddress().getHostAddress() : "";
         trueuuid$flow.accept(packet.transactionId(), AuthWireCodec.encodeAnswer(answer.message()), authenticatedProfile.getName(), ip,
@@ -74,10 +88,12 @@ abstract class ForgeServerLoginMixin {
                     try {
                         if (!connection.isConnected()) return;
                         if (profile.isEmpty()) {
+                            Trueuuid.LOGGER.warn("TrueUUID premium verification denied: player={}", authenticatedProfile.getName());
                             disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
                             return;
                         }
                         authenticatedProfile = trueuuid$toNativeProfile(profile.get());
+                        ForgeAdapterRuntime.recordVerifiedProfile(profile.get());
                         trueuuid$completeNativeLogin(authenticatedProfile);
                     } finally {
                         trueuuid$closeFlow();

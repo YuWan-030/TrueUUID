@@ -5,11 +5,11 @@
   "package": "cn.alini.trueuuid.mixin",
   "compatibilityLevel": "JAVA_21",
   "refmap": "trueuuid.refmap.json",
-  "client": [
-    "client.ForgeClientQueryDecodeMixin",
-    "client.ForgeClientHandshakeMixin"
-  ],
+  "plugin": "cn.alini.trueuuid.mixin.TrueuuidMixinPlugin",
   "mixins": [
+    "client.ForgeClientQueryDecodeMixin",
+    "client.ForgeClientHandshakeMixin",
+    "client.ForgeClientGuiMixin",
     "server.ForgeServerAnswerDecodeMixin",
     "server.ForgeServerLoginMixin"
   ],

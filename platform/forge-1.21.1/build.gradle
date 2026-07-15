@@ -20,9 +20,12 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+def forgeVersion = '52.1.0'
+def forgeVersionRange = '[52.1.0,52.1.1)'
 
 group = 'cn.alini'
-version = '1.1.0'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
 
 base {
     archivesName = 'trueuuid'
@@ -42,7 +45,6 @@ minecraft {
             mods {
                 trueuuid {
                     source sourceSets.main
-                    source sharedProtocolMain.get()
                 }
             }
         }
@@ -59,15 +61,33 @@ mixin {
     config 'trueuuid.mixins.json'
 }
 
-sourceSets.main.output.dir(sharedProtocolMain.get().output)
+// Userdev discovers a mod from one source-set output. Co-locate resources and
+// the plain-Java shared classes with the adapter output, so the discovery path
+// has the entrypoint, Mixins, and protocol classes in one module.
+sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs)
+    include '**/*.class'
+    from(layout.buildDirectory.dir('tmp/compileJava')) {
+        include 'trueuuid.refmap.json'
+    }
+    into(mainClassesDir)
+}
+tasks.named('classes') {
+    dependsOn mergeSharedProtocolClasses
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.21.1-52.1.14'
-    implementation project(':shared:protocol')
+    minecraft "net.minecraftforge:forge:1.21.1-${forgeVersion}"
+    // The release jar embeds shared/protocol below. Keeping it compile-only
+    // avoids a second Java module exporting the same package during userdev.
+    compileOnly project(':shared:protocol')
+    testImplementation project(':shared:protocol')
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
@@ -75,16 +95,22 @@ dependencies {
 
 tasks.named('processResources', ProcessResources).configure {
     filesMatching('META-INF/mods.toml') {
-        expand minecraft_version: '1.21.1', forge_version: '52.1.14', mod_version: project.version
+        expand minecraft_version: '1.21.1', forge_version_range: forgeVersionRange, mod_version: project.version
     }
 }
 
 tasks.named('jar', Jar).configure {
     archiveFileName = "trueuuid-${project.version}-forge1.21.1.jar"
-    from { project(':shared:protocol').sourceSets.main.output }
-    from("$buildDir/tmp/compileJava") {
-        include 'trueuuid.refmap.json'
+    manifest {
+        // Forge's Mixin bootstrap discovers production mod configs from this
+        // manifest attribute. The development run supplies it as an argument,
+        // which otherwise hides a missing production registration.
+        attributes('MixinConfigs': 'trueuuid.mixins.json')
     }
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn tasks.named('classes')
 }
 
 tasks.withType(JavaCompile).configureEach {

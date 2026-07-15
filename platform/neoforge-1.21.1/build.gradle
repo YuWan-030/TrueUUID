@@ -12,7 +12,7 @@ def sharedProtocolMain = project(':shared:protocol')
         .named('main')
 
 group = 'cn.alini'
-version = '1.1.0'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
 
 base {
     archivesName = 'trueuuid'
