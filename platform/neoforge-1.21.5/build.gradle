@@ -10,34 +10,30 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
+def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def minecraftVersion = '1.21.5'
+def neoForgeVersion = '21.5.74'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
 ext.neoforgeMetadata = [
-        loaderRange: '[21.1.213,)',
-        minecraftRange: '[1.21.1,1.21.2)'
+        loaderRange: "[${neoForgeVersion},)",
+        minecraftRange: '[1.21.5,1.21.6)'
 ]
 apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
 
-base {
-    archivesName = 'trueuuid'
-}
+base { archivesName = 'trueuuid' }
+repositories { mavenCentral() }
 
-repositories {
-    mavenCentral()
-}
-
-// User-facing strings are shared with the Forge adapters so every loader words
-// chat, titles, disconnects and the account badge identically.
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
-}
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
 
 neoForge {
-    version = '21.1.213'
-
+    version = neoForgeVersion
     runs {
         client {
             client()
@@ -48,9 +44,7 @@ neoForge {
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
         }
-        configureEach {
-            logLevel = org.slf4j.event.Level.INFO
-        }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
     }
     mods {
         trueuuid {
@@ -68,15 +62,14 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
+tasks.named('processResources', ProcessResources).configure {
+    from("${adapterMain}/resources") { include 'trueuuid.mixins.json', 'trueuuid-banner.png' }
+}
+
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-neoforge1.21.1.jar"
+    archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
     from { project(':shared:protocol').sourceSets.main.output }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
-}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }

@@ -17,12 +17,19 @@ Registered targets:
   forge-1.21.4  Forge 54.1.14 / Minecraft 1.21.4 / Java 21 (planned; no login run)
   forge-1.21.5  Forge 55.1.10 / Minecraft 1.21.5 / Java 21 (planned; no login run)
   forge-1.21.8  Forge 58.1.0  / Minecraft 1.21.8 / Java 21 (planned; no login run)
+  neoforge-1.21.1  NeoForge 21.1.213 / Minecraft 1.21.1 / Java 21 (planned; no login run)
+  neoforge-1.21.3  NeoForge 21.3.56  / Minecraft 1.21.3 / Java 21 (planned; no login run)
+  neoforge-1.21.4  NeoForge 21.4.121 / Minecraft 1.21.4 / Java 21 (planned; no login run)
+  neoforge-1.21.5  NeoForge 21.5.74  / Minecraft 1.21.5 / Java 21 (planned; no login run)
+  neoforge-1.21.8  NeoForge 21.8.9   / Minecraft 1.21.8 / Java 21 (planned; no login run)
 
 Examples (use two terminals):
   scripts/run-dev-target.sh forge-1.20.1 server
   scripts/run-dev-target.sh forge-1.20.1 client
   TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \\
     scripts/run-dev-target.sh forge-1.21.8 server
+  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \\
+    scripts/run-dev-target.sh neoforge-1.21.8 server
 
 The first launch of a new Minecraft version downloads that version's assets, so
 runs are online by default. Set TRUEUUID_OFFLINE=1 to force --offline once a
@@ -42,7 +49,7 @@ case "$target" in
     forge-1.20.1)
         required_java=17
         ;;
-    forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8)
+    forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
         required_java=21
         ;;
     *)

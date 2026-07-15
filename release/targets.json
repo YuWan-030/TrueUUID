@@ -63,6 +63,42 @@
       "game_version": "1.21.1",
       "java": 21,
       "release": false
+    },
+    {
+      "id": "neoforge-1.21.3",
+      "build_task": ":platform:neoforge-1.21.3:build",
+      "artifact": "platform/neoforge-1.21.3/build/libs/trueuuid-%VERSION%-neoforge1.21.3.jar",
+      "loader": "neoforge",
+      "game_version": "1.21.3",
+      "java": 21,
+      "release": false
+    },
+    {
+      "id": "neoforge-1.21.4",
+      "build_task": ":platform:neoforge-1.21.4:build",
+      "artifact": "platform/neoforge-1.21.4/build/libs/trueuuid-%VERSION%-neoforge1.21.4.jar",
+      "loader": "neoforge",
+      "game_version": "1.21.4",
+      "java": 21,
+      "release": false
+    },
+    {
+      "id": "neoforge-1.21.5",
+      "build_task": ":platform:neoforge-1.21.5:build",
+      "artifact": "platform/neoforge-1.21.5/build/libs/trueuuid-%VERSION%-neoforge1.21.5.jar",
+      "loader": "neoforge",
+      "game_version": "1.21.5",
+      "java": 21,
+      "release": false
+    },
+    {
+      "id": "neoforge-1.21.8",
+      "build_task": ":platform:neoforge-1.21.8:build",
+      "artifact": "platform/neoforge-1.21.8/build/libs/trueuuid-%VERSION%-neoforge1.21.8.jar",
+      "loader": "neoforge",
+      "game_version": "1.21.8",
+      "java": 21,
+      "release": false
     }
   ]
 }

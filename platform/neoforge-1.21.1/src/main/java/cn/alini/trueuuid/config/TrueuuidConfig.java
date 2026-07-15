@@ -26,6 +26,8 @@ public final class TrueuuidConfig {
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_ON_FAILURE;
     private static final ModConfigSpec.BooleanValue KNOWN_PREMIUM_DENY_OFFLINE;
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
+    private static final List<String> OVERLAY_CORNERS = List.of(
+            "top_left", "top_right", "bottom_left", "bottom_right");
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -42,7 +44,11 @@ public final class TrueuuidConfig {
                         "Screen corner for the account-status badge: top_left, top_right, bottom_left, bottom_right.",
                         "Default bottom_right: vanilla keeps status effects and advancement toasts in the top right,",
                         "chat in the bottom left, and mods commonly take the top left.")
-                .defineInList("overlayCorner", "bottom_right", List.of("top_left", "top_right", "bottom_left", "bottom_right"));
+                // NeoForge validates an absent value as null while creating a
+                // fresh config. List.of(...).contains(null) throws, so avoid
+                // defineInList's direct collection predicate here.
+                .define("overlayCorner", "bottom_right",
+                        value -> value instanceof String && OVERLAY_CORNERS.contains(value));
         OVERLAY_OFFSET_X = builder.comment("Extra horizontal pixels for the badge, to dodge another mod's HUD. Positive moves right.")
                 .defineInRange("overlayOffsetX", 0, -4096, 4096);
         OVERLAY_OFFSET_Y = builder.comment("Extra vertical pixels for the badge, to dodge another mod's HUD. Positive moves down.")

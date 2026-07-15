@@ -24,9 +24,9 @@ case "$target_id" in
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID Forge adapter loaded'
         ;;
-    neoforge-1.21.1)
-        task=":platform:neoforge-1.21.1:run${role^}"
-        load_pattern='TrueUUID NeoForge 1.21.1 adapter loaded'
+    neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
+        task=":platform:${target_id}:run${role^}"
+        load_pattern='TrueUUID NeoForge adapter loaded'
         ;;
     *) echo "target has no runtime smoke configuration: $target_id" >&2; exit 65 ;;
 esac

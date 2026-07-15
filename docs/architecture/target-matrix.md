@@ -13,7 +13,11 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.5 | Forge 55.1.10 | 21 | Planned | `platform/forge-1.21.5`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.6/1.21.7 once those login runs pass. |
-| Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. NeoForge is deferred until the Forge line is login-validated. |
+| Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. It is the hardened source baseline for the later NeoForge 1.21.x modules. |
+| Minecraft 1.21.3 | NeoForge 21.3.56 | 21 | Planned | `platform/neoforge-1.21.3`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.3. Build and focused tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.4 | NeoForge 21.4.121 | 21 | Planned | `platform/neoforge-1.21.4`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.4. Build and focused tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.5 | NeoForge 21.5.74 | 21 | Planned | `platform/neoforge-1.21.5`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.5. Build and focused tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.8 | NeoForge 21.8.9 | 21 | Planned | `platform/neoforge-1.21.8`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.8. Build, focused tests, and a local server boot pass (2026-07-15); the GUI seam uses the new 2D matrix stack. No login run yet. |
 | Minecraft 1.12.2 | Forge 14.23.5.2860 | 8 | Deferred legacy | Requires an isolated JDK 8 build and protocol-compatibility fixtures. |
 
 An empty folder, version range in metadata, or successful compilation alone is
@@ -81,6 +85,10 @@ required before a release claim.
 | 2026-07-15 | Forge 1.21.4 | Forge 54.1.14 / OpenJDK 21.0.11 | `platform/forge-1.21.4/build/libs/trueuuid-1.1.0-forge1.21.4.jar` | `:platform:forge-1.21.4:build` passed (shared source recompiled against 1.21.4 mappings; refmap generated; unit tests passed). No login run. |
 | 2026-07-15 | Forge 1.21.5 | Forge 55.1.10 / OpenJDK 21.0.11 | `platform/forge-1.21.5/build/libs/trueuuid-1.1.0-forge1.21.5.jar` | `:platform:forge-1.21.5:build` passed (shared source recompiled against 1.21.5 mappings; refmap generated; unit tests passed). No login run. |
 | 2026-07-15 | Forge 1.21.8 | Forge 58.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.8/build/libs/trueuuid-1.1.0-forge1.21.8.jar` | `:platform:forge-1.21.8:build` passed against the EventBus 7 API (shared source + the `.listener` `@SubscribeEvent` seam; refmap generated; unit tests passed). No login run. |
+| 2026-07-15 | NeoForge 1.21.3 | NeoForge 21.3.56 / OpenJDK 21.0.11 | `platform/neoforge-1.21.3/build/libs/trueuuid-1.1.0-neoforge1.21.3.jar` | `:platform:neoforge-1.21.3:build` passed; it recompiles the hardened NeoForge source and runs the adapter lifecycle tests. No login run. |
+| 2026-07-15 | NeoForge 1.21.4 | NeoForge 21.4.121 / OpenJDK 21.0.11 | `platform/neoforge-1.21.4/build/libs/trueuuid-1.1.0-neoforge1.21.4.jar` | `:platform:neoforge-1.21.4:build` passed; it recompiles the hardened NeoForge source and runs the adapter lifecycle tests. No login run. |
+| 2026-07-15 | NeoForge 1.21.5 | NeoForge 21.5.74 / OpenJDK 21.0.11 | `platform/neoforge-1.21.5/build/libs/trueuuid-1.1.0-neoforge1.21.5.jar` | `:platform:neoforge-1.21.5:build` passed; it recompiles the hardened NeoForge source and runs the adapter lifecycle tests. No login run. |
+| 2026-07-15 | NeoForge 1.21.8 | NeoForge 21.8.9 / OpenJDK 21.0.11 | `platform/neoforge-1.21.8/build/libs/trueuuid-1.1.0-neoforge1.21.8.jar` | Build and adapter lifecycle tests passed with a target-local GUI seam for the 1.21.6+ matrix stack. After the config-validator fix, a local `runServer` boot reached `Done` on 127.0.0.1:25565. No client boot or login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
 support claims. Every row remains Planned until the complete acceptance matrix
@@ -104,7 +112,11 @@ platform/
   forge-1.21.4/     #  } and adds only its version-divergent shims
   forge-1.21.5/     # /
   forge-1.21.8/     # /  (EventBus 7)
-  neoforge-1.21.1/
+  neoforge-1.21.1/ # shared modern-NeoForge source + 1.21.1 metadata
+  neoforge-1.21.3/ # per-version metadata/build, recompiles the shared source
+  neoforge-1.21.4/
+  neoforge-1.21.5/
+  neoforge-1.21.8/
 ```
 
 Directories are added only when they contain a compiling adapter. Shared code
@@ -139,8 +151,21 @@ Forge 52 (1.21.1) → 58 (1.21.8) the only divergence is:
 
 `forge-1.20.1` predates the configuration phase (different login classes, `@Mod`
 event API, and `ResourceLocation` constructor) and deliberately does **not** use
-this root. NeoForge will get the same treatment after the Forge line is
-login-validated.
+this root.
+
+## Modern NeoForge code sharing
+
+The NeoForge 1.21.x adapters use the same source-sharing model: the hardened
+adapter implementation remains in `platform/neoforge-1.21.1/src/main`, and every
+later NeoForge module compiles that source against its own exact NeoForge and
+Minecraft versions. Each later module owns its `neoforge.mods.toml`, Gradle run
+configuration, artifact name, and version range. This is source sharing only;
+no compiled classes or refmaps are reused between Minecraft versions. If a
+NeoForge API diverges, the affected source must move to that target module
+before it can be claimed to compile or work there. `neoforge-1.21.8` currently
+does this for the badge draw: Minecraft 1.21.6+ switched from `PoseStack` to
+`Matrix3x2fStack`. The common GUI registration uses NeoForge's current default
+mod-bus subscription, which also compiles on the earlier 1.21 targets.
 
 ### Sharing a jar across patches
 

@@ -22,6 +22,6 @@ public final class Trueuuid {
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> AdapterRuntime.onPlayerLoggedIn(event));
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> AdapterRuntime.onPlayerLoggedOut(event));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> AdapterRuntime.shutdown());
-        LOGGER.info("TrueUUID NeoForge 1.21.1 adapter loaded");
+        LOGGER.info("TrueUUID NeoForge adapter loaded");
     }
 }

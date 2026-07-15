@@ -1,0 +1,22 @@
+// Loader-wide NeoForge presentation metadata. Individual targets set only the
+// loader/Minecraft compatibility ranges before applying this file.
+if (!project.ext.has('neoforgeMetadata')) {
+    throw new GradleException('NeoForge target must define ext.neoforgeMetadata before applying metadata.gradle')
+}
+
+def metadata = project.ext.neoforgeMetadata
+sourceSets.main.resources.srcDir "${rootDir}/platform/neoforge-common/src/main/resources"
+
+tasks.named('processResources', ProcessResources).configure {
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+                mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
+                mod_license: providers.gradleProperty('mod_license').getOrElse('GNU LGPL 3.0'),
+                mod_version: project.version,
+                mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
+                mod_description: providers.gradleProperty('mod_description').getOrElse(''),
+                neoforge_version_range: metadata.loaderRange,
+                minecraft_version_range: metadata.minecraftRange
+        )
+    }
+}

@@ -19,6 +19,7 @@ import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -32,9 +33,11 @@ import java.security.SecureRandom;
 abstract class ServerLoginMixin {
     @Unique private static final SecureRandom TRUEUUID$TRANSACTIONS = new SecureRandom();
     @Shadow private GameProfile authenticatedProfile;
-    @Shadow final MinecraftServer server = null;
-    @Shadow final Connection connection = null;
     @Shadow public abstract void disconnect(Component reason);
+    @Accessor("server")
+    abstract MinecraftServer trueuuid$server();
+    @Accessor("connection")
+    abstract Connection trueuuid$connection();
     @Invoker("verifyLoginAndFinishConnectionSetup")
     abstract void trueuuid$finishLogin(GameProfile profile);
 
@@ -43,6 +46,8 @@ abstract class ServerLoginMixin {
 
     @Inject(method = "handleHello", at = @At("TAIL"))
     private void trueuuid$begin(ServerboundHelloPacket packet, CallbackInfo callback) {
+        MinecraftServer server = trueuuid$server();
+        Connection connection = trueuuid$connection();
         if (server.usesAuthentication() || authenticatedProfile == null) return;
         do {
             trueuuid$transaction = TRUEUUID$TRANSACTIONS.nextInt(1, Integer.MAX_VALUE);
@@ -69,6 +74,8 @@ abstract class ServerLoginMixin {
         if (packet.transactionId() != trueuuid$transaction || !(packet.payload() instanceof AuthAnswerPayload answer)
                 || authenticatedProfile == null) return;
         callback.cancel();
+        MinecraftServer server = trueuuid$server();
+        Connection connection = trueuuid$connection();
         String name = authenticatedProfile.getName();
         String ip = connection.getRemoteAddress() instanceof InetSocketAddress address && address.getAddress() != null
                 ? address.getAddress().getHostAddress() : "";
