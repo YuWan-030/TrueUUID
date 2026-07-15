@@ -80,12 +80,14 @@ minimal applicable commit with `-x`.
 
 ## Automation gate
 
-Continuous integration builds and tests every implemented target. Publishing
-is stricter: [`release/targets.json`](../../release/targets.json) lists the
-exact target artifacts eligible for a signed version tag. A compiling Planned
-target must remain `"release": false`. The currently recorded acceptance
-evidence is incomplete, so all targets remain disabled until a maintainer
-reviews an approval change. See
+Lightweight continuous integration runs on pushes and pull requests. The
+on-demand and release-triggered Full Self-Test builds and boots every
+implemented target. Publishing is stricter:
+[`release/targets.json`](../../release/targets.json) lists the exact target
+artifacts eligible for a signed version tag. A compiling Planned target must
+remain `"release": false`. The currently recorded acceptance evidence is
+incomplete, so all targets remain disabled until a maintainer reviews an
+approval change. See
 [`release-automation.md`](../development/release-automation.md) for owner setup
 and publishing details.
 

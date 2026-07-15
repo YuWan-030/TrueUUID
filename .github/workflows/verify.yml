@@ -3,7 +3,6 @@ name: Verify
 on:
   pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -13,9 +12,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  automation:
+    name: Automation configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Validate manifests and shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/release/validate-targets.sh
+          find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
   test:
     name: ${{ matrix.target }} (JDK ${{ matrix.java }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -25,10 +40,10 @@ jobs:
             tasks: ':shared:protocol:test :platform:forge-1.20.1:test'
           - target: Forge 1.21.1
             java: '21'
-            tasks: ':shared:protocol:test :platform:forge-1.21.1:build'
+            tasks: ':shared:protocol:test :platform:forge-1.21.1:test'
           - target: NeoForge 1.21.1
             java: '21'
-            tasks: ':shared:protocol:test :platform:neoforge-1.21.1:build'
+            tasks: ':shared:protocol:test :platform:neoforge-1.21.1:test'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

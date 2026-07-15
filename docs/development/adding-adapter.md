@@ -71,6 +71,8 @@ Before marking a target active, run:
    rollback.
 
 Add the target to the aggregate build and compile/test CI matrix after its
-self-contained build and focused tests pass. Enable it in
+self-contained build and focused tests pass. Add its declared JDK, build task,
+JAR checks, and client/server bootstrap markers to the full self-test path.
+Enable it in
 `release/targets.json` only after every gate above passes. Then update the
 target matrix and release it with a signed repository version tag.

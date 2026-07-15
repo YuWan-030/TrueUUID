@@ -1,126 +1,118 @@
 name: Release
 
 on:
-  push:
-    tags: ['*-v*']
+  release:
+    types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    # Missing variables keep this job skipped. The owner must deliberately arm it.
+  metadata:
+    name: Validate published release
     if: >-
       github.repository == 'YuWan-030/TrueUUID' &&
-      vars.RELEASE_PUBLISH_ENABLED == 'true'
+      github.event.release.draft == false &&
+      github.event.release.prerelease == false
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    environment: release
+    timeout-minutes: 5
+    outputs:
+      target: ${{ steps.release.outputs.target }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
-        with:
-          distribution: temurin
-          # JDK 21 launches Gradle; Gradle uses the installed JDK 17 toolchain
-          # when the selected target declares Java 17.
-          java-version: |
-            17
-            21
-          cache: gradle
-      - name: Validate tag and release prerequisites
-        id: version
+      - id: release
+        name: Validate tag and target approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF_NAME" =~ ^([a-z0-9]+([.-][a-z0-9]+)*)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
+          [[ "$RELEASE_TAG" =~ ^([a-z0-9]+([.-][a-z0-9]+)*)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
           target_id="${BASH_REMATCH[1]}"
           version="${BASH_REMATCH[3]}"
           [[ "$(sed -n 's/^mod_version=//p' gradle.properties)" == "$version" ]]
-          [[ "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" == tag ]]
+          [[ "$(git cat-file -t "refs/tags/${RELEASE_TAG}")" == tag ]]
+          tag_object=$(git rev-parse "refs/tags/${RELEASE_TAG}")
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}" --jq '.verification.verified')" == true ]]
           git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
-          tag_commit=$(git rev-list -n 1 "$GITHUB_REF_NAME")
+          tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
           git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main
-          jq -e --arg target_id "$target_id" '
-            .schema_version == 1 and
-            (.targets | type == "array" and length > 0) and
-            ([.targets[].id] | length == (unique | length)) and
-            ([.targets[].artifact] | length == (unique | length)) and
-            all(.targets[];
-              ((keys | sort) == (["artifact", "build_task", "game_version", "id", "java", "loader", "release"] | sort)) and
-              (.id | type == "string" and test("^[a-z0-9]+(?:[.-][a-z0-9]+)*$")) and
-              (.build_task == (":platform:" + .id + ":build")) and
-              (.id as $id | .artifact | type == "string" and startswith("platform/" + $id + "/build/libs/") and endswith(".jar")) and
-              (.artifact | contains("%VERSION%")) and
-              (.loader | type == "string" and test("^[a-z0-9-]+$")) and
-              (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$")) and
-              (.java == 17 or .java == 21) and
-              (.release | type == "boolean")
-            ) and
-            ([.targets[] | select(.id == $target_id)] | length == 1) and
-            any(.targets[]; .id == $target_id and .release == true)
-          ' release/targets.json >/dev/null
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          ./scripts/release/validate-targets.sh --approved "$target_id" >/dev/null
           echo "target=$target_id" >> "$GITHUB_OUTPUT"
-      - name: Build approved release target
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+  full-self-test:
+    name: Full release self-test
+    needs: metadata
+    uses: ./.github/workflows/self-test.yml
+    with:
+      ref: ${{ needs.metadata.outputs.tag }}
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish verified artifact
+    needs: [metadata, full-self-test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Download tested release artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-${{ needs.metadata.outputs.target }}
+          path: release-assets
+      - name: Verify downloaded artifact
         env:
-          TARGET_ID: ${{ steps.version.outputs.target }}
-          VERSION: ${{ steps.version.outputs.value }}
+          TARGET_ID: ${{ needs.metadata.outputs.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          target=$(jq -ce --arg id "$TARGET_ID" '.targets[] | select(.id == $id and .release == true)' release/targets.json)
-          task=$(jq -r '.build_task' <<<"$target")
-          ./gradlew :shared:protocol:test "$task" --no-daemon --stacktrace
-          mkdir -p release-assets
-          artifact=$(jq -r --arg version "$VERSION" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
-          [[ -f "$artifact" ]]
-          cp "$artifact" release-assets/
-          (cd release-assets && sha256sum *.jar > SHA256SUMS)
-      - name: Validate publishing configuration
+          target=$(./scripts/release/validate-targets.sh --approved "$TARGET_ID")
+          expected=$(jq -r --arg version "$VERSION" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
+          (cd release-assets && sha256sum --check SHA256SUMS)
+          jar="release-assets/$(basename "$expected")"
+          [[ -f "$jar" ]]
+          mkdir -p "$(dirname "$expected")"
+          cp "$jar" "$expected"
+      - name: Attach tested assets to GitHub Release
         env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
+      - name: Publish approved target to Modrinth
+        env:
+          GH_TOKEN: ${{ github.token }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          TARGET_ID: ${{ needs.metadata.outputs.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "$MODRINTH_TOKEN" ]]
           [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]]
-      - name: Create draft GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_ID: ${{ steps.version.outputs.target }}
-          VERSION: ${{ steps.version.outputs.value }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if is_draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
-            [[ "$is_draft" == true ]]
-            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" release-assets/* \
-              --draft --verify-tag --title "TrueUUID ${VERSION} for ${TARGET_ID}" \
-              --generate-notes
+          gh release view "$RELEASE_TAG" --json body --jq '.body // ""' > release-changelog.md
+          if [[ ! -s release-changelog.md ]]; then
+            printf 'TrueUUID %s for %s.\n' "$VERSION" "$TARGET_ID" > release-changelog.md
           fi
-      - name: Publish approved target to Modrinth
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
-          TARGET_ID: ${{ steps.version.outputs.target }}
-          VERSION: ${{ steps.version.outputs.value }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "$MODRINTH_TOKEN" && -n "$MODRINTH_PROJECT_ID" ]]
-          printf 'TrueUUID %s for %s. See the GitHub release notes for details.\n' "$VERSION" "$TARGET_ID" > release-changelog.md
           ./scripts/release/publish-modrinth.sh "$TARGET_ID" "$VERSION" release-changelog.md
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${GITHUB_REF_NAME}" --draft=false

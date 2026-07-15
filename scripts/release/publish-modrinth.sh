@@ -9,22 +9,10 @@ fi
 target_id=$1
 version=$2
 changelog_file=$3
-targets_file=release/targets.json
-
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid release version: $version" >&2; exit 64; }
-[[ -f "$targets_file" ]] || { echo "missing target manifest: $targets_file" >&2; exit 66; }
 [[ -f "$changelog_file" ]] || { echo "missing changelog: $changelog_file" >&2; exit 66; }
 
-target=$(jq -ce --arg id "$target_id" '
-  [.targets[] | select(.id == $id)] as $matches |
-  if ($matches | length) != 1 then
-    error("target must appear exactly once in release/targets.json")
-  elif $matches[0].release != true then
-    error("target is not release-approved")
-  else
-    $matches[0]
-  end
-' "$targets_file") || { echo "refusing unapproved target: $target_id" >&2; exit 65; }
+target=$(./scripts/release/validate-targets.sh --approved "$target_id")
 
 : "${MODRINTH_TOKEN:?MODRINTH_TOKEN must be set}"
 : "${MODRINTH_PROJECT_ID:?MODRINTH_PROJECT_ID must be set}"

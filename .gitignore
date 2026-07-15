@@ -18,6 +18,10 @@ atlassian-ide-plugin.xml
 
 # Log file
 *.log
+**/logs/
+/self-test-output/
+/release-assets/
+/release-changelog.md
 
 # BlueJ files
 *.ctxt
