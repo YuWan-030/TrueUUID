@@ -11,13 +11,14 @@ sourceSets.main.java.srcDir "${forgeCommon}/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 ```
 
-User-facing strings are **not** here: they live in `platform/common-assets`, which
-both Forge and NeoForge consume, so a message is worded once for every loader.
-
 so the shared code is **recompiled per target against that target's Forge version
 and Minecraft mappings**. There is no shared bytecode — only shared source. This is
 what lets one fix (e.g. to the config surface or the offline-fallback policy) land in
 every Forge version at once, while each version still gets a correct, remapped jar.
+
+User-facing strings are **not** here: they live in `platform/common-assets`, which
+both Forge and NeoForge consume, so a message is worded once for every loader. This
+root is Forge-only, because its Java touches Forge APIs that NeoForge renames.
 
 ## What lives here (version-independent)
 
