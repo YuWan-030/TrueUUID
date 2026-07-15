@@ -7,13 +7,19 @@ An adapter is the unit of support and release; a Git branch is not.
 
 | Target | Loader | Java | State | Notes |
 |---|---|---:|---|---|
-| Minecraft 1.20.1 | Forge 47.4.10 | 17 | Active | Implemented in `platform/forge-1.20.1`; local Mojang login/UUID/name/skin run passed on 2026-07-12 with JDK 17. Yggdrasil, denial/timeout/grace, and migration rollback runs remain pending. |
-| Minecraft 1.21.1 | Forge 52.1.0 | 21 | Planned | Implemented independently in `platform/forge-1.21.1`; a local premium client/server login passed, but the full acceptance matrix remains incomplete. |
-| Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. |
+| Minecraft 1.20.1 | Forge 47.4.10 | 17 | Active | Implemented in `platform/forge-1.20.1` (independent pre-configuration-phase island). Local Mojang login/UUID/name/skin run passed on 2026-07-12 with JDK 17. Yggdrasil, denial/timeout/grace, and migration rollback runs remain pending. |
+| Minecraft 1.21.1 | Forge 52.1.0 | 21 | Planned | `platform/forge-1.21.1`; shares `platform/forge-common`. A local premium client/server login passed, but the full acceptance matrix remains incomplete. |
+| Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.5 | Forge 55.1.10 | 21 | Planned | `platform/forge-1.21.5`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.6/1.21.7 once those login runs pass. |
+| Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. NeoForge is deferred until the Forge line is login-validated. |
 | Minecraft 1.12.2 | Forge 14.23.5.2860 | 8 | Deferred legacy | Requires an isolated JDK 8 build and protocol-compatibility fixtures. |
 
 An empty folder, version range in metadata, or successful compilation alone is
 not a support claim. Every supported target needs a real two-sided login run.
+The five modern Forge modules build and pass unit tests, but all remain Planned
+until each has its own login run.
 
 ## Recorded runtime evidence
 
@@ -32,9 +38,13 @@ required before a release claim.
 |---|---|---|---|---|
 | 2026-07-12 | NeoForge 1.21.1 | NeoForge 21.1.213 / OpenJDK 21.0.11 | `platform/neoforge-1.21.1/build/libs/trueuuid-1.1.0-neoforge1.21.1.jar` | `:shared:protocol:test :platform:neoforge-1.21.1:build` passed. The adapter codec and lifecycle tests passed; safe endpoint verification is wired, but the real login acceptance matrix is pending. |
 | 2026-07-15 | Forge 1.21.1 | Forge 52.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.1/build/libs/trueuuid-1.1.0-forge1.21.1.jar` | JDK 21 build, shared fixtures, codec/lifecycle tests, and one real premium client/server login passed. The full matrix is still pending. |
+| 2026-07-15 | Forge 1.21.3 | Forge 53.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.3/build/libs/trueuuid-1.1.0-forge1.21.3.jar` | `:platform:forge-1.21.3:build` passed (shared `platform/forge-common` recompiled against 1.21.3 mappings; mixin refmap generated; unit tests passed). No login run. |
+| 2026-07-15 | Forge 1.21.4 | Forge 54.1.14 / OpenJDK 21.0.11 | `platform/forge-1.21.4/build/libs/trueuuid-1.1.0-forge1.21.4.jar` | `:platform:forge-1.21.4:build` passed (shared source recompiled against 1.21.4 mappings; refmap generated; unit tests passed). No login run. |
+| 2026-07-15 | Forge 1.21.5 | Forge 55.1.10 / OpenJDK 21.0.11 | `platform/forge-1.21.5/build/libs/trueuuid-1.1.0-forge1.21.5.jar` | `:platform:forge-1.21.5:build` passed (shared source recompiled against 1.21.5 mappings; refmap generated; unit tests passed). No login run. |
+| 2026-07-15 | Forge 1.21.8 | Forge 58.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.8/build/libs/trueuuid-1.1.0-forge1.21.8.jar` | `:platform:forge-1.21.8:build` passed against the EventBus 7 API (shared source + the `.listener` `@SubscribeEvent` seam; refmap generated; unit tests passed). No login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
-support claims. Both rows remain Planned until the complete acceptance matrix
+support claims. Every row remains Planned until the complete acceptance matrix
 in `docs/development/adding-adapter.md` passes, including migration rollback.
 
 ## Target axes
@@ -48,14 +58,58 @@ Use one module per declared target:
 
 ```text
 platform/
-  forge-1.20.1/
-  forge-1.21.1/
+  forge-common/     # shared SOURCE root for the modern Forge line (not a module)
+  forge-1.20.1/     # independent pre-configuration-phase island
+  forge-1.21.1/     # \
+  forge-1.21.3/     #  } each recompiles forge-common against its own Forge/mappings
+  forge-1.21.4/     #  } and adds only its version-divergent shims
+  forge-1.21.5/     # /
+  forge-1.21.8/     # /  (EventBus 7)
   neoforge-1.21.1/
-  fabric-1.20.1/
 ```
 
 Directories are added only when they contain a compiling adapter. Shared code
 does not make an untested loader or Minecraft version supported.
+
+## Modern Forge code sharing
+
+The 1.20.2+ payload-based login protocol is one family. Rather than duplicate the
+adapter across every 1.21.x patch, the version-independent code lives once in
+`platform/forge-common/src/main` (a **source** root, not a Gradle module) and each
+per-version module compiles it against its own Forge version and Minecraft
+mappings via:
+
+```gradle
+def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+```
+
+There is no shared bytecode — only shared source — so every module still gets a
+correctly remapped jar and refmap. A file may live in `forge-common` only if it
+compiles unchanged against *every* module that includes it. Empirically, across
+Forge 52 (1.21.1) → 58 (1.21.8) the only divergence is:
+
+- the login/GUI mixins + `CustomQueryPayload` records + `ClientAccountStatus`
+  (copied per module; they compile unchanged because the login classes are stable
+  by name across the range), and
+- a one-file `TrueuuidForgeEvents` seam whose only version-specific line is the
+  `@SubscribeEvent` import — `net.minecraftforge.eventbus.api.SubscribeEvent`
+  (EventBus 6, Forge ≤ 55) vs `net.minecraftforge.eventbus.api.listener.SubscribeEvent`
+  (EventBus 7, Forge 56+).
+
+`forge-1.20.1` predates the configuration phase (different login classes, `@Mod`
+event API, and `ResourceLocation` constructor) and deliberately does **not** use
+this root. NeoForge will get the same treatment after the Forge line is
+login-validated.
+
+### Sharing a jar across patches
+
+Source is shared; a **jar** is per Forge build (each patch has its own Forge
+version and remapped refmap). A single module may still declare a wider
+`mods.toml` Minecraft range to cover adjacent patches (e.g. `forge-1.21.8`
+covering 1.21.6/1.21.7), but only after a two-sided login run passes on each
+covered patch. Modules default to their exact build patch until then.
 
 ## Branches and releases
 

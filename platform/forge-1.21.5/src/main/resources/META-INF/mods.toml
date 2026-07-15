@@ -1,0 +1,29 @@
+modLoader="javafml"
+loaderVersion="[55,)"
+license="GNU LGPL 3.0"
+
+[[mods]]
+modId="trueuuid"
+version="${mod_version}"
+displayName="TrueUUID"
+displayURL="https://github.com/YuWan-030/TrueUUID"
+logoFile="trueuuid-banner.png"
+authors="YuWan-030, wish131400, F1xGOD"
+description='''A Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.'''
+
+[[mixins]]
+config="trueuuid.mixins.json"
+
+[[dependencies.trueuuid]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.trueuuid]]
+modId="minecraft"
+mandatory=true
+versionRange="[${minecraft_version},1.21.6)"
+ordering="NONE"
+side="BOTH"

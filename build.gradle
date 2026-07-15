@@ -3,5 +3,12 @@ plugins {
 }
 
 tasks.named('build') {
-    dependsOn ':shared:protocol:build', ':platform:forge-1.20.1:build', ':platform:neoforge-1.21.1:build', ':platform:forge-1.21.1:build'
+    dependsOn ':shared:protocol:build',
+            ':platform:forge-1.20.1:build',
+            ':platform:neoforge-1.21.1:build',
+            ':platform:forge-1.21.1:build',
+            ':platform:forge-1.21.3:build',
+            ':platform:forge-1.21.4:build',
+            ':platform:forge-1.21.5:build',
+            ':platform:forge-1.21.8:build'
 }

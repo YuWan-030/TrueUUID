@@ -1,0 +1,124 @@
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+def minecraftVersion = '1.21.5'
+def forgeVersion = '55.1.10'
+// Forge 55.1.10; range allows the whole [55,56) line.
+def forgeVersionRange = '[55,56)'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+
+base {
+    archivesName = 'trueuuid'
+}
+
+// Version-independent adapter code + identical resources live once in
+// platform/forge-common and are recompiled here against 1.21.5 mappings.
+// Only the version-divergent shims (mixins, payloads, client render, mods.toml)
+// live in this module's own src tree. See platform/forge-common/README.md.
+def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraftVersion
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                trueuuid {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { property 'forge.enabledGameTestNamespaces', 'trueuuid' }
+        server {
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+            args '--nogui'
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, 'trueuuid.refmap.json'
+    config 'trueuuid.mixins.json'
+}
+
+sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs)
+    include '**/*.class'
+    from(layout.buildDirectory.dir('tmp/compileJava')) {
+        include 'trueuuid.refmap.json'
+    }
+    into(mainClassesDir)
+}
+tasks.named('classes') {
+    dependsOn mergeSharedProtocolClasses
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}"
+    compileOnly project(':shared:protocol')
+    testImplementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    filesMatching('META-INF/mods.toml') {
+        expand minecraft_version: minecraftVersion, forge_version_range: forgeVersionRange, mod_version: project.version
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-forge1.21.5.jar"
+    manifest {
+        attributes('MixinConfigs': 'trueuuid.mixins.json')
+    }
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn tasks.named('classes')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

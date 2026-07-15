@@ -27,23 +27,33 @@ jobs:
           ./scripts/release/validate-targets.sh
           find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
+  matrix:
+    name: Read target matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - id: targets
+        name: Validate and export targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/release/validate-targets.sh
+          matrix=$(jq -c '{include: [.targets[] | {target: .id, java: (.java | tostring), build_task: .build_task}]}' release/targets.json)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   test:
     name: ${{ matrix.target }} (JDK ${{ matrix.java }})
+    needs: matrix
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: Forge 1.20.1
-            java: '17'
-            tasks: ':shared:protocol:test :platform:forge-1.20.1:test'
-          - target: Forge 1.21.1
-            java: '21'
-            tasks: ':shared:protocol:test :platform:forge-1.21.1:test'
-          - target: NeoForge 1.21.1
-            java: '21'
-            tasks: ':shared:protocol:test :platform:neoforge-1.21.1:test'
+      matrix: ${{ fromJSON(needs.matrix.outputs.targets) }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -54,4 +64,4 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: gradle
       - name: Build and test
-        run: ./gradlew ${{ matrix.tasks }} --no-daemon --stacktrace
+        run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace

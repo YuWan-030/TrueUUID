@@ -89,11 +89,17 @@ public final class ForgeAdapterRuntime {
         pendingLogins.put(uuid, new PendingLogin(source, System.currentTimeMillis()));
     }
 
-    /** Emits audit and player feedback only after the server has completed login. */
+    /**
+     * Emits audit and player feedback only after the server has completed login.
+     * Registered per Forge version through the {@code TrueuuidForgeEvents} seam,
+     * because the {@code @SubscribeEvent} annotation package moved in EventBus 7.
+     */
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         AuthenticationSource source = consumePendingLogin(player.getUUID());
-        if (source == null && player.server.usesAuthentication()) source = AuthenticationSource.NATIVE_ONLINE_MODE;
+        if (source == null && player.getServer() != null && player.getServer().usesAuthentication()) {
+            source = AuthenticationSource.NATIVE_ONLINE_MODE;
+        }
         if (source == null) return;
 
         Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel,

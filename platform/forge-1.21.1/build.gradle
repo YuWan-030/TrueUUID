@@ -31,6 +31,16 @@ base {
     archivesName = 'trueuuid'
 }
 
+// Version-independent adapter code (entrypoint, config, runtime, registry,
+// login flow, net ids, mixin plugin) and identical resources (lang, mixins
+// config, pack.mcmeta) live once in platform/forge-common and are compiled by
+// every per-version Forge module against its own Forge/mappings. Only the
+// version-divergent shims (mixins, payloads, client render, mods.toml) stay in
+// this module's own src tree.
+def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }

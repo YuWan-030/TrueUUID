@@ -6,8 +6,10 @@ license="GNU LGPL 3.0"
 modId="trueuuid"
 version="${mod_version}"
 displayName="TrueUUID"
-authors="_YuWan"
-description='''Secure login verification for offline-mode servers.'''
+displayURL="https://github.com/YuWan-030/TrueUUID"
+logoFile="trueuuid-banner.png"
+authors="YuWan-030, wish131400, F1xGOD"
+description='''A Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.'''
 
 [[mixins]]
 config="trueuuid.mixins.json"
