@@ -11,6 +11,9 @@ sourceSets.main.java.srcDir "${forgeCommon}/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 ```
 
+User-facing strings are **not** here: they live in `platform/common-assets`, which
+both Forge and NeoForge consume, so a message is worded once for every loader.
+
 so the shared code is **recompiled per target against that target's Forge version
 and Minecraft mappings**. There is no shared bytecode — only shared source. This is
 what lets one fix (e.g. to the config surface or the offline-fallback policy) land in
@@ -34,7 +37,7 @@ shared `cn.alini.trueuuid.protocol` module.
 - `client/ClientAccountStatus.java` — badge state + drawing (fill primitives only)
 - `mixin/TrueuuidMixinPlugin.java` — gates mixins by dist and by HUD-API presence
 - `mixin/client/ForgeClientGuiMixin.java` — badge draw for Forge 52/53 only
-- `resources/` — `trueuuid.mixins.json`, `pack.mcmeta`, `assets/trueuuid/lang/*`
+- `resources/` — `trueuuid.mixins.json`, `pack.mcmeta`
 
 ## What stays in each per-version module (version-divergent)
 

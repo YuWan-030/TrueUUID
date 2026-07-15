@@ -40,6 +40,7 @@ base {
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)

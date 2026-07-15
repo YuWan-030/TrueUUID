@@ -1,5 +1,7 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.Trueuuid;
+import cn.alini.trueuuid.api.AccountStatus;
 import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
 import cn.alini.trueuuid.protocol.EndpointPolicy;
 import cn.alini.trueuuid.protocol.SafeSessionHttpClient;
@@ -9,23 +11,50 @@ import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
+import com.mojang.authlib.GameProfile;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 
 /**
  * Owns the adapter's bounded verifier.  It deliberately accepts no custom
  * endpoint until a loader configuration supplies an explicit allowlist.
+ *
+ * <p>Login feedback, the offline-fallback policy, the verified-name registry and
+ * the addon API mirror the Forge adapters' {@code ForgeAdapterRuntime} so audit
+ * lines, chat and titles are worded identically on every loader. Keep the two in
+ * step; the shared translation keys live in {@code platform/common-assets}.
  */
 public final class AdapterRuntime {
     private static final Gson GSON = new Gson();
+    private static final int MAX_PENDING_VERIFICATIONS = 4096;
+    private static final long PENDING_VERIFICATION_TTL_MILLIS = Duration.ofMinutes(5).toMillis();
+    private static final Map<UUID, PendingLogin> pendingLogins = new LinkedHashMap<>();
+    private static final Map<UUID, AccountStatus> liveStatus = new ConcurrentHashMap<>();
+    private static final List<BiConsumer<ServerPlayer, AccountStatus>> loginCallbacks = new CopyOnWriteArrayList<>();
     private static BoundedRequestCoordinator requests;
     private static SessionVerifier verifier;
+    private static VerifiedNameRegistry verifiedNames;
 
     public static synchronized void initialize() {
         if (verifier != null) return;
         requests = new BoundedRequestCoordinator();
+        verifiedNames = new VerifiedNameRegistry();
         verifier = new SafeSessionVerifier(requests, () -> new EndpointPolicy(TrueuuidConfig.yggdrasilHosts()), AdapterRuntime::parse);
     }
 
@@ -38,6 +67,109 @@ public final class AdapterRuntime {
         if (requests != null) requests.close();
         requests = null;
         verifier = null;
+        pendingLogins.clear();
+        liveStatus.clear();
+        if (verifiedNames != null) verifiedNames.close();
+        verifiedNames = null;
+    }
+
+    /** Records a TrueUUID session verification until the matching player joins. */
+    public static synchronized void recordVerifiedProfile(VerifiedProfile profile) {
+        recordPendingLogin(profile.uuid(), AuthenticationSource.TRUEUUID_SESSION);
+        if (verifiedNames != null) verifiedNames.record(profile.name(), profile.uuid());
+    }
+
+    /** Records a configured offline fallback until the vanilla login completes. */
+    public static synchronized void recordOfflineFallback(GameProfile profile) {
+        if (profile != null && profile.getId() != null) recordPendingLogin(profile.getId(), AuthenticationSource.OFFLINE_FALLBACK);
+    }
+
+    /** Applies the offline policy before vanilla accepts the unverified profile. */
+    public static synchronized boolean canUseOfflineFallback(String name) {
+        boolean knownVerifiedName = verifiedNames != null && verifiedNames.contains(name);
+        return OfflineFallbackPolicy.permits(knownVerifiedName, TrueuuidConfig.allowOfflineOnFailure(),
+                TrueuuidConfig.knownPremiumDenyOffline(), TrueuuidConfig.allowOfflineForUnknownOnly());
+    }
+
+    private static void recordPendingLogin(UUID uuid, AuthenticationSource source) {
+        prunePendingLogins(System.currentTimeMillis());
+        while (pendingLogins.size() >= MAX_PENDING_VERIFICATIONS) {
+            Iterator<UUID> iterator = pendingLogins.keySet().iterator();
+            if (!iterator.hasNext()) break;
+            iterator.next();
+            iterator.remove();
+        }
+        pendingLogins.put(uuid, new PendingLogin(source, System.currentTimeMillis()));
+    }
+
+    /** Emits audit and player feedback only after the server has completed login. */
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        AuthenticationSource source = consumePendingLogin(player.getUUID());
+        if (source == null && player.getServer() != null && player.getServer().usesAuthentication()) {
+            source = AuthenticationSource.NATIVE_ONLINE_MODE;
+        }
+        if (source == null) return;
+
+        liveStatus.put(player.getUUID(), source.publicStatus);
+        for (BiConsumer<ServerPlayer, AccountStatus> callback : loginCallbacks) {
+            try {
+                callback.accept(player, source.publicStatus);
+            } catch (RuntimeException failure) {
+                Trueuuid.LOGGER.warn("TrueUUID login callback threw for player={}", player.getUUID(), failure);
+            }
+        }
+
+        Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel,
+                player.getGameProfile().getName(), player.getUUID());
+
+        if (TrueuuidConfig.showJoinFeedback()) {
+            player.sendSystemMessage(Component.translatable(source.chatKey).withStyle(source.chatColor));
+        }
+        // The persistent client badge reports the same state, so the full-screen
+        // title stays opt-in rather than interrupting every join.
+        if (TrueuuidConfig.showJoinTitle()) {
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+            player.connection.send(new ClientboundSetTitleTextPacket(Component.translatable(source.titleKey).withStyle(source.titleColor)));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(Component.translatable(source.subtitleKey).withStyle(ChatFormatting.GRAY)));
+        }
+    }
+
+    /** Drops a player's live status when they leave. */
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) liveStatus.remove(player.getUUID());
+    }
+
+    // ---- Public API surface (see cn.alini.trueuuid.api.TrueuuidApi) ----
+
+    /** Live authentication status for an online player id. */
+    public static AccountStatus statusOf(UUID playerId) {
+        return playerId == null ? AccountStatus.UNKNOWN : liveStatus.getOrDefault(playerId, AccountStatus.UNKNOWN);
+    }
+
+    /** True if this name has ever completed a verified premium/Yggdrasil login. */
+    public static synchronized boolean isKnownPremiumName(String name) {
+        return verifiedNames != null && verifiedNames.contains(name);
+    }
+
+    /** The premium UUID last bound to this name, if any. */
+    public static synchronized Optional<UUID> premiumUuidOf(String name) {
+        return verifiedNames == null ? Optional.empty() : verifiedNames.premiumUuid(name);
+    }
+
+    /** Registers an addon login callback (invoked on the server thread at join). */
+    public static void registerLoginCallback(BiConsumer<ServerPlayer, AccountStatus> callback) {
+        if (callback != null) loginCallbacks.add(callback);
+    }
+
+    private static synchronized AuthenticationSource consumePendingLogin(UUID uuid) {
+        prunePendingLogins(System.currentTimeMillis());
+        PendingLogin pending = pendingLogins.remove(uuid);
+        return pending == null ? null : pending.source;
+    }
+
+    private static void prunePendingLogins(long now) {
+        pendingLogins.entrySet().removeIf(entry -> now - entry.getValue().createdAt >= PENDING_VERIFICATION_TTL_MILLIS);
     }
 
     private static Optional<VerifiedProfile> parse(SafeSessionHttpClient.Response response) {
@@ -68,6 +200,34 @@ public final class AdapterRuntime {
         String value;
         @SerializedName("signature") String signature;
     }
+
+    /** Audit labels and translation keys are shared with the Forge adapters. */
+    private enum AuthenticationSource {
+        TRUEUUID_SESSION("session-verified premium login", "trueuuid.chat.premium", "trueuuid.title.premium", "trueuuid.subtitle.premium", ChatFormatting.GREEN, ChatFormatting.GREEN, AccountStatus.PREMIUM_VERIFIED),
+        NATIVE_ONLINE_MODE("native online-mode premium login", "trueuuid.chat.online_mode", "trueuuid.title.premium", "trueuuid.subtitle.online_mode", ChatFormatting.GREEN, ChatFormatting.GREEN, AccountStatus.ONLINE_MODE),
+        OFFLINE_FALLBACK("offline fallback login", "trueuuid.chat.offline_fallback", "trueuuid.title.offline", "trueuuid.subtitle.offline", ChatFormatting.RED, ChatFormatting.RED, AccountStatus.OFFLINE_FALLBACK);
+
+        private final String auditLabel;
+        private final String chatKey;
+        private final String titleKey;
+        private final String subtitleKey;
+        private final ChatFormatting chatColor;
+        private final ChatFormatting titleColor;
+        private final AccountStatus publicStatus;
+
+        AuthenticationSource(String auditLabel, String chatKey, String titleKey, String subtitleKey,
+                             ChatFormatting chatColor, ChatFormatting titleColor, AccountStatus publicStatus) {
+            this.auditLabel = auditLabel;
+            this.chatKey = chatKey;
+            this.titleKey = titleKey;
+            this.subtitleKey = subtitleKey;
+            this.chatColor = chatColor;
+            this.titleColor = titleColor;
+            this.publicStatus = publicStatus;
+        }
+    }
+
+    private record PendingLogin(AuthenticationSource source, long createdAt) {}
 
     private AdapterRuntime() {}
 }

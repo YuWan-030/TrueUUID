@@ -77,10 +77,20 @@ abstract class ServerLoginMixin {
                     try {
                         if (!connection.isConnected()) return;
                         if (outcome.result() != LoginAttempt.Result.VERIFIED || outcome.profile().isEmpty()) {
-                            disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
+                            // Match the Forge adapters: an unverified client may keep its
+                            // offline UUID only when the configured policy allows it.
+                            if (!AdapterRuntime.canUseOfflineFallback(name)) {
+                                cn.alini.trueuuid.Trueuuid.LOGGER.warn(
+                                        "TrueUUID offline fallback denied for previously verified name: player={}", name);
+                                disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
+                            } else {
+                                AdapterRuntime.recordOfflineFallback(authenticatedProfile);
+                                trueuuid$finishLogin(authenticatedProfile);
+                            }
                             return;
                         }
                         authenticatedProfile = trueuuid$profile(outcome.profile().get());
+                        AdapterRuntime.recordVerifiedProfile(outcome.profile().get());
                         trueuuid$finishLogin(authenticatedProfile);
                     } finally {
                         trueuuid$clear();

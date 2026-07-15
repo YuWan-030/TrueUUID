@@ -2,6 +2,7 @@ package cn.alini.trueuuid.mixin.client;
 
 import cn.alini.trueuuid.net.AuthAnswerPayload;
 import cn.alini.trueuuid.net.AuthPayload;
+import cn.alini.trueuuid.client.ClientAccountStatus;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import net.minecraft.client.Minecraft;
@@ -38,6 +39,7 @@ abstract class ClientHandshakeMixin {
         Connection loginConnection = connection;
         int transactionId = packet.transactionId();
         if (token == null || token.isBlank() || "0".equals(token)) {
+            ClientAccountStatus.markOffline();
             trueuuid$send(loginConnection, transactionId, false, true);
             callback.cancel();
             return;
@@ -56,7 +58,11 @@ abstract class ClientHandshakeMixin {
                 })
                 .orTimeout(25, TimeUnit.SECONDS)
                 .exceptionally(error -> false)
-                .thenAccept(joined -> trueuuid$send(loginConnection, transactionId, joined, false));
+                .thenAccept(joined -> {
+                    if (joined) ClientAccountStatus.markPremium();
+                    else ClientAccountStatus.markOffline();
+                    trueuuid$send(loginConnection, transactionId, joined, false);
+                });
         callback.cancel();
     }
 

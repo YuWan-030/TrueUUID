@@ -5,6 +5,7 @@ import cn.alini.trueuuid.config.TrueuuidConfig;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
@@ -18,6 +19,8 @@ public final class Trueuuid {
     public Trueuuid(IEventBus modBus) {
         TrueuuidConfig.register();
         AdapterRuntime.initialize();
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> AdapterRuntime.onPlayerLoggedIn(event));
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> AdapterRuntime.onPlayerLoggedOut(event));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> AdapterRuntime.shutdown());
         LOGGER.info("TrueUUID NeoForge 1.21.1 adapter loaded");
     }
