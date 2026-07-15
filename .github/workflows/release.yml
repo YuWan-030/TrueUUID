@@ -88,11 +88,21 @@ jobs:
           set -euo pipefail
           target=$(./scripts/release/validate-targets.sh --approved "$TARGET_ID")
           expected=$(jq -r --arg version "$VERSION" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
+          loader=$(jq -r '.loader' <<<"$target")
+          game_version=$(jq -r '.game_version' <<<"$target")
+          curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
           (cd release-assets && sha256sum --check SHA256SUMS)
           jar="release-assets/$(basename "$expected")"
           [[ -f "$jar" ]]
+          [[ "$curseforge_project_id" =~ ^[1-9][0-9]*$ ]]
           mkdir -p "$(dirname "$expected")"
           cp "$jar" "$expected"
+          {
+            echo "RELEASE_JAR=$jar"
+            echo "RELEASE_LOADER=$loader"
+            echo "RELEASE_GAME_VERSION=$game_version"
+            echo "CURSEFORGE_PROJECT_ID=$curseforge_project_id"
+          } >> "$GITHUB_ENV"
       - name: Attach tested assets to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,3 +126,16 @@ jobs:
             printf 'TrueUUID %s for %s.\n' "$VERSION" "$TARGET_ID" > release-changelog.md
           fi
           ./scripts/release/publish-modrinth.sh "$TARGET_ID" "$VERSION" release-changelog.md
+      - name: Publish approved target to CurseForge
+        uses: Kir-Antipov/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
+        with:
+          curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: ${{ env.RELEASE_JAR }}
+          name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ needs.metadata.outputs.target }}
+          version: ${{ needs.metadata.outputs.version }}+${{ needs.metadata.outputs.target }}
+          version-type: release
+          changelog-file: release-changelog.md
+          loaders: ${{ env.RELEASE_LOADER }}
+          game-versions: ${{ env.RELEASE_GAME_VERSION }}
+          fail-mode: fail

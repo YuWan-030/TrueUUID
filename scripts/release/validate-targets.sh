@@ -12,6 +12,7 @@ fi
 
 jq -e '
   .schema_version == 1 and
+  (.curseforge_project_id | type == "number" and floor == . and . > 0) and
   (.targets | type == "array" and length > 0) and
   ([.targets[].id] | length == (unique | length)) and
   ([.targets[].artifact] | length == (unique | length)) and

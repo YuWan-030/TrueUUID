@@ -21,7 +21,7 @@ of these independent gates:
 4. The exact target exists once in `release/targets.json` with
    `"release": true`.
 5. Every full self-test matrix job succeeds.
-6. The Modrinth token and stable project ID are configured.
+6. The Modrinth token/project ID and CurseForge token are configured.
 
 Compiling and booting do not approve a target for release. A reviewed change
 may set `"release": true` only after the complete real client/server acceptance
@@ -38,8 +38,12 @@ Configure these values in the upstream repository:
 2. Add `MODRINTH_PROJECT_ID` preferably as a repository variable using the
    stable eight-character project ID, not the mutable slug. For compatibility,
    the workflow also accepts it as a repository secret.
-3. Protect `main` with required review, signed commits, and every Verify job.
-4. Protect matching `*-v*` tags with a tag ruleset that restricts creation,
+3. Add `CURSEFORGE_TOKEN` as a repository secret. It is exposed only to the
+   final CurseForge publisher. The TrueUUID CurseForge project ID (`1539688`)
+   is versioned in `release/targets.json`, so it cannot silently drift between
+   targets or workflow runs.
+4. Protect `main` with required review, signed commits, and every Verify job.
+5. Protect matching `*-v*` tags with a tag ruleset that restricts creation,
    updates, and deletion to release maintainers.
 
 No manually created GitHub token is needed. GitHub supplies a job-scoped
@@ -89,12 +93,13 @@ After the on-demand full self-test and manual acceptance matrix pass:
 Publishing the GitHub Release triggers the Release workflow. After the repeated
 full matrix passes, it downloads the tested target artifact, verifies its
 checksum, attaches the JAR and `SHA256SUMS` to the existing GitHub Release, and
-publishes the same JAR to Modrinth.
+publishes the same JAR to Modrinth and CurseForge.
 
 On rerun, the Modrinth publisher accepts an existing version only when its
 project, version number, and primary-file SHA-512 match the tested artifact.
-GitHub and Modrinth do not provide one cross-service transaction, so a failure
-still requires inspecting the Release workflow and the published release state.
+GitHub, Modrinth, and CurseForge do not provide one cross-service transaction,
+so a failure still requires inspecting the Release workflow and the published
+release state.
 
 ## Artifact signatures
 

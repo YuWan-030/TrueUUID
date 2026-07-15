@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "curseforge_project_id": 1539688,
   "targets": [
     {
       "id": "forge-1.20.1",
