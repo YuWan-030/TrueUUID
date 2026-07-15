@@ -30,20 +30,27 @@ shared `cn.alini.trueuuid.protocol` module.
 - `server/ForgeLoginFlow.java` — per-connection login state (delegates to `shared/protocol`)
 - `net/ForgeQueryTracker.java` — pending transaction id set
 - `net/ForgeNetIds.java` — the `trueuuid:auth` channel id
-- `mixin/TrueuuidMixinPlugin.java` — applies client/server mixins to the matching dist
+- `api/AccountStatus.java`, `api/TrueuuidApi.java` — the public addon API
+- `client/ClientAccountStatus.java` — badge state + drawing (fill primitives only)
+- `mixin/TrueuuidMixinPlugin.java` — gates mixins by dist and by HUD-API presence
+- `mixin/client/ForgeClientGuiMixin.java` — badge draw for Forge 52/53 only
 - `resources/` — `trueuuid.mixins.json`, `pack.mcmeta`, `assets/trueuuid/lang/*`
 
 ## What stays in each per-version module (version-divergent)
 
-Anything that binds to a Minecraft internal that Mojang renames or re-signatures
-between patches. Keep these in the module's own `src/`:
+Anything that binds to a Minecraft or Forge API that changes between patches.
+Keep these in the module's own `src/`:
 
-- `mixin/**` — all login/GUI mixins (target method names + descriptors drift; the
-  refmap is generated per build)
+- `mixin/client/ForgeClientHandshakeMixin`, `mixin/client/ForgeClientQueryDecodeMixin`,
+  `mixin/server/ForgeServerLoginMixin`, `mixin/server/ForgeServerAnswerDecodeMixin`
+  — the login mixins (the refmap is generated per build)
 - `net/ForgeAuthPayload.java`, `net/ForgeAuthAnswerPayload.java` — the
   `CustomQueryPayload` / `CustomQueryAnswerPayload` implementations
-- `client/ClientAccountStatus.java` — HUD render (`GuiGraphics.blit` / `Gui.render`
-  signatures change, notably at 1.21.4/1.21.5)
+- `TrueuuidForgeEvents.java` — game-event seam; differs only by the
+  `@SubscribeEvent` import (`eventbus.api` on Forge ≤ 55 vs
+  `eventbus.api.listener` on Forge 56+)
+- `TrueuuidClientOverlay.java` — HUD-layer seam; present only on Forge 54+
+  (see the HUD table below)
 - `META-INF/mods.toml` — version and loader ranges
 
 ## Rule
@@ -52,3 +59,34 @@ A file belongs here only if it compiles unchanged against **every** modern Forge
 target that includes it. If it needs even one version-specific tweak, it goes back
 into the per-version modules (duplicated) instead. `forge-1.20.1` is a separate
 pre-configuration-phase protocol era and does **not** use this root.
+
+## The HUD badge: two paths, one per pipeline
+
+Forge's HUD extension API changed with the 1.21.5+ render pipeline, so the badge
+registration is a per-version seam while the drawing stays shared here in
+`client/ClientAccountStatus`:
+
+| Forge | HUD hook available | Path used |
+|---|---|---|
+| 52 (1.21.1), 53 (1.21.3) | none | shared `mixin/client/ForgeClientGuiMixin` injects `Gui.render` |
+| 54 (1.21.4), 55 (1.21.5) | `AddGuiOverlayLayersEvent` (EventBus 6) + `ForgeLayeredDraw.add(id, LayeredDraw.Layer)` | per-module `TrueuuidClientOverlay` |
+| 58 (1.21.8) | `AddGuiOverlayLayersEvent` (EventBus 7) + `ForgeLayeredDraw.add(id, ForgeLayer)` | per-module `TrueuuidClientOverlay` |
+
+`TrueuuidMixinPlugin` disables `ForgeClientGuiMixin` whenever `ForgeLayeredDraw`
+is present, so exactly one path is active per version. This matters: on the
+1.21.5+ pipeline a `Gui.render` inject still *fires*, but its draws are dropped —
+which is why the badge silently never appeared on 1.21.8.
+
+Two traps to remember:
+
+- Do **not** trust Forge's `*-sources.jar` for API availability; it lists classes
+  (`RegisterGuiOverlaysEvent`, `RenderGuiEvent`, `IGuiOverlay`) that are absent
+  from the actual compile classpath. `javap` the
+  `forge-<mc>-<ver>_mapped_official_<mc>.jar` instead.
+- Only the Forge-preserved *login* methods may use `remap = false`. An ordinary
+  vanilla method such as `Gui.render` is obfuscated at runtime and must be
+  remapped through the refmap, or the injection silently never matches.
+
+The icon is drawn with `GuiGraphics.fill` primitives rather than a blit texture,
+because the `blit` signatures differ across 1.21.1 through 1.21.8. Adding a real texture
+would move the icon draw into the per-version seam.

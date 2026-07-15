@@ -43,6 +43,11 @@ final class ForgeVerifiedNameRegistry implements AutoCloseable {
         return name != null && entries.containsKey(name.toLowerCase(Locale.ROOT));
     }
 
+    synchronized java.util.Optional<UUID> premiumUuid(String name) {
+        return name == null ? java.util.Optional.empty()
+                : java.util.Optional.ofNullable(entries.get(name.toLowerCase(Locale.ROOT)));
+    }
+
     synchronized void record(String name, UUID uuid) {
         if (closed || name == null || name.isBlank() || uuid == null) return;
         String key = name.toLowerCase(Locale.ROOT);

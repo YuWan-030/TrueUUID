@@ -21,8 +21,8 @@ case "$target_id" in
         load_pattern='TrueUUID 已经加载'
         ;;
     forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8)
-        task=":platform:${target}:run${role^}"
-        load_pattern='TrueUUID Forge 1.21.1 adapter loaded'
+        task=":platform:${target_id}:run${role^}"
+        load_pattern='TrueUUID Forge adapter loaded'
         ;;
     neoforge-1.21.1)
         task=":platform:neoforge-1.21.1:run${role^}"

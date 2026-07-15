@@ -22,6 +22,11 @@ public final class TrueuuidForgeEvents {
     }
 
     @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        ForgeAdapterRuntime.onPlayerLoggedOut(event);
+    }
+
+    @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         ForgeAdapterRuntime.shutdown();
     }

@@ -8,9 +8,8 @@
   "trueuuid.chat.offline_fallback": "[TrueUUID] Offline fallback accepted. This account was not premium-verified.",
   "trueuuid.title.offline": "Offline Account",
   "trueuuid.subtitle.offline": "Using the server's configured offline fallback",
-  "trueuuid.overlay.label": "Account: %s",
-  "trueuuid.overlay.premium": "Premium verified",
-  "trueuuid.overlay.offline": "Offline fallback",
+  "trueuuid.overlay.premium": "Premium",
+  "trueuuid.overlay.offline": "Offline",
   "trueuuid.disconnect.timeout": "Login timed out before account verification completed.",
   "trueuuid.disconnect.auth_denied": "Premium account verification failed. Please check your connection and try again.",
   "trueuuid.disconnect.bound_premium": "This name is already bound to a verified premium account. Offline fallback is not allowed."

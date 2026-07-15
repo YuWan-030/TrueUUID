@@ -58,8 +58,12 @@ minecraft {
                 }
             }
         }
-        client { property 'forge.enabledGameTestNamespaces', 'trueuuid' }
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+        }
         server {
+            workingDirectory project.file('run/server')
             property 'forge.enabledGameTestNamespaces', 'trueuuid'
             args '--nogui'
         }

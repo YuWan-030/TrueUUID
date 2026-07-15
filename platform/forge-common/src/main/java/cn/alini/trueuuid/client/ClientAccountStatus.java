@@ -1,34 +1,31 @@
 package cn.alini.trueuuid.client;
 
-import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
-import net.minecraftforge.client.gui.overlay.ForgeGui;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 /**
- * Client-local account badge: a closed padlock + green "Premium", or an open
- * padlock + red "Offline".
+ * Client-local account badge derived from the TrueUUID login handshake: a closed
+ * padlock bearing a green check next to green "Premium", or an open padlock
+ * bearing a red X next to red "Offline". No backdrop.
  *
- * <p>1.20.1 is an independent adapter, so this mirrors the modern Forge line's
- * {@code platform/forge-common} badge deliberately — same sprite, colours, config
- * and layout — so every supported target looks identical. Keep the two in step
- * when either changes. The padlock is painted with {@code fill} rather than a blit
- * texture to match that shared implementation.
+ * <p>The padlock is pixel art painted with {@code GuiGraphics.fill} rather than a
+ * blit texture on purpose: {@code blit} takes a different argument list on 1.21.1,
+ * 1.21.4 and 1.21.8, so a texture would need three per-version seams for no visual
+ * gain. {@code fill} is identical across the whole range, so this class stays
+ * shared. Only {@link TrueuuidHudScale} is per-version.
+ *
+ * <p>Both frames are one common 11x16 grid rather than each cropped to its own
+ * content. That is deliberate: the open shackle sits one pixel higher than the
+ * closed one, and a shared grid keeps the lock bodies bottom-aligned so the badge
+ * does not jump when the status flips.
  */
-@Mod.EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientAccountStatus {
     private static volatile Status status = Status.NONE;
 
     // Sprites generated from the source PNGs. Palette: 1-4 shackle, 5/6/8/9 body,
     // 7 body highlight, g/G green check, r/R red cross. ' ' is transparent.
-    // Both frames share one 11x16 grid: the open shackle sits a pixel higher, and
-    // a shared grid keeps the bodies aligned so the badge does not jump.
     private static final String[] LOCK_CLOSED = {
         "           ",
         "   11111   ",
@@ -90,12 +87,7 @@ public final class ClientAccountStatus {
     public static void markPremium() { status = Status.PREMIUM; }
     public static void markOffline() { status = Status.OFFLINE; }
 
-    @SubscribeEvent
-    public static void registerOverlay(RegisterGuiOverlaysEvent event) {
-        event.registerAboveAll("account_status", ClientAccountStatus::render);
-    }
-
-    private static void render(ForgeGui gui, GuiGraphics graphics, float partialTick, int width, int height) {
+    public static void render(GuiGraphics graphics) {
         Minecraft minecraft = Minecraft.getInstance();
         if (!TrueuuidConfig.showAccountOverlay() || minecraft.player == null || status == Status.NONE) return;
 
@@ -113,31 +105,31 @@ public final class ClientAccountStatus {
 
         boolean right = TrueuuidConfig.overlayCorner().endsWith("right");
         boolean bottom = TrueuuidConfig.overlayCorner().startsWith("bottom");
-        float screenX = (right ? width - MARGIN - drawnWidth : MARGIN) + TrueuuidConfig.overlayOffsetX();
-        float screenY = (bottom ? height - MARGIN - drawnHeight : MARGIN) + TrueuuidConfig.overlayOffsetY();
+        float screenX = (right ? minecraft.getWindow().getGuiScaledWidth() - MARGIN - drawnWidth : MARGIN)
+                + TrueuuidConfig.overlayOffsetX();
+        float screenY = (bottom ? minecraft.getWindow().getGuiScaledHeight() - MARGIN - drawnHeight : MARGIN)
+                + TrueuuidConfig.overlayOffsetY();
 
         // Each element is drawn inside its own scale and positioned by converting
         // the screen anchor back into that scale's units.
-        graphics.pose().pushPose();
+        TrueuuidHudScale.push(graphics, lockScale);
         try {
-            graphics.pose().scale(lockScale, lockScale, 1.0F);
             drawSprite(graphics, Math.round(screenX / lockScale), Math.round(screenY / lockScale),
                     status == Status.PREMIUM ? LOCK_CLOSED : LOCK_OPEN);
         } finally {
-            graphics.pose().popPose();
+            TrueuuidHudScale.pop(graphics);
         }
 
         float bodyCentre = screenY + (BODY_TOP + BODY_BOTTOM) / 2.0F * lockScale;
         float textTop = bodyCentre - minecraft.font.lineHeight * textScale / 2.0F;
-        graphics.pose().pushPose();
+        TrueuuidHudScale.push(graphics, textScale);
         try {
-            graphics.pose().scale(textScale, textScale, 1.0F);
             graphics.drawString(minecraft.font, text,
                     Math.round((screenX + lockWidth + gapWidth) / textScale),
                     Math.round(textTop / textScale),
                     0xFF000000 | status.color, true);
         } finally {
-            graphics.pose().popPose();
+            TrueuuidHudScale.pop(graphics);
         }
     }
 
@@ -181,6 +173,7 @@ public final class ClientAccountStatus {
 
     private enum Status {
         NONE("", 0),
+        // Label colours match the check/cross drawn inside each padlock sprite.
         PREMIUM("trueuuid.overlay.premium", 0x259B4A),
         OFFLINE("trueuuid.overlay.offline", 0xBD2E2E);
 

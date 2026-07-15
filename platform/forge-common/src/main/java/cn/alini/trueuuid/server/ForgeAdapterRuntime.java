@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.Trueuuid;
+import cn.alini.trueuuid.api.AccountStatus;
 import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
 import cn.alini.trueuuid.protocol.EndpointPolicy;
 import cn.alini.trueuuid.protocol.SafeSessionHttpClient;
@@ -26,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 
 /** Forge-owned runtime facade for the shared safe session verifier. */
 public final class ForgeAdapterRuntime {
@@ -33,6 +37,10 @@ public final class ForgeAdapterRuntime {
     private static final int MAX_PENDING_VERIFICATIONS = 4096;
     private static final long PENDING_VERIFICATION_TTL_MILLIS = Duration.ofMinutes(5).toMillis();
     private static final Map<UUID, PendingLogin> pendingLogins = new LinkedHashMap<>();
+    // Live per-session status for the public API. Concurrent because addons may
+    // query it off the server thread; entries live from login to logout.
+    private static final Map<UUID, AccountStatus> liveStatus = new ConcurrentHashMap<>();
+    private static final List<BiConsumer<ServerPlayer, AccountStatus>> loginCallbacks = new CopyOnWriteArrayList<>();
     private static BoundedRequestCoordinator requests;
     private static SessionVerifier verifier;
     private static ForgeVerifiedNameRegistry verifiedNames;
@@ -56,6 +64,7 @@ public final class ForgeAdapterRuntime {
         requests = null;
         verifier = null;
         pendingLogins.clear();
+        liveStatus.clear();
         if (verifiedNames != null) verifiedNames.close();
         verifiedNames = null;
     }
@@ -102,14 +111,60 @@ public final class ForgeAdapterRuntime {
         }
         if (source == null) return;
 
+        // Publish status for the addon API and notify callbacks first, so any
+        // conditional join logic (separate spawn, permissions) sees the status
+        // regardless of the join-feedback config below.
+        liveStatus.put(player.getUUID(), source.publicStatus);
+        for (BiConsumer<ServerPlayer, AccountStatus> callback : loginCallbacks) {
+            try {
+                callback.accept(player, source.publicStatus);
+            } catch (RuntimeException failure) {
+                Trueuuid.LOGGER.warn("TrueUUID login callback threw for player={}", player.getUUID(), failure);
+            }
+        }
+
         Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel,
                 player.getGameProfile().getName(), player.getUUID());
-        if (!TrueuuidConfig.showJoinFeedback()) return;
 
-        player.sendSystemMessage(Component.translatable(source.chatKey).withStyle(source.chatColor));
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
-        player.connection.send(new ClientboundSetTitleTextPacket(Component.translatable(source.titleKey).withStyle(source.titleColor)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(Component.translatable(source.subtitleKey).withStyle(ChatFormatting.GRAY)));
+        if (TrueuuidConfig.showJoinFeedback()) {
+            player.sendSystemMessage(Component.translatable(source.chatKey).withStyle(source.chatColor));
+        }
+        // The persistent client badge reports the same state, so the full-screen
+        // title stays opt-in rather than interrupting every join.
+        if (TrueuuidConfig.showJoinTitle()) {
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+            player.connection.send(new ClientboundSetTitleTextPacket(Component.translatable(source.titleKey).withStyle(source.titleColor)));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(Component.translatable(source.subtitleKey).withStyle(ChatFormatting.GRAY)));
+        }
+    }
+
+    /** Drops a player's live status when they leave. Wired through the seam. */
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            liveStatus.remove(player.getUUID());
+        }
+    }
+
+    // ---- Public API surface (see cn.alini.trueuuid.api.TrueuuidApi) ----
+
+    /** Live authentication status for an online player id. */
+    public static AccountStatus statusOf(UUID playerId) {
+        return playerId == null ? AccountStatus.UNKNOWN : liveStatus.getOrDefault(playerId, AccountStatus.UNKNOWN);
+    }
+
+    /** True if this name has ever completed a verified premium/Yggdrasil login. */
+    public static synchronized boolean isKnownPremiumName(String name) {
+        return verifiedNames != null && verifiedNames.contains(name);
+    }
+
+    /** The premium UUID last bound to this name, if any. */
+    public static synchronized Optional<UUID> premiumUuidOf(String name) {
+        return verifiedNames == null ? Optional.empty() : verifiedNames.premiumUuid(name);
+    }
+
+    /** Registers an addon login callback (invoked on the server thread at join). */
+    public static void registerLoginCallback(BiConsumer<ServerPlayer, AccountStatus> callback) {
+        if (callback != null) loginCallbacks.add(callback);
     }
 
     private static synchronized AuthenticationSource consumePendingLogin(UUID uuid) {
@@ -141,9 +196,9 @@ public final class ForgeAdapterRuntime {
     private static final class HasJoined { String id; String name; List<Property> properties; }
     private static final class Property { String name; String value; @SerializedName("signature") String signature; }
     private enum AuthenticationSource {
-        TRUEUUID_SESSION("session-verified premium login", "trueuuid.chat.premium", "trueuuid.title.premium", "trueuuid.subtitle.premium", ChatFormatting.GREEN, ChatFormatting.GREEN),
-        NATIVE_ONLINE_MODE("native online-mode premium login", "trueuuid.chat.online_mode", "trueuuid.title.premium", "trueuuid.subtitle.online_mode", ChatFormatting.GREEN, ChatFormatting.GREEN),
-        OFFLINE_FALLBACK("offline fallback login", "trueuuid.chat.offline_fallback", "trueuuid.title.offline", "trueuuid.subtitle.offline", ChatFormatting.RED, ChatFormatting.RED);
+        TRUEUUID_SESSION("session-verified premium login", "trueuuid.chat.premium", "trueuuid.title.premium", "trueuuid.subtitle.premium", ChatFormatting.GREEN, ChatFormatting.GREEN, AccountStatus.PREMIUM_VERIFIED),
+        NATIVE_ONLINE_MODE("native online-mode premium login", "trueuuid.chat.online_mode", "trueuuid.title.premium", "trueuuid.subtitle.online_mode", ChatFormatting.GREEN, ChatFormatting.GREEN, AccountStatus.ONLINE_MODE),
+        OFFLINE_FALLBACK("offline fallback login", "trueuuid.chat.offline_fallback", "trueuuid.title.offline", "trueuuid.subtitle.offline", ChatFormatting.RED, ChatFormatting.RED, AccountStatus.OFFLINE_FALLBACK);
 
         private final String auditLabel;
         private final String chatKey;
@@ -151,15 +206,17 @@ public final class ForgeAdapterRuntime {
         private final String subtitleKey;
         private final ChatFormatting chatColor;
         private final ChatFormatting titleColor;
+        private final AccountStatus publicStatus;
 
         AuthenticationSource(String auditLabel, String chatKey, String titleKey, String subtitleKey,
-                             ChatFormatting chatColor, ChatFormatting titleColor) {
+                             ChatFormatting chatColor, ChatFormatting titleColor, AccountStatus publicStatus) {
             this.auditLabel = auditLabel;
             this.chatKey = chatKey;
             this.titleKey = titleKey;
             this.subtitleKey = subtitleKey;
             this.chatColor = chatColor;
             this.titleColor = titleColor;
+            this.publicStatus = publicStatus;
         }
     }
     private record PendingLogin(AuthenticationSource source, long createdAt) {}

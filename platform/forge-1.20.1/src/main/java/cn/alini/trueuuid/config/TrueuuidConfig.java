@@ -34,6 +34,10 @@ public final class TrueuuidConfig {
     public static String onlineShortSubtitle() { return COMMON.onlineShortSubtitle.get(); }
     public static boolean showJoinFeedback() { return COMMON.showJoinFeedback.get(); }
     public static boolean showAccountOverlay() { return COMMON.showAccountOverlay.get(); }
+    public static String overlayCorner() { return COMMON.overlayCorner.get(); }
+    public static int overlayOffsetX() { return COMMON.overlayOffsetX.get(); }
+    public static int overlayOffsetY() { return COMMON.overlayOffsetY.get(); }
+    public static float overlayScale() { return COMMON.overlayScale.get().floatValue(); }
 
     // 新增：策略相关 (Added: Strategy related)
     public static boolean knownPremiumDenyOffline() { return COMMON.knownPremiumDenyOffline.get(); }
@@ -58,6 +62,10 @@ public final class TrueuuidConfig {
         public final ForgeConfigSpec.ConfigValue<String> onlineShortSubtitle;
         public final ForgeConfigSpec.BooleanValue showJoinFeedback;
         public final ForgeConfigSpec.BooleanValue showAccountOverlay;
+        public final ForgeConfigSpec.ConfigValue<String> overlayCorner;
+        public final ForgeConfigSpec.IntValue overlayOffsetX;
+        public final ForgeConfigSpec.IntValue overlayOffsetY;
+        public final ForgeConfigSpec.DoubleValue overlayScale;
 
         // authlib-injector / Yggdrasil 皮肤站白名单
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> apiRootWhitelist;
@@ -93,6 +101,16 @@ public final class TrueuuidConfig {
                     .define("showJoinFeedback", true);
             showAccountOverlay = b.comment("Show a small client account-status overlay after a TrueUUID login handshake. / 在 TrueUUID 登录握手后显示小型客户端账号状态覆盖层。")
                     .define("showAccountOverlay", true);
+            // Keep these identical to the modern Forge line (platform/forge-common)
+            // so the badge behaves the same on every supported target.
+            overlayCorner = b.comment("Screen corner for the account-status badge: top_left, top_right, bottom_left, bottom_right. Default bottom_right: vanilla keeps status effects and advancement toasts in the top right, chat in the bottom left, and mods commonly take the top left. / 账号状态角标所在屏幕角落。默认 bottom_right。")
+                    .defineInList("overlayCorner", "bottom_right", java.util.List.of("top_left", "top_right", "bottom_left", "bottom_right"));
+            overlayOffsetX = b.comment("Extra horizontal pixels for the badge, to dodge another mod's HUD. Positive moves right. / 角标水平像素偏移，正值向右。")
+                    .defineInRange("overlayOffsetX", 0, -4096, 4096);
+            overlayOffsetY = b.comment("Extra vertical pixels for the badge, to dodge another mod's HUD. Positive moves down. / 角标垂直像素偏移，正值向下。")
+                    .defineInRange("overlayOffsetY", 0, -4096, 4096);
+            overlayScale = b.comment("Size of the account-status badge, scaling the padlock and label together. Whole numbers (1.0, 2.0) keep the bitmap font crisp. / 账号状态角标缩放，整数值字体最清晰。")
+                    .defineInRange("overlayScale", 1.0D, 0.5D, 4.0D);
 
             // 策略项 (Strategy items)
             knownPremiumDenyOffline   = b.comment("Once a name has been verified as premium/skin-site, deny later offline fallback for that name. / 一旦该名字成功验证过正版或皮肤站，后续鉴权失败时禁止以离线身份进入。")

@@ -18,12 +18,32 @@ import java.util.Set;
 public final class TrueuuidMixinPlugin implements IMixinConfigPlugin {
     private static final String CLIENT_MIXIN_PREFIX = "cn.alini.trueuuid.mixin.client.";
     private static final String SERVER_MIXIN_PREFIX = "cn.alini.trueuuid.mixin.server.";
+    private static final String GUI_MIXIN = CLIENT_MIXIN_PREFIX + "ForgeClientGuiMixin";
+    /**
+     * Forge 54+ composites the HUD through ForgeLayeredDraw and drops draws made
+     * from a Gui.render inject; there TrueuuidClientOverlay registers a real HUD
+     * layer instead. Forge 52/53 have no layer API, so the mixin is the only hook.
+     */
+    private static final boolean HAS_FORGE_HUD_LAYERS =
+            isPresent("net.minecraftforge.client.gui.overlay.ForgeLayeredDraw");
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (GUI_MIXIN.equals(mixinClassName)) {
+            return FMLEnvironment.dist == Dist.CLIENT && !HAS_FORGE_HUD_LAYERS;
+        }
         if (mixinClassName.startsWith(CLIENT_MIXIN_PREFIX)) return FMLEnvironment.dist == Dist.CLIENT;
         if (mixinClassName.startsWith(SERVER_MIXIN_PREFIX)) return FMLEnvironment.dist == Dist.DEDICATED_SERVER;
         return true;
+    }
+
+    private static boolean isPresent(String className) {
+        try {
+            Class.forName(className, false, TrueuuidMixinPlugin.class.getClassLoader());
+            return true;
+        } catch (Throwable absent) {
+            return false;
+        }
     }
 
     @Override public void onLoad(String mixinPackage) {}

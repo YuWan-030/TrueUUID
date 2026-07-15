@@ -159,16 +159,21 @@ Allows a short same-IP reconnect grace period after a verified player disconnect
 auth.showJoinFeedback = true
 ```
 
-Show join feedback Title/chat messages for premium, skin-site, offline fallback, and single-player states. Set to `false` to silence those messages without changing authentication or skin refresh behavior.
+Show the join feedback chat message for premium, skin-site, offline fallback, and single-player states. Set to `false` to silence it without changing authentication or skin refresh behavior.
+
+```toml
+auth.showJoinTitle = false
+```
+
+Additionally show a full-screen title/subtitle on join. Off by default, because the persistent account-status overlay below already reports the same state without interrupting the screen. Set to `true` to restore the old title behavior.
 
 ```toml
 auth.showAccountOverlay = true
 ```
 
-Shows a small top-left client badge after a TrueUUID handshake. Green means
-premium verified; red means the server accepted its configured offline
-fallback. It is client-local and only appears after a TrueUUID-enabled server
-has responded.
+Shows a small client-side badge after a TrueUUID handshake: green `Premium` or
+red `Offline`, drawn as plain corner text with no backdrop. It is client-local
+and only appears after a TrueUUID-enabled server has responded.
 
 Default feedback and disconnect messages are sent as Minecraft translation keys and rendered by the player's client language files (`en_us` / `zh_cn`). If you previously generated a config with custom bilingual strings, change those message values back to `trueuuid.*` keys or regenerate the config to use client-side localization.
 
@@ -189,6 +194,60 @@ auth.yggdrasil.apiRootWhitelist = []
 ```
 
 Allowlist for Yggdrasil/authlib-injector `hasJoined` hosts. An empty list rejects all client-reported endpoints and keeps Mojang as the safe default. Add an exact host such as `"littleskin.cn"`, or an explicit wildcard such as `"*.example.com"`. Custom endpoints must pass HTTPS/443, path, DNS/IP, response-size, timeout, and no-redirect checks.
+
+The account-status badge position is configurable:
+
+```toml
+auth.overlayCorner = "bottom_right"
+auth.overlayOffsetX = 0
+auth.overlayOffsetY = 0
+auth.overlayScale = 1.25
+```
+
+`overlayCorner` accepts `top_left`, `top_right`, `bottom_left`, or `bottom_right`.
+`bottom_right` is the default because vanilla keeps status effects and
+advancement toasts in the top right, chat in the bottom left, and other mods
+commonly claim the top left. The offsets nudge the badge by that many pixels
+(positive = right/down) if it still collides with another mod's HUD.
+`overlayScale` sizes the padlock and label together; whole numbers (`1.0`, `2.0`)
+keep Minecraft's bitmap font perfectly crisp, values in between are slightly soft.
+
+These options behave identically on every supported target.
+
+## Addon API
+
+TrueUUID exposes a small server-side API (`cn.alini.trueuuid.api`) so other mods
+can branch on whether an online player authenticated as premium or through
+offline fallback — for example, sending offline players to a separate spawn.
+
+`AccountStatus` is one of `PREMIUM_VERIFIED`, `ONLINE_MODE`, `OFFLINE_FALLBACK`,
+or `UNKNOWN` (with `isPremium()` / `isOffline()` helpers).
+
+Query a player's status at any time while they are online:
+
+```java
+import cn.alini.trueuuid.api.TrueuuidApi;
+import cn.alini.trueuuid.api.AccountStatus;
+
+AccountStatus status = TrueuuidApi.getStatus(serverPlayer);
+if (status.isOffline()) {
+    // e.g. restrict permissions, or teleport to an offline-only world
+}
+```
+
+Or register a callback fired on the server thread the moment a player's status
+is known at join (register once during your mod's setup):
+
+```java
+TrueuuidApi.registerLoginCallback((player, status) -> {
+    if (status.isOffline()) {
+        // first-join spawn handling for offline accounts
+    }
+});
+```
+
+Also available: `TrueuuidApi.isKnownPremiumName(name)` and
+`TrueuuidApi.getPremiumUuid(name)` for the persistent verified-name registry.
 
 ## Compatibility Notes
 
