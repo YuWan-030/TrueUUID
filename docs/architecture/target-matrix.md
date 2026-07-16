@@ -54,7 +54,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Config file | yes | yes — JSON, offline policy only | yes | yes |
 | Addon API (`AccountStatus`, callbacks) | **no** — name lookups only | **no** | yes | yes |
 | Localized strings from `common-assets` | own copy | yes | yes | yes |
-| Yggdrasil / skin-site accounts | yes | **no** — refuses the login | **no** — silently ignored | **no** — silently ignored |
+| Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
 | Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
 | Skin refresh after join | yes | **no** | **no** | **no** |
@@ -79,12 +79,15 @@ Traps behind that table:
   1.21 Forge/NeoForge clients silently answer with an empty endpoint and fall
   back to Mojang. Fabric's behaviour is the honest one.
 
-- **`auth.yggdrasil.apiRootWhitelist` is inert on the 1.21 line.** The option
-  exists and the server-side verifier honours it, but the 1.21 clients never
-  resolve an authlib-injector endpoint — they always answer with an empty one, so
-  verification always falls back to Mojang. 1.20.1's client reads the
-  `-javaagent:` argument and `YggdrasilMinecraftSessionService.CHECK_URL`; that
-  code has no 1.21 counterpart. Skin-site users are silently unsupported there.
+- **`auth.yggdrasil.apiRootWhitelist` is live on the 1.21 line since
+  2026-07-15.** The 1.21 clients resolve the authlib-injector endpoint the same
+  way 1.20.1 does — the `-javaagent:` argument first, then
+  `YggdrasilMinecraftSessionService.CHECK_URL` reflection
+  (`cn.alini.trueuuid.client.ClientYggdrasilEndpoint`, duplicated verbatim for
+  NeoForge) — and send it as `customEndpoint`. The server-side allowlist, DNS
+  pinning, and no-redirect checks are unchanged; an endpoint outside the
+  allowlist still fails verification. No skin-site login run has been recorded
+  on any 1.21 target yet.
 - **The addon API is inverted.** 1.20.1 predates it and still exposes only
   `isPremium(name)` / `getPremiumUuid(name)`; the 1.21 line has the newer
   `AccountStatus` + `registerLoginCallback` surface. Porting it back to 1.20.1 is

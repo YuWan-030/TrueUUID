@@ -3,6 +3,7 @@ package cn.alini.trueuuid.mixin.client;
 import cn.alini.trueuuid.net.AuthAnswerPayload;
 import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.client.ClientAccountStatus;
+import cn.alini.trueuuid.client.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import net.minecraft.client.Minecraft;
@@ -40,11 +41,15 @@ abstract class ClientHandshakeMixin {
         int transactionId = packet.transactionId();
         if (token == null || token.isBlank() || "0".equals(token)) {
             ClientAccountStatus.markOffline();
-            trueuuid$send(loginConnection, transactionId, false, true);
+            trueuuid$send(loginConnection, transactionId, false, "", true);
             callback.cancel();
             return;
         }
 
+        // Resolve the skin-site endpoint before joinServer: the join assertion
+        // is one-shot, and an authlib-injector session must be verified by the
+        // server against the same Yggdrasil service (subject to its allowlist).
+        String hasJoinedUrl = ClientYggdrasilEndpoint.resolveHasJoinedUrl();
         updateStatus.accept(Component.translatable("connect.authorizing"));
         CompletableFuture.supplyAsync(() -> {
                     try {
@@ -61,13 +66,13 @@ abstract class ClientHandshakeMixin {
                 .thenAccept(joined -> {
                     if (joined) ClientAccountStatus.markPremium();
                     else ClientAccountStatus.markOffline();
-                    trueuuid$send(loginConnection, transactionId, joined, false);
+                    trueuuid$send(loginConnection, transactionId, joined, hasJoinedUrl, false);
                 });
         callback.cancel();
     }
 
-    private static void trueuuid$send(Connection connection, int transactionId, boolean joined, boolean missingToken) {
+    private static void trueuuid$send(Connection connection, int transactionId, boolean joined, String hasJoinedUrl, boolean missingToken) {
         connection.send(new ServerboundCustomQueryAnswerPacket(transactionId,
-                new AuthAnswerPayload(new AuthMessages.Answer(joined, "", false, missingToken))));
+                new AuthAnswerPayload(new AuthMessages.Answer(joined, hasJoinedUrl, false, missingToken))));
     }
 }

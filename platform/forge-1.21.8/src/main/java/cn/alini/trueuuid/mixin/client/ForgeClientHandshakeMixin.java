@@ -5,6 +5,7 @@ import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.client.ClientAccountStatus;
+import cn.alini.trueuuid.client.ClientYggdrasilEndpoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
@@ -39,11 +40,15 @@ abstract class ForgeClientHandshakeMixin {
         String accessToken = user.getAccessToken();
         if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken)) {
             ClientAccountStatus.markOffline();
-            trueuuid$reply(connection, packet.transactionId(), false, true);
+            trueuuid$reply(connection, packet.transactionId(), false, "", true);
             callback.cancel();
             return;
         }
 
+        // Resolve the skin-site endpoint before joinServer: the join assertion
+        // is one-shot, and an authlib-injector session must be verified by the
+        // server against the same Yggdrasil service (subject to its allowlist).
+        String hasJoinedUrl = ClientYggdrasilEndpoint.resolveHasJoinedUrl();
         updateStatus.accept(Component.translatable("connect.authorizing"));
         Connection loginConnection = connection;
         CompletableFuture.supplyAsync(() -> {
@@ -59,13 +64,13 @@ abstract class ForgeClientHandshakeMixin {
                 .thenAccept(joined -> {
                     if (joined) ClientAccountStatus.markPremium();
                     else ClientAccountStatus.markOffline();
-                    trueuuid$reply(loginConnection, packet.transactionId(), joined, false);
+                    trueuuid$reply(loginConnection, packet.transactionId(), joined, hasJoinedUrl, false);
                 });
         callback.cancel();
     }
 
-    private static void trueuuid$reply(Connection connection, int transactionId, boolean joined, boolean missingToken) {
+    private static void trueuuid$reply(Connection connection, int transactionId, boolean joined, String hasJoinedUrl, boolean missingToken) {
         connection.send(new ServerboundCustomQueryAnswerPacket(transactionId,
-                new ForgeAuthAnswerPayload(new AuthMessages.Answer(joined, "", false, missingToken))));
+                new ForgeAuthAnswerPayload(new AuthMessages.Answer(joined, hasJoinedUrl, false, missingToken))));
     }
 }
