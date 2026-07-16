@@ -1,11 +1,20 @@
 package cn.alini.trueuuid.api;
 
+import cn.alini.trueuuid.server.AccountStatusTracker;
 import cn.alini.trueuuid.server.TrueuuidRuntime;
+import net.minecraft.server.level.ServerPlayer;
+
 import java.util.UUID;
+import java.util.function.BiConsumer;
 
 /**
  * TrueUUID API: 提供正版状态查询接口，供附属mod调用。
  * (TrueUUID API: Provides premium status query interface for addon mods to call.)
+ *
+ * <p>The {@link AccountStatus} surface (getStatus, isPremium/isOffline by
+ * player, registerLoginCallback) matches the modern Forge/NeoForge adapters,
+ * so an addon compiles against every target. The two original name-lookup
+ * methods keep their pre-existing signatures for compatibility.</p>
  */
 public class TrueuuidApi {
     /**
@@ -27,5 +36,36 @@ public class TrueuuidApi {
     public static UUID getPremiumUuid(String name) {
         return TrueuuidRuntime.NAME_REGISTRY.getPremiumUuid(name).orElse(null);
     }
-}
 
+    /** True if this name has ever completed a verified premium/Yggdrasil login. */
+    public static boolean isKnownPremiumName(String name) {
+        return TrueuuidRuntime.NAME_REGISTRY.isKnownPremiumName(name);
+    }
+
+    /** Authentication status of an online player id, or {@link AccountStatus#UNKNOWN}. */
+    public static AccountStatus getStatus(UUID playerId) {
+        return AccountStatusTracker.statusOf(playerId);
+    }
+
+    /** Authentication status of an online player, or {@link AccountStatus#UNKNOWN}. */
+    public static AccountStatus getStatus(ServerPlayer player) {
+        return player == null ? AccountStatus.UNKNOWN : getStatus(player.getUUID());
+    }
+
+    public static boolean isPremium(UUID playerId) { return getStatus(playerId).isPremium(); }
+
+    public static boolean isPremium(ServerPlayer player) { return getStatus(player).isPremium(); }
+
+    public static boolean isOffline(UUID playerId) { return getStatus(playerId).isOffline(); }
+
+    public static boolean isOffline(ServerPlayer player) { return getStatus(player).isOffline(); }
+
+    /**
+     * Registers a callback invoked on the server thread immediately after a
+     * player's {@link AccountStatus} is known at login (before other join logic
+     * that queries {@link #getStatus}). Register once during mod setup.
+     */
+    public static void registerLoginCallback(BiConsumer<ServerPlayer, AccountStatus> callback) {
+        AccountStatusTracker.registerLoginCallback(callback);
+    }
+}

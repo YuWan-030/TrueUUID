@@ -52,7 +52,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Join feedback (chat, opt-in title) | yes | **no** | yes | yes |
 | Account-status badge | yes | yes — position/scale hardcoded | yes | yes |
 | Config file | yes | yes — JSON, offline policy only | yes | yes |
-| Addon API (`AccountStatus`, callbacks) | **no** — name lookups only | **no** | yes | yes |
+| Addon API (`AccountStatus`, callbacks) | yes | **no** | yes | yes |
 | Localized strings from `common-assets` | own copy | yes | yes | yes |
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
@@ -88,10 +88,13 @@ Traps behind that table:
   pinning, and no-redirect checks are unchanged; an endpoint outside the
   allowlist still fails verification. No skin-site login run has been recorded
   on any 1.21 target yet.
-- **The addon API is inverted.** 1.20.1 predates it and still exposes only
-  `isPremium(name)` / `getPremiumUuid(name)`; the 1.21 line has the newer
-  `AccountStatus` + `registerLoginCallback` surface. Porting it back to 1.20.1 is
-  the smaller half of closing the gap.
+- **The addon API is unified since 2026-07-15.** 1.20.1 now carries the
+  `AccountStatus` + `getStatus` + `registerLoginCallback` surface
+  (`server/AccountStatusTracker`, published at join before feedback). One
+  residual asymmetry: 1.20.1's pre-existing `getPremiumUuid(name)` returns a
+  nullable `UUID`, while the 1.21 line returns `Optional<UUID>`; the same
+  method name cannot carry both signatures, so changing it would break
+  released 1.20.1 addons.
 
 User-facing strings live once in `platform/common-assets` for the 1.21 line and
 NeoForge. `forge-1.20.1` keeps its own copy: it has ~34 extra keys and three

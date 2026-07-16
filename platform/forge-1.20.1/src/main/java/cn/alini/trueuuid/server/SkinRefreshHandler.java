@@ -63,6 +63,18 @@ public class SkinRefreshHandler {
         var fallbackOpt = TrueuuidRuntime.AUTH_STATE.consume(netConn);
         var successOpt = TrueuuidRuntime.AUTH_STATE.consumeAuthSuccess(netConn, sp.getUUID(), sp.getGameProfile().getName());
 
+        // Publish status for the addon API and notify callbacks before the
+        // join-feedback config below, mirroring the 1.21 line: conditional
+        // join logic must see the status regardless of feedback settings.
+        cn.alini.trueuuid.api.AccountStatus apiStatus = fallbackOpt.isPresent()
+                ? cn.alini.trueuuid.api.AccountStatus.OFFLINE_FALLBACK
+                : successOpt.isPresent() ? cn.alini.trueuuid.api.AccountStatus.PREMIUM_VERIFIED
+                : server.usesAuthentication() ? cn.alini.trueuuid.api.AccountStatus.ONLINE_MODE
+                : cn.alini.trueuuid.api.AccountStatus.UNKNOWN;
+        if (apiStatus != cn.alini.trueuuid.api.AccountStatus.UNKNOWN) {
+            AccountStatusTracker.publish(sp, apiStatus);
+        }
+
         if (fallbackOpt.isPresent()) {
             Trueuuid.LOGGER.info("TrueUUID offline fallback login: player={}, uuid={}, reason={}",
                     sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
@@ -127,6 +139,7 @@ public class SkinRefreshHandler {
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         PENDING_LOCAL_SELF_REFRESH.remove(sp.getUUID());
+        AccountStatusTracker.clear(sp.getUUID());
         TrueuuidRuntime.AUTH_STATE.remove(sp.connection.connection);
         String ip = trueuuid$ipOf(sp);
         if (ip == null || ip.isBlank()) return;
