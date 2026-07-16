@@ -12,5 +12,6 @@
   "trueuuid.overlay.offline": "离线",
   "trueuuid.disconnect.timeout": "登录超时，未完成账号验证。",
   "trueuuid.disconnect.auth_denied": "正版账号验证失败。请检查网络后重试。",
-  "trueuuid.disconnect.bound_premium": "该名称已绑定已验证的正版账号，不允许离线兜底进入。"
+  "trueuuid.disconnect.bound_premium": "该名称已绑定已验证的正版账号，不允许离线兜底进入。",
+  "trueuuid.disconnect.custom_endpoint_unsupported": "该服务器不支持自定义 Yggdrasil 认证端点，请使用 Mojang 正版账号登录。"
 }

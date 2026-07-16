@@ -22,6 +22,9 @@ java {
     withSourcesJar()
 }
 
+// User-facing strings are worded once for every loader in common-assets.
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+
 loom {
     runs {
         client {

@@ -12,5 +12,6 @@
   "trueuuid.overlay.offline": "Offline",
   "trueuuid.disconnect.timeout": "Login timed out before account verification completed.",
   "trueuuid.disconnect.auth_denied": "Premium account verification failed. Please check your connection and try again.",
-  "trueuuid.disconnect.bound_premium": "This name is already bound to a verified premium account. Offline fallback is not allowed."
+  "trueuuid.disconnect.bound_premium": "This name is already bound to a verified premium account. Offline fallback is not allowed.",
+  "trueuuid.disconnect.custom_endpoint_unsupported": "This server does not support custom Yggdrasil endpoints. Log in with a Mojang account."
 }

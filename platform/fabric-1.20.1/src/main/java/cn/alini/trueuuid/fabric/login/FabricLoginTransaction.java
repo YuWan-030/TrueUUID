@@ -53,7 +53,7 @@ public final class FabricLoginTransaction {
                                     boolean understood, AuthMessages.Answer answer) {
         if (closed || completion == null) return;
         if (!understood || answer == null) {
-            closeWithDisconnect(server, handler, "TrueUUID authentication response was invalid");
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
             return;
         }
         LoginStateMachine.AnswerResult result = state.acceptAnswer(TRANSACTION_ID, answer);
@@ -62,7 +62,7 @@ public final class FabricLoginTransaction {
             return;
         }
         if (result != LoginStateMachine.AnswerResult.VERIFY) {
-            closeWithDisconnect(server, handler, "TrueUUID authentication response was invalid");
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
             return;
         }
 
@@ -70,12 +70,12 @@ public final class FabricLoginTransaction {
         // client-supplied Yggdrasil endpoint is never trusted until a Fabric
         // config adapter supplies the shared allowlist and endpoint policy.
         if (!answer.customEndpoint().isBlank()) {
-            closeWithDisconnect(server, handler, "TrueUUID custom endpoints are not enabled on Fabric yet");
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.custom_endpoint_unsupported");
             return;
         }
         GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
         if (offlineProfile == null || offlineProfile.getName() == null || offlineProfile.getName().isBlank()) {
-            closeWithDisconnect(server, handler, "TrueUUID could not read the login profile");
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
             return;
         }
 
@@ -94,7 +94,7 @@ public final class FabricLoginTransaction {
         String name = offlineProfile == null ? null : offlineProfile.getName();
         if (!FabricAdapterRuntime.canUseOfflineFallback(name)) {
             TrueuuidFabric.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", name);
-            closeWithDisconnect(server, handler, "TrueUUID does not allow offline fallback for this name");
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.bound_premium");
             return;
         }
         completeOfflineFallback(server);
@@ -111,18 +111,19 @@ public final class FabricLoginTransaction {
         synchronized (this) {
             if (closed || completion == null || completion.isDone()) return;
         }
-        closeWithDisconnect(server, handler, "TrueUUID authentication timed out");
+        closeWithDisconnect(server, handler, "trueuuid.disconnect.timeout");
     }
 
-    private void closeWithDisconnect(MinecraftServer server, ServerLoginNetworkHandler handler, String reason) {
+    /** The reason is a translation key from platform/common-assets, never inline text. */
+    private void closeWithDisconnect(MinecraftServer server, ServerLoginNetworkHandler handler, String reasonKey) {
         server.execute(() -> {
             synchronized (FabricLoginTransaction.this) {
                 if (closed) return;
                 closed = true;
-                if (completion != null) completion.completeExceptionally(new IllegalStateException(reason));
+                if (completion != null) completion.completeExceptionally(new IllegalStateException(reasonKey));
                 state.reset();
             }
-            handler.disconnect(Text.literal(reason));
+            handler.disconnect(Text.translatable(reasonKey));
         });
     }
 
