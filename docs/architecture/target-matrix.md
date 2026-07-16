@@ -57,7 +57,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
 | Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
-| Skin refresh after join | yes | **no** | **no** | **no** |
+| Skin refresh after join | yes | yes — others only | yes — others only | yes — others only |
 | Recent-IP reconnect grace | yes | yes | yes | yes |
 | Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | yes | yes | yes |
 | `debug` logging toggle | yes | yes | yes | yes |

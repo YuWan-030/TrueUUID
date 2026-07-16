@@ -9,8 +9,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** Fabric login-phase registration and native packet conversion only. */
@@ -30,6 +34,20 @@ public final class FabricLoginNetworking {
             }
         });
         ServerLoginConnectionEvents.DISCONNECT.register((handler, server) -> transaction(handler).cancel());
+        // Re-broadcast the joining player's info one tick later so other clients
+        // re-fetch the skin of the replaced (verified) profile, matching 1.20.1.
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerPlayerEntity player = handler.player;
+            server.execute(() -> {
+                PlayerRemoveS2CPacket remove = new PlayerRemoveS2CPacket(List.of(player.getUuid()));
+                PlayerListS2CPacket update = PlayerListS2CPacket.entryFromPlayer(List.of(player));
+                for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
+                    if (other.getUuid().equals(player.getUuid())) continue;
+                    other.networkHandler.sendPacket(remove);
+                    other.networkHandler.sendPacket(update);
+                }
+            });
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
                 FabricAdapterRuntime.activateGraceAfterLogout(handler.player.getGameProfile().getName(), handler.player.getIp()));
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {

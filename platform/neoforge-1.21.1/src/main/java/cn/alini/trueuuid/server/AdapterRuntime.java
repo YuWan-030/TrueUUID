@@ -17,9 +17,12 @@ import com.google.gson.annotations.SerializedName;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
@@ -132,6 +135,7 @@ public final class AdapterRuntime {
     /** Emits audit and player feedback only after the server has completed login. */
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        refreshSkinForOthers(player);
         AuthenticationSource source = consumePendingLogin(player.getUUID());
         if (source == null && player.getServer() != null && player.getServer().usesAuthentication()) {
             source = AuthenticationSource.NATIVE_ONLINE_MODE;
@@ -174,6 +178,24 @@ public final class AdapterRuntime {
         if (ipGrace != null && TrueuuidConfig.recentIpGraceEnabled()) {
             ipGrace.activateAfterLogout(name, clientIp);
         }
+    }
+
+    /**
+     * Re-broadcasts the joining player's info one tick later so other clients
+     * re-fetch the skin of the replaced (verified) profile, matching 1.20.1.
+     */
+    private static void refreshSkinForOthers(ServerPlayer player) {
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+        server.execute(() -> {
+            ClientboundPlayerInfoRemovePacket remove = new ClientboundPlayerInfoRemovePacket(List.of(player.getUUID()));
+            ClientboundPlayerInfoUpdatePacket update = ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player));
+            for (ServerPlayer other : server.getPlayerList().getPlayers()) {
+                if (other.getUUID().equals(player.getUUID())) continue;
+                other.connection.send(remove);
+                other.connection.send(update);
+            }
+        });
     }
 
     // ---- Public API surface (see cn.alini.trueuuid.api.TrueuuidApi) ----
