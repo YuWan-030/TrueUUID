@@ -7,6 +7,11 @@ TrueUUID uses three automation levels:
 - `.github/workflows/self-test.yml` is an on-demand full matrix. It builds and
   verifies every declared JAR, then boots a localhost development server and a
   headless development client for every implemented target.
+
+Both matrix workflows derive their jobs from `release/targets.json`, grouped
+into three loader families — Forge, NeoForge, and Fabric — so adding a target
+to the manifest automatically adds it to verify, self-test, and the release
+gate.
 - `.github/workflows/release.yml` runs only when a stable GitHub Release is
   published in `YuWan-030/TrueUUID`. It repeats the full matrix and publishes
   only the exact release-approved target named by the release tag.

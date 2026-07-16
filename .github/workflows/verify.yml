@@ -34,6 +34,7 @@ jobs:
     outputs:
       forge: ${{ steps.targets.outputs.forge }}
       neoforge: ${{ steps.targets.outputs.neoforge }}
+      fabric: ${{ steps.targets.outputs.fabric }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -44,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/release/validate-targets.sh
-          for loader in forge neoforge; do
+          for loader in forge neoforge fabric; do
             matrix=$(jq -c --arg loader "$loader" \
               '{include: [.targets[] | select(.loader == $loader) | {target: .id, game_version: .game_version, java: (.java | tostring), build_task: .build_task}]}' \
               release/targets.json)
@@ -80,6 +81,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.neoforge) }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+      - name: Build and test
+        run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
+
+  fabric:
+    name: Fabric / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
+    needs: matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.fabric) }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

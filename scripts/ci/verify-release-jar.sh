@@ -19,20 +19,34 @@ loader=$(jq -r '.loader' <<<"$target")
 [[ -f "$artifact" ]] || { echo "missing built artifact: $artifact" >&2; exit 66; }
 unzip -tqq "$artifact"
 
-entries=$(jar tf "$artifact")
-for required in \
-    cn/alini/trueuuid/Trueuuid.class \
-    cn/alini/trueuuid/protocol/AuthWireCodec.class \
-    trueuuid.mixins.json; do
-    grep -Fxq "$required" <<<"$entries" || { echo "missing JAR entry: $required" >&2; exit 65; }
-done
-
 case "$loader" in
-    forge) metadata=META-INF/mods.toml ;;
-    neoforge) metadata=META-INF/neoforge.mods.toml ;;
+    forge)
+        entry_class=cn/alini/trueuuid/Trueuuid.class
+        mixins=trueuuid.mixins.json
+        metadata=META-INF/mods.toml
+        ;;
+    neoforge)
+        entry_class=cn/alini/trueuuid/Trueuuid.class
+        mixins=trueuuid.mixins.json
+        metadata=META-INF/neoforge.mods.toml
+        ;;
+    fabric)
+        entry_class=cn/alini/trueuuid/fabric/TrueuuidFabric.class
+        mixins=trueuuid.fabric.mixins.json
+        metadata=fabric.mod.json
+        ;;
     *) echo "unsupported loader for JAR verification: $loader" >&2; exit 65 ;;
 esac
-grep -Fxq "$metadata" <<<"$entries" || { echo "missing loader metadata: $metadata" >&2; exit 65; }
+
+entries=$(jar tf "$artifact")
+for required in \
+    "$entry_class" \
+    cn/alini/trueuuid/protocol/AuthWireCodec.class \
+    assets/trueuuid/lang/en_us.json \
+    "$mixins" \
+    "$metadata"; do
+    grep -Fxq "$required" <<<"$entries" || { echo "missing JAR entry: $required" >&2; exit 65; }
+done
 
 duplicate_classes=$(grep '\.class$' <<<"$entries" | sort | uniq -d)
 [[ -z "$duplicate_classes" ]] || { echo "duplicate classes in $artifact:" >&2; printf '%s\n' "$duplicate_classes" >&2; exit 65; }

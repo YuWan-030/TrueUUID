@@ -28,6 +28,10 @@ case "$target_id" in
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID NeoForge adapter loaded'
         ;;
+    fabric-1.20.1)
+        task=":platform:${target_id}:run${role^}"
+        load_pattern='TrueUUID Fabric adapter loaded'
+        ;;
     *) echo "target has no runtime smoke configuration: $target_id" >&2; exit 65 ;;
 esac
 
@@ -44,7 +48,9 @@ started=$(mktemp)
 touch "$started"
 
 if [[ "$role" == server ]]; then
-    for run_dir in "$root/platform/$target_id/run" "$root/run"; do
+    # Every launcher working directory a target's runServer may use: the module
+    # run root, the split server run dir (Forge/Fabric), and the repo root.
+    for run_dir in "$root/platform/$target_id/run" "$root/platform/$target_id/run/server" "$root/run"; do
         mkdir -p "$run_dir"
         printf 'eula=true\n' > "$run_dir/eula.txt"
         properties="$run_dir/server.properties"
@@ -64,6 +70,11 @@ if [[ "$role" == server ]]; then
         done
     done
     command=(./gradlew "$task" --no-daemon --stacktrace)
+elif [[ "$target_id" == fabric-* ]]; then
+    # Loom's run tasks own their program arguments; replacing them with
+    # --args would drop the asset/game directory flags the client needs.
+    command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
+        ./gradlew "$task" --no-daemon --stacktrace)
 else
     command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
         ./gradlew "$task" --no-daemon --stacktrace

@@ -30,6 +30,7 @@ jobs:
     outputs:
       forge: ${{ steps.targets.outputs.forge }}
       neoforge: ${{ steps.targets.outputs.neoforge }}
+      fabric: ${{ steps.targets.outputs.fabric }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -41,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/release/validate-targets.sh
-          for loader in forge neoforge; do
+          for loader in forge neoforge fabric; do
             matrix=$(jq -c --arg loader "$loader" \
               '{include: [.targets[] | select(.loader == $loader) | {target: .id, game_version: .game_version, java: (.java | tostring), build_task: .build_task}]}' \
               release/targets.json)
@@ -57,6 +58,61 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.forge) }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+      - name: Install headless client runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends xvfb libgl1-mesa-dri
+      - id: build
+        name: Build, test, and verify release JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :shared:protocol:test "${{ matrix.build_task }}" --no-daemon --stacktrace
+          ./scripts/ci/verify-release-jar.sh "${{ matrix.target }}" "self-test-output/${{ matrix.target }}/release"
+      - name: Preserve verified release JAR
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.target }}
+          path: self-test-output/${{ matrix.target }}/release/
+          if-no-files-found: error
+          retention-days: 14
+      - id: server
+        name: Boot localhost development server
+        shell: bash
+        run: ./scripts/ci/runtime-smoke.sh "${{ matrix.target }}" server "self-test-output/${{ matrix.target }}/logs"
+      - name: Boot headless development client
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: ./scripts/ci/runtime-smoke.sh "${{ matrix.target }}" client "self-test-output/${{ matrix.target }}/logs"
+      - name: Preserve runtime diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: self-test-logs-${{ matrix.target }}
+          path: self-test-output/${{ matrix.target }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  fabric:
+    name: Fabric / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
+    needs: matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.fabric) }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

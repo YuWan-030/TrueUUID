@@ -8,7 +8,7 @@ An adapter is the unit of support and release; a Git branch is not.
 | Target | Loader | Java | State | Notes |
 |---|---|---:|---|---|
 | Minecraft 1.20.1 | Forge 47.4.10 | 17 | Active | Implemented in `platform/forge-1.20.1` (independent pre-configuration-phase island). Local Mojang login/UUID/name/skin run passed on 2026-07-12 with JDK 17. Yggdrasil, denial/timeout/grace, and migration rollback runs remain pending. |
-| Minecraft 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 | 17 target / 21 build launcher | Planned | `platform/fabric-1.20.1`; Yarn `1.20.1+build.10`, Loom `1.13.6`, Gradle 8.14. Mojang login transport and bounded verification compile and test. It has no runtime or support claim until its focused two-sided matrix passes. |
+| Minecraft 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 | 17 target / 21 build launcher | Planned | `platform/fabric-1.20.1`; shares `platform/fabric-common`. Yarn `1.20.1+build.10`, Loom `1.13.6`, Gradle 8.14. Mojang login transport and bounded verification compile and test. It has no runtime or support claim until its focused two-sided matrix passes. |
 | Minecraft 1.21.1 | Forge 52.1.0 | 21 | Planned | `platform/forge-1.21.1`; shares `platform/forge-common`. A local premium client/server login passed, but the full acceptance matrix remains incomplete. |
 | Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |

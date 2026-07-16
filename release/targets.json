@@ -12,6 +12,15 @@
       "release": false
     },
     {
+      "id": "fabric-1.20.1",
+      "build_task": ":platform:fabric-1.20.1:build",
+      "artifact": "platform/fabric-1.20.1/build/libs/trueuuid-%VERSION%-fabric1.20.1.jar",
+      "loader": "fabric",
+      "game_version": "1.20.1",
+      "java": 21,
+      "release": false
+    },
+    {
       "id": "forge-1.21.1",
       "build_task": ":platform:forge-1.21.1:build",
       "artifact": "platform/forge-1.21.1/build/libs/trueuuid-%VERSION%-forge1.21.1.jar",
