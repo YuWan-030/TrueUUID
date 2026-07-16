@@ -1,0 +1,93 @@
+plugins {
+    // Loom 1.13.6 supports the current Mojang version manifest. It requires
+    // a Java 21 Gradle launcher, while this adapter still compiles Java 17
+    // bytecode through the toolchain below.
+    id 'fabric-loom' version '1.13.6'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    withSourcesJar()
+}
+
+loom {
+    runs {
+        client {
+            runDir 'run/client'
+            // A local client and server often run together on the 16 GB
+            // development laptop. Keep the game heap bounded; both values
+            // can be raised deliberately through the launcher environment.
+            vmArgs '-Xms512M', "-Xmx${providers.environmentVariable('TRUEUUID_CLIENT_XMX').getOrElse('3G')}", '-XX:+UseG1GC'
+        }
+        server {
+            runDir 'run/server'
+            vmArgs '-Xms256M', "-Xmx${providers.environmentVariable('TRUEUUID_SERVER_XMX').getOrElse('1536M')}", '-XX:+UseG1GC'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.1'
+    mappings 'net.fabricmc:yarn:1.20.1+build.10:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.92.9+1.20.1'
+
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [
+            minecraft_version: '1.20.1',
+            mod_id           : mod_id,
+            mod_name         : mod_name,
+            mod_license      : mod_license,
+            mod_version      : mod_version,
+            mod_authors      : mod_authors,
+            mod_description  : mod_description
+    ]
+    inputs.properties(replaceProperties)
+    filesMatching('fabric.mod.json') {
+        expand(replaceProperties + [project: project])
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "${mod_id}-${mod_version}-fabric1.20.1.jar"
+    // The wire/security module is deliberately merged into the adapter JAR so
+    // production Fabric installations never depend on an undeclared second JAR.
+    from(sharedProtocolMain.get().output)
+}
+
+// Loom's plain jar is a named development artifact under build/devlibs. The
+// remapped JAR is the only artifact suitable for a Fabric instance.
+tasks.named('remapJar').configure {
+    archiveFileName = "${mod_id}-${mod_version}-fabric1.20.1.jar"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

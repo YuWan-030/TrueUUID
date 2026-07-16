@@ -12,6 +12,7 @@ Usage: scripts/run-dev-target.sh [target] <client|server>
 
 Registered targets:
   forge-1.20.1  Forge 47.4.10 / Minecraft 1.20.1 / Java 17
+  fabric-1.20.1  Fabric Loader 0.19.3 / Minecraft 1.20.1 / Java 17 target, Java 21 launcher (planned; no login run)
   forge-1.21.1  Forge 52.1.0  / Minecraft 1.21.1 / Java 21 (test candidate)
   forge-1.21.3  Forge 53.1.0  / Minecraft 1.21.3 / Java 21 (planned; no login run)
   forge-1.21.4  Forge 54.1.14 / Minecraft 1.21.4 / Java 21 (planned; no login run)
@@ -26,9 +27,11 @@ Registered targets:
 Examples (use two terminals):
   scripts/run-dev-target.sh forge-1.20.1 server
   scripts/run-dev-target.sh forge-1.20.1 client
-  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \\
+  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+    scripts/run-dev-target.sh fabric-1.20.1 server
+  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     scripts/run-dev-target.sh forge-1.21.8 server
-  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \\
+  TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     scripts/run-dev-target.sh neoforge-1.21.8 server
 
 The first launch of a new Minecraft version downloads that version's assets, so
@@ -37,6 +40,10 @@ target's assets are cached.
 
 The script launches Gradle's development run configuration. It is not a
 release-jar installer and does not claim that a planned target is supported.
+
+Memory defaults: Gradle 1G, Fabric client 3G, Fabric server 1536M. Override
+them deliberately with TRUEUUID_GRADLE_XMX, TRUEUUID_CLIENT_XMX, or
+TRUEUUID_SERVER_XMX (for example: TRUEUUID_CLIENT_XMX=4G).
 EOF
 }
 
@@ -49,7 +56,7 @@ case "$target" in
     forge-1.20.1)
         required_java=17
         ;;
-    forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
+    fabric-1.20.1|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
         required_java=21
         ;;
     *)
@@ -108,4 +115,8 @@ gradle_flags=(--no-daemon)
 if [[ -n "${TRUEUUID_OFFLINE:-}" ]]; then
     gradle_flags+=(--offline)
 fi
-exec ./gradlew "$gradle_task" "${gradle_flags[@]}"
+# Do not let the project-wide build default reserve several gigabytes while a
+# client/server run is loading assets. Loom applies the separate game-process
+# caps in the Fabric adapter's run configuration.
+gradle_jvmargs="-Xms256M -Xmx${TRUEUUID_GRADLE_XMX:-1G} -Dfile.encoding=UTF-8"
+exec ./gradlew "-Dorg.gradle.jvmargs=${gradle_jvmargs}" "$gradle_task" "${gradle_flags[@]}"

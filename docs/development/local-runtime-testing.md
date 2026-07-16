@@ -13,6 +13,31 @@ The script uses Java 17 for Forge 1.20.1. Override the detected JDK with
 owned by ForgeGradle; accept the EULA and configure its `server.properties`
 there before a real login test.
 
+## Fabric 1.20.1
+
+Fabric has a Java 17 bytecode target, but Loom 1.13.6 requires a Java 21
+Gradle launcher. Run client and offline-mode local server separately:
+
+```bash
+TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+  scripts/run-dev-target.sh fabric-1.20.1 server
+TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+  scripts/run-dev-target.sh fabric-1.20.1 client
+```
+
+The script prepares `platform/fabric-1.20.1/run/server` with `eula=true`,
+`online-mode=false`, and a localhost bind. The Fabric adapter currently covers
+only a Mojang premium login assertion; it has no fallback, migration, or
+Yggdrasil runtime claim.
+
+For concurrent local runs, the launcher caps Gradle at 1G, the Fabric server
+at 1536M, and the Fabric client at 3G. Override one cap only when needed:
+
+```bash
+TRUEUUID_CLIENT_XMX=4G TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+  scripts/run-dev-target.sh fabric-1.20.1 client
+```
+
 For a client running on this same machine, set `server-ip=127.0.0.1` in the
 target's `run/server.properties`. This also avoids a wildcard IPv6 bind failure
 on hosts without IPv6. For a LAN test, use the server's actual IPv4 address

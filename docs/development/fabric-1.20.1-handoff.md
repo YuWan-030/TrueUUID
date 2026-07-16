@@ -3,7 +3,8 @@
 ## Objective and boundaries
 
 Create `platform/fabric-1.20.1`: a client-and-server Fabric adapter for
-Minecraft 1.20.1 on Java 17. This is a new loader boundary, not a Forge port
+Minecraft 1.20.1 targeting Java 17 bytecode. Its current Loom baseline needs a
+Java 21 Gradle launcher. This is a new loader boundary, not a Forge port
 with imports renamed. Start on `main` using
 `feature/fabric-1.20.1-adapter`.
 
@@ -92,20 +93,25 @@ create a monolithic Fabric entrypoint.
 5. Adapt the policy, registry, migration, command, join-feedback, and skin
    seams one at a time, preserving their existing tests or adding Fabric
    lifecycle tests.
-6. Only after the module builds and tests independently, add its exact target
-   entry to `settings.gradle`, root build, `release/targets.json` with
-   `release: false`, `verify.yml`, `self-test.yml`, `runtime-smoke.sh`, and
-   `verify-release-jar.sh` (if a Fabric-specific metadata check is needed).
+6. Keep its exact target entry in `settings.gradle` so focused Fabric tasks are
+   addressable, but do not make the root lifecycle build depend on it. Add it
+   to `release/targets.json` with `release: false`, `verify.yml`,
+   `self-test.yml`, `runtime-smoke.sh`, and `verify-release-jar.sh` only after
+   the module builds/tests independently and those scripts have Fabric checks.
 
 ## Required validation before support status changes
 
-Use Java 17 explicitly on this workspace:
+Use the Java 21 launcher explicitly on this workspace; the Fabric adapter still
+compiles with `--release 17`:
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/jdk-17.0.12-oracle-x64 \
-PATH=/usr/lib/jvm/jdk-17.0.12-oracle-x64/bin:$PATH \
-./gradlew :shared:protocol:test :platform:fabric-1.20.1:test --offline --no-daemon
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+PATH=/usr/lib/jvm/java-21-openjdk-amd64/bin:$PATH \
+./gradlew :shared:protocol:test :platform:fabric-1.20.1:test --no-daemon
 ```
+
+Use `:platform:fabric-1.20.1:remapJar` when producing the JAR for a Fabric
+instance; Loom's plain `jar` task writes only the development artifact.
 
 Then run a real matching Fabric client/server matrix and record exact logs,
 artifact, loader, and JDK evidence:
