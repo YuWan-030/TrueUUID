@@ -28,6 +28,7 @@ public final class TrueuuidConfig {
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_ON_FAILURE;
     private static final ModConfigSpec.BooleanValue KNOWN_PREMIUM_DENY_OFFLINE;
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
+    private static final ModConfigSpec.BooleanValue DEBUG;
     private static final List<String> OVERLAY_CORNERS = List.of(
             "top_left", "top_right", "bottom_left", "bottom_right");
 
@@ -69,6 +70,8 @@ public final class TrueuuidConfig {
                 .define("knownPremiumDenyOffline", true);
         ALLOW_OFFLINE_FOR_UNKNOWN_ONLY = builder.comment("Restrict offline fallback to names with no prior verified premium login.")
                 .define("allowOfflineForUnknownOnly", true);
+        DEBUG = builder.comment("Enable debug logging for the login handshake. Never logs tokens, nonces, endpoints, or raw authlib responses.")
+                .define("debug", false);
         builder.pop();
         SPEC = builder.build();
     }
@@ -87,5 +90,6 @@ public final class TrueuuidConfig {
     public static boolean allowOfflineOnFailure() { return ALLOW_OFFLINE_ON_FAILURE.get(); }
     public static boolean knownPremiumDenyOffline() { return KNOWN_PREMIUM_DENY_OFFLINE.get(); }
     public static boolean allowOfflineForUnknownOnly() { return ALLOW_OFFLINE_FOR_UNKNOWN_ONLY.get(); }
+    public static boolean debug() { return DEBUG.get(); }
     private TrueuuidConfig() {}
 }

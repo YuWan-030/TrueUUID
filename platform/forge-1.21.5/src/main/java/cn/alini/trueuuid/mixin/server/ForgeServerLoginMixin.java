@@ -82,6 +82,7 @@ abstract class ForgeServerLoginMixin {
         if (packet.transactionId() != trueuuid$transaction || !(packet.payload() instanceof ForgeAuthAnswerPayload answer)
                 || authenticatedProfile == null) return;
         callback.cancel();
+        Trueuuid.debug("TrueUUID received authentication response: player={}", authenticatedProfile.getName());
         if (!answer.message().joined()) {
             String playerName = authenticatedProfile.getName();
             if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {

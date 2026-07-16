@@ -52,6 +52,7 @@ public final class FabricLoginTransaction {
     public synchronized void answer(MinecraftServer server, ServerLoginNetworkHandler handler,
                                     boolean understood, AuthMessages.Answer answer) {
         if (closed || completion == null) return;
+        TrueuuidFabric.debug("TrueUUID received authentication response: understood={}", understood);
         if (!understood || answer == null) {
             closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
             return;
@@ -111,6 +112,7 @@ public final class FabricLoginTransaction {
         synchronized (this) {
             if (closed || completion == null || completion.isDone()) return;
         }
+        TrueuuidFabric.debug("TrueUUID authentication timed out after {} ms", FabricConfig.timeoutMs());
         if (FabricConfig.allowOfflineOnTimeout()) {
             // The offline policy still applies: a timeout must not hand a
             // previously verified name to a client that never answered.

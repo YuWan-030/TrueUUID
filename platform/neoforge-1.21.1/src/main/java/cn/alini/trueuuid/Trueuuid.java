@@ -16,6 +16,11 @@ public final class Trueuuid {
     public static final String MODID = "trueuuid";
     public static final Logger LOGGER = LogUtils.getLogger();
 
+    /** Logs at INFO only while the auth.debug config toggle is on, matching 1.20.1. */
+    public static void debug(String message, Object... args) {
+        if (TrueuuidConfig.debug()) LOGGER.info(message, args);
+    }
+
     public Trueuuid(IEventBus modBus) {
         TrueuuidConfig.register();
         AdapterRuntime.initialize();

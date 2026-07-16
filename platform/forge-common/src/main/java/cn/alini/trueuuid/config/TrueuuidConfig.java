@@ -22,6 +22,7 @@ public final class TrueuuidConfig {
     private static final ForgeConfigSpec.BooleanValue ALLOW_OFFLINE_ON_FAILURE;
     private static final ForgeConfigSpec.BooleanValue KNOWN_PREMIUM_DENY_OFFLINE;
     private static final ForgeConfigSpec.BooleanValue ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
+    private static final ForgeConfigSpec.BooleanValue DEBUG;
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         builder.push("auth");
@@ -56,6 +57,8 @@ public final class TrueuuidConfig {
                 .define("knownPremiumDenyOffline", true);
         ALLOW_OFFLINE_FOR_UNKNOWN_ONLY = builder.comment("Restrict offline fallback to names with no prior verified premium login.")
                 .define("allowOfflineForUnknownOnly", true);
+        DEBUG = builder.comment("Enable debug logging for the login handshake. Never logs tokens, nonces, endpoints, or raw authlib responses.")
+                .define("debug", false);
         builder.pop();
         SPEC = builder.build();
     }
@@ -75,5 +78,6 @@ public final class TrueuuidConfig {
     public static boolean allowOfflineOnFailure() { return ALLOW_OFFLINE_ON_FAILURE.get(); }
     public static boolean knownPremiumDenyOffline() { return KNOWN_PREMIUM_DENY_OFFLINE.get(); }
     public static boolean allowOfflineForUnknownOnly() { return ALLOW_OFFLINE_FOR_UNKNOWN_ONLY.get(); }
+    public static boolean debug() { return DEBUG.get(); }
     private TrueuuidConfig() {}
 }

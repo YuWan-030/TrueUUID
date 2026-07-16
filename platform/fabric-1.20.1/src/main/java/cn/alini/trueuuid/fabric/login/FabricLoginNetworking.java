@@ -82,16 +82,33 @@ public final class FabricLoginNetworking {
         var session = client.getSession();
         if (session.getUuidOrNull() == null || session.getAccessToken() == null
                 || session.getAccessToken().isBlank() || "0".equals(session.getAccessToken())) {
+            TrueuuidFabric.debug("TrueUUID client session token is absent or is a development placeholder");
             return false;
         }
         try {
             // The access token never crosses the loader packet boundary.
             client.getSessionService().joinServer(session.getProfile(), session.getAccessToken(), serverId);
+            TrueuuidFabric.debug("TrueUUID joinServer completed successfully");
             return true;
         } catch (Throwable failure) {
-            TrueuuidFabric.LOGGER.debug("TrueUUID Fabric joinServer failed: {}", failure.getClass().getSimpleName());
+            TrueuuidFabric.debug("TrueUUID joinServer failed: {}", failureCategory(failure));
             return false;
         }
+    }
+
+    /** Fixed, token-free failure categories, matching the other adapters' client diagnostics. */
+    private static String failureCategory(Throwable failure) {
+        String message = failure.getMessage();
+        String normalized = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("invalid token") || normalized.contains("invalid session")
+                || normalized.contains("unauthorized") || normalized.contains("forbidden")) {
+            return "account session rejected (refresh the launcher account)";
+        }
+        if (normalized.contains("timeout") || normalized.contains("connect")
+                || normalized.contains("unavailable") || normalized.contains("service")) {
+            return "authentication service unavailable";
+        }
+        return "authentication request rejected (" + failure.getClass().getSimpleName() + ")";
     }
 
     private static FabricLoginTransaction transaction(Object handler) {

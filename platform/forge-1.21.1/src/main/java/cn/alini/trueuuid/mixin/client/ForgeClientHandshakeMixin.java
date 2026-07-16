@@ -5,7 +5,9 @@ import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.client.ClientAccountStatus;
+import cn.alini.trueuuid.client.ClientAuthDiagnostics;
 import cn.alini.trueuuid.client.ClientYggdrasilEndpoint;
+import cn.alini.trueuuid.Trueuuid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
@@ -39,6 +41,7 @@ abstract class ForgeClientHandshakeMixin {
         User user = minecraft.getUser();
         String accessToken = user.getAccessToken();
         if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken)) {
+            Trueuuid.debug("TrueUUID client session token is absent or is a development placeholder");
             ClientAccountStatus.markOffline();
             trueuuid$reply(connection, packet.transactionId(), false, "", true);
             callback.cancel();
@@ -54,8 +57,10 @@ abstract class ForgeClientHandshakeMixin {
         CompletableFuture.supplyAsync(() -> {
                     try {
                         minecraft.getMinecraftSessionService().joinServer(user.getProfileId(), accessToken, query.message().nonce());
+                        Trueuuid.debug("TrueUUID joinServer completed successfully");
                         return true;
-                    } catch (Throwable ignored) {
+                    } catch (Throwable failure) {
+                        Trueuuid.debug("TrueUUID joinServer failed: {}", ClientAuthDiagnostics.failureCategory(failure));
                         return false;
                     }
                 })

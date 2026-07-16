@@ -29,6 +29,7 @@ public final class FabricConfig {
     private static volatile boolean allowOfflineForUnknownOnly = true;
     private static volatile long timeoutMs = 30_000L;
     private static volatile boolean allowOfflineOnTimeout = false;
+    private static volatile boolean debug = false;
 
     public static synchronized void load() {
         Path file = FabricLoader.getInstance().getConfigDir().resolve("trueuuid.json");
@@ -49,6 +50,7 @@ public final class FabricConfig {
                 allowOfflineForUnknownOnly = readBoolean(auth, "allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
                 timeoutMs = readBoundedLong(auth, "timeoutMs", timeoutMs, 1_000L, 600_000L);
                 allowOfflineOnTimeout = readBoolean(auth, "allowOfflineOnTimeout", allowOfflineOnTimeout);
+                debug = readBoolean(auth, "debug", debug);
             }
         } catch (Exception failure) {
             // Never rewrite a file the user edited; the compiled defaults already
@@ -72,6 +74,9 @@ public final class FabricConfig {
     /** false: kick when authentication times out. true: apply the offline fallback policy on timeout instead. */
     public static boolean allowOfflineOnTimeout() { return allowOfflineOnTimeout; }
 
+    /** Enable debug logging for the login handshake. Never logs tokens, nonces, endpoints, or raw authlib responses. */
+    public static boolean debug() { return debug; }
+
     private static boolean readBoolean(JsonObject section, String key, boolean fallback) {
         return section.has(key) && section.get(key).isJsonPrimitive() && section.get(key).getAsJsonPrimitive().isBoolean()
                 ? section.get(key).getAsBoolean() : fallback;
@@ -91,6 +96,7 @@ public final class FabricConfig {
         auth.addProperty("allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
         auth.addProperty("timeoutMs", timeoutMs);
         auth.addProperty("allowOfflineOnTimeout", allowOfflineOnTimeout);
+        auth.addProperty("debug", debug);
         JsonObject root = new JsonObject();
         root.add("auth", auth);
         Files.createDirectories(file.getParent());

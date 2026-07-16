@@ -3,8 +3,10 @@ package cn.alini.trueuuid.mixin.client;
 import cn.alini.trueuuid.net.AuthAnswerPayload;
 import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.client.ClientAccountStatus;
+import cn.alini.trueuuid.client.ClientAuthDiagnostics;
 import cn.alini.trueuuid.client.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.net.NetIds;
+import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -40,6 +42,7 @@ abstract class ClientHandshakeMixin {
         Connection loginConnection = connection;
         int transactionId = packet.transactionId();
         if (token == null || token.isBlank() || "0".equals(token)) {
+            Trueuuid.debug("TrueUUID client session token is absent or is a development placeholder");
             ClientAccountStatus.markOffline();
             trueuuid$send(loginConnection, transactionId, false, "", true);
             callback.cancel();
@@ -56,8 +59,10 @@ abstract class ClientHandshakeMixin {
                         // The access token stays on the client. The server only
                         // receives a later hasJoined assertion through its safe verifier.
                         minecraft.getMinecraftSessionService().joinServer(user.getProfileId(), token, query.message().nonce());
+                        Trueuuid.debug("TrueUUID joinServer completed successfully");
                         return true;
-                    } catch (Throwable ignored) {
+                    } catch (Throwable failure) {
+                        Trueuuid.debug("TrueUUID joinServer failed: {}", ClientAuthDiagnostics.failureCategory(failure));
                         return false;
                     }
                 })

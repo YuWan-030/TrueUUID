@@ -60,7 +60,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Skin refresh after join | yes | **no** | **no** | **no** |
 | Recent-IP reconnect grace | yes | **no** | **no** | **no** |
 | Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | yes | yes | yes |
-| `debug` logging toggle | yes | **no** | **no** | **no** |
+| `debug` logging toggle | yes | yes | yes | yes |
 
 Traps behind that table:
 

@@ -90,6 +90,7 @@ abstract class ServerLoginMixin {
         if (packet.transactionId() != trueuuid$transaction || !(packet.payload() instanceof AuthAnswerPayload answer)
                 || authenticatedProfile == null) return;
         callback.cancel();
+        cn.alini.trueuuid.Trueuuid.debug("TrueUUID received authentication response: player={}", authenticatedProfile.getName());
         MinecraftServer server = trueuuid$server();
         Connection connection = trueuuid$connection();
         String name = authenticatedProfile.getName();
