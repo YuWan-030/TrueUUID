@@ -15,6 +15,8 @@ import java.util.List;
  */
 public final class TrueuuidConfig {
     private static final ModConfigSpec SPEC;
+    private static final ModConfigSpec.LongValue TIMEOUT_MS;
+    private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_ON_TIMEOUT;
     private static final ModConfigSpec.ConfigValue<List<? extends String>> YGGDRASIL_HOSTS;
     private static final ModConfigSpec.BooleanValue SHOW_JOIN_FEEDBACK;
     private static final ModConfigSpec.BooleanValue SHOW_JOIN_TITLE;
@@ -32,6 +34,10 @@ public final class TrueuuidConfig {
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("auth");
+        TIMEOUT_MS = builder.comment("Server-side wait for the client's TrueUUID answer and session verification, in milliseconds.")
+                .defineInRange("timeoutMs", 30_000L, 1_000L, 600_000L);
+        ALLOW_OFFLINE_ON_TIMEOUT = builder.comment("false: kick when authentication times out. true: apply the offline fallback policy on timeout instead.")
+                .define("allowOfflineOnTimeout", false);
         YGGDRASIL_HOSTS = builder.comment("Allowed Yggdrasil hasJoined hosts. Empty rejects every client-provided endpoint.")
                 .defineListAllowEmpty(List.of("yggdrasil", "apiRootWhitelist"), List::of, value -> value instanceof String);
         SHOW_JOIN_FEEDBACK = builder.comment("Show the localized chat message after a TrueUUID login.")
@@ -68,6 +74,8 @@ public final class TrueuuidConfig {
     }
 
     public static void register() { ModLoadingContext.get().getActiveContainer().registerConfig(ModConfig.Type.COMMON, SPEC); }
+    public static long timeoutMs() { return TIMEOUT_MS.get(); }
+    public static boolean allowOfflineOnTimeout() { return ALLOW_OFFLINE_ON_TIMEOUT.get(); }
     @SuppressWarnings("unchecked") public static List<String> yggdrasilHosts() { return (List<String>) YGGDRASIL_HOSTS.get(); }
     public static boolean showJoinFeedback() { return SHOW_JOIN_FEEDBACK.get(); }
     public static boolean showJoinTitle() { return SHOW_JOIN_TITLE.get(); }

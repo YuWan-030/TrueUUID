@@ -27,6 +27,8 @@ public final class FabricConfig {
     private static volatile boolean allowOfflineOnFailure = true;
     private static volatile boolean knownPremiumDenyOffline = true;
     private static volatile boolean allowOfflineForUnknownOnly = true;
+    private static volatile long timeoutMs = 30_000L;
+    private static volatile boolean allowOfflineOnTimeout = false;
 
     public static synchronized void load() {
         Path file = FabricLoader.getInstance().getConfigDir().resolve("trueuuid.json");
@@ -45,6 +47,8 @@ public final class FabricConfig {
                 allowOfflineOnFailure = readBoolean(auth, "allowOfflineOnFailure", allowOfflineOnFailure);
                 knownPremiumDenyOffline = readBoolean(auth, "knownPremiumDenyOffline", knownPremiumDenyOffline);
                 allowOfflineForUnknownOnly = readBoolean(auth, "allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
+                timeoutMs = readBoundedLong(auth, "timeoutMs", timeoutMs, 1_000L, 600_000L);
+                allowOfflineOnTimeout = readBoolean(auth, "allowOfflineOnTimeout", allowOfflineOnTimeout);
             }
         } catch (Exception failure) {
             // Never rewrite a file the user edited; the compiled defaults already
@@ -62,9 +66,22 @@ public final class FabricConfig {
     /** Restrict offline fallback to names with no prior verified premium login. */
     public static boolean allowOfflineForUnknownOnly() { return allowOfflineForUnknownOnly; }
 
+    /** Server-side wait for the client's TrueUUID answer and session verification, in milliseconds. */
+    public static long timeoutMs() { return timeoutMs; }
+
+    /** false: kick when authentication times out. true: apply the offline fallback policy on timeout instead. */
+    public static boolean allowOfflineOnTimeout() { return allowOfflineOnTimeout; }
+
     private static boolean readBoolean(JsonObject section, String key, boolean fallback) {
         return section.has(key) && section.get(key).isJsonPrimitive() && section.get(key).getAsJsonPrimitive().isBoolean()
                 ? section.get(key).getAsBoolean() : fallback;
+    }
+
+    private static long readBoundedLong(JsonObject section, String key, long fallback, long min, long max) {
+        if (!section.has(key) || !section.get(key).isJsonPrimitive() || !section.get(key).getAsJsonPrimitive().isNumber()) {
+            return fallback;
+        }
+        return Math.max(min, Math.min(max, section.get(key).getAsLong()));
     }
 
     private static void writeDefaults(Path file) throws Exception {
@@ -72,6 +89,8 @@ public final class FabricConfig {
         auth.addProperty("allowOfflineOnFailure", allowOfflineOnFailure);
         auth.addProperty("knownPremiumDenyOffline", knownPremiumDenyOffline);
         auth.addProperty("allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
+        auth.addProperty("timeoutMs", timeoutMs);
+        auth.addProperty("allowOfflineOnTimeout", allowOfflineOnTimeout);
         JsonObject root = new JsonObject();
         root.add("auth", auth);
         Files.createDirectories(file.getParent());

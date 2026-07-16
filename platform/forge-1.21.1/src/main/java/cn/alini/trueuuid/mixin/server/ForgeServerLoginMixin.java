@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.mixin.server;
 
+import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeQueryTracker;
@@ -57,10 +58,23 @@ abstract class ForgeServerLoginMixin {
     private void trueuuid$holdLogin(CallbackInfo callback) {
         if (!trueuuid$flow.active()) return;
         callback.cancel();
-        if (trueuuid$flow.timedOut(System.currentTimeMillis(), 30_000L)) {
+        if (!trueuuid$flow.timedOut(System.currentTimeMillis(), TrueuuidConfig.timeoutMs())) return;
+        String playerName = authenticatedProfile == null ? null : authenticatedProfile.getName();
+        if (TrueuuidConfig.allowOfflineOnTimeout() && authenticatedProfile != null) {
+            // The offline policy still applies: a timeout must not hand a
+            // previously verified name to a client that never answered.
+            if (ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
+                Trueuuid.LOGGER.warn("TrueUUID authentication timed out; offline fallback accepted: player={}", playerName);
+                ForgeAdapterRuntime.recordOfflineFallback(authenticatedProfile);
+                trueuuid$completeNativeLogin(authenticatedProfile);
+            } else {
+                Trueuuid.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", playerName);
+                disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
+            }
+        } else {
             disconnect(Component.translatable("trueuuid.disconnect.timeout"));
-            trueuuid$closeFlow();
         }
+        trueuuid$closeFlow();
     }
 
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)

@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.mixin.server;
 
+import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.net.AuthAnswerPayload;
 import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.net.AuthQueryTracker;
@@ -62,10 +63,25 @@ abstract class ServerLoginMixin {
     private void trueuuid$pauseVanillaLogin(CallbackInfo callback) {
         if (!trueuuid$attempt.phase().equals(cn.alini.trueuuid.protocol.LoginStateMachine.Phase.IDLE)) {
             callback.cancel();
-            if (trueuuid$attempt.timeout(System.currentTimeMillis(), 30_000L) == LoginAttempt.Result.TIMEOUT) {
+            if (trueuuid$attempt.timeout(System.currentTimeMillis(), TrueuuidConfig.timeoutMs()) != LoginAttempt.Result.TIMEOUT) return;
+            String name = authenticatedProfile == null ? null : authenticatedProfile.getName();
+            if (TrueuuidConfig.allowOfflineOnTimeout() && authenticatedProfile != null) {
+                // The offline policy still applies: a timeout must not hand a
+                // previously verified name to a client that never answered.
+                if (AdapterRuntime.canUseOfflineFallback(name)) {
+                    cn.alini.trueuuid.Trueuuid.LOGGER.warn(
+                            "TrueUUID authentication timed out; offline fallback accepted: player={}", name);
+                    AdapterRuntime.recordOfflineFallback(authenticatedProfile);
+                    trueuuid$finishLogin(authenticatedProfile);
+                } else {
+                    cn.alini.trueuuid.Trueuuid.LOGGER.warn(
+                            "TrueUUID offline fallback denied for previously verified name: player={}", name);
+                    disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
+                }
+            } else {
                 disconnect(Component.translatable("trueuuid.disconnect.timeout"));
-                trueuuid$clear();
             }
+            trueuuid$clear();
         }
     }
 

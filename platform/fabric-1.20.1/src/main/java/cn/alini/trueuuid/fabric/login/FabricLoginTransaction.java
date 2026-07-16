@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
+import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
@@ -26,7 +27,6 @@ import java.util.concurrent.TimeUnit;
  */
 public final class FabricLoginTransaction {
     private static final int TRANSACTION_ID = 1;
-    private static final long TIMEOUT_SECONDS = 30;
 
     private final LoginStateMachine state = new LoginStateMachine();
     private CompletableFuture<Void> completion;
@@ -46,7 +46,7 @@ public final class FabricLoginTransaction {
                 FabricLoginPayloads.query(new AuthMessages.Query(nonce, false, "", "")));
 
         CompletableFuture.runAsync(() -> timeout(handler, server),
-                CompletableFuture.delayedExecutor(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+                CompletableFuture.delayedExecutor(FabricConfig.timeoutMs(), TimeUnit.MILLISECONDS));
     }
 
     public synchronized void answer(MinecraftServer server, ServerLoginNetworkHandler handler,
@@ -111,7 +111,13 @@ public final class FabricLoginTransaction {
         synchronized (this) {
             if (closed || completion == null || completion.isDone()) return;
         }
-        closeWithDisconnect(server, handler, "trueuuid.disconnect.timeout");
+        if (FabricConfig.allowOfflineOnTimeout()) {
+            // The offline policy still applies: a timeout must not hand a
+            // previously verified name to a client that never answered.
+            completeOfflineFallbackOrDeny(server, handler);
+        } else {
+            closeWithDisconnect(server, handler, "trueuuid.disconnect.timeout");
+        }
     }
 
     /** The reason is a translation key from platform/common-assets, never inline text. */

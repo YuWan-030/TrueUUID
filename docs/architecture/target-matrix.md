@@ -59,7 +59,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
 | Skin refresh after join | yes | **no** | **no** | **no** |
 | Recent-IP reconnect grace | yes | **no** | **no** | **no** |
-| Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | **no** | **no** — 30s fixed | **no** — 30s fixed |
+| Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | yes | yes | yes |
 | `debug` logging toggle | yes | **no** | **no** | **no** |
 
 Traps behind that table:
