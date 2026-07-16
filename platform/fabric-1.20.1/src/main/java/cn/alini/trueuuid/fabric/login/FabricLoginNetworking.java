@@ -29,7 +29,10 @@ public final class FabricLoginNetworking {
             }
         });
         ServerLoginConnectionEvents.DISCONNECT.register((handler, server) -> transaction(handler).cancel());
-        ServerLifecycleEvents.SERVER_STOPPED.register(server -> FabricSessionCheck.close());
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            FabricSessionCheck.close();
+            FabricAdapterRuntime.shutdown();
+        });
 
         if (!ServerLoginNetworking.registerGlobalReceiver(AUTH_CHANNEL,
                 (server, handler, understood, buffer, synchronizer, responseSender) -> {

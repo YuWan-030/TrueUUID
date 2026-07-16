@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.fabric;
 
+import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.fabric.login.FabricLoginNetworking;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ public final class TrueuuidFabric implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        FabricConfig.load();
         FabricLoginNetworking.registerServerHooks();
         LOGGER.info("TrueUUID Fabric 1.20.1 login transport registered");
     }

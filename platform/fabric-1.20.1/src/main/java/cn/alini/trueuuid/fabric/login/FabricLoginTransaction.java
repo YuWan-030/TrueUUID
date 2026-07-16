@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.fabric.login;
 
+import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
@@ -57,7 +58,7 @@ public final class FabricLoginTransaction {
         }
         LoginStateMachine.AnswerResult result = state.acceptAnswer(TRANSACTION_ID, answer);
         if (result == LoginStateMachine.AnswerResult.DENY) {
-            completeOfflineFallback(server);
+            completeOfflineFallbackOrDeny(server, handler);
             return;
         }
         if (result != LoginStateMachine.AnswerResult.VERIFY) {
@@ -80,6 +81,23 @@ public final class FabricLoginTransaction {
 
         verification = FabricSessionCheck.hasJoinedAsync(offlineProfile.getName(), nonce)
                 .whenComplete((verified, failure) -> server.execute(() -> completeVerification(server, handler, verified, failure)));
+    }
+
+    /**
+     * Consults the persistent offline policy before releasing the native
+     * offline profile, mirroring the other adapters: a name that has already
+     * completed a verified premium login may not be taken by an unverified
+     * client.
+     */
+    private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler) {
+        GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
+        String name = offlineProfile == null ? null : offlineProfile.getName();
+        if (!FabricAdapterRuntime.canUseOfflineFallback(name)) {
+            TrueuuidFabric.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", name);
+            closeWithDisconnect(server, handler, "TrueUUID does not allow offline fallback for this name");
+            return;
+        }
+        completeOfflineFallback(server);
     }
 
     public synchronized void cancel() {
@@ -113,13 +131,14 @@ public final class FabricLoginTransaction {
         synchronized (this) {
             if (closed || completion == null || completion.isDone()) return;
             if (failure == null && verified != null) {
+                FabricAdapterRuntime.recordVerifiedProfile(verified);
                 ((FabricLoginStateAccess) handler).trueuuid$setProfile(FabricVerifiedProfiles.create(verified));
                 state.reset();
                 completion.complete(null);
                 return;
             }
         }
-        completeOfflineFallback(server);
+        completeOfflineFallbackOrDeny(server, handler);
     }
 
     private void completeOfflineFallback(MinecraftServer server) {
