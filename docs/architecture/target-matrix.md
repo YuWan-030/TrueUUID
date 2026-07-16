@@ -56,7 +56,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Localized strings from `common-assets` | own copy | yes | yes | yes |
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
-| Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
+| Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** — coupled to migration | **no** — coupled to migration | **no** — coupled to migration |
 | Skin refresh after join | yes | yes — others only | yes — others only | yes — others only |
 | Recent-IP reconnect grace | yes | yes | yes | yes |
 | Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | yes | yes | yes |
@@ -96,6 +96,12 @@ Traps behind that table:
   method name cannot carry both signatures, so changing it would break
   released 1.20.1 addons.
 
+- **The admin commands are fronts for the migration machinery.** 1.20.1's
+  `cleanupuuid` and `migrateuuid` both call `MigrationCoordinator` /
+  `PlayerDataMigration`, so they cannot be ported ahead of the
+  offline→premium migration project; only `trueuuid mojang status` and
+  `trueuuid reload` are independent of it.
+
 User-facing strings live once in `platform/common-assets` for the 1.21 line and
 NeoForge. `forge-1.20.1` keeps its own copy: it has ~34 extra keys and three
 shared keys whose wording and meaning differ, so it needs a deliberate merge.
@@ -109,7 +115,7 @@ not a login or release claim.
 | Target | Source state | Build/tests | Recorded runtime | Main gap before Active |
 |---|---|---|---|---|
 | Forge 1.20.1 | Full reference feature set | passed | One Mojang login | Yggdrasil, denial, timeout/grace, migration rollback |
-| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON config, shared strings, and default Forge/NeoForge-matching HUD | passed (2026-07-15) | Server bootstrap reached localhost bind; no login run | Two-sided Mojang matrix, then the remaining Forge 1.20.1 features |
+| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON config, shared strings, and default Forge/NeoForge-matching HUD | passed (2026-07-15) | Server boot reached `Done` (2026-07-15); no login run | Two-sided Mojang matrix, then migration/admin commands, join feedback, and the addon API |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
@@ -123,6 +129,8 @@ not a login or release claim.
 | 2026-07-12 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | `trueuuid-1.1.0-forge1.20.1.jar` | Matching Prism client and offline-mode development server: Mojang `joinServer` and server `hasJoined` passed; verified UUID/name/skin and Mojang join feedback observed. |
 | 2026-07-15 | Forge 1.21.1 | Forge 52.1.0 / Java 21.0.11 | `trueuuid-1.1.0-forge1.21.1.jar` | Matching Prism premium client and offline-mode development server: TrueUUID challenge, client `joinServer`, server session verification, premium UUID replacement, and localized join feedback passed. Offline fallback and the remaining acceptance scenarios are still pending runtime validation. |
 | 2026-07-15 | Fabric 1.20.1 | Fabric Loader 0.19.3 / Java 21 launcher | Gradle `runServer` | The local development server loaded TrueUUID and reached the offline-mode bind on `127.0.0.1:25565`; the bounded smoke stopped during world generation. No Fabric client or login test ran. |
+| 2026-07-15 | Fabric 1.20.1 | Fabric Loader 0.19.3 / Java 21 launcher | Gradle `runServer` | After the offline policy, registry, shared strings, timeout, grace, and skin-refresh ports: a fresh boot generated `config/trueuuid.json` with the new options and reached `Done (4.303s)`. No login run. |
+| 2026-07-15 | NeoForge 1.21.8 | NeoForge 21.8.9 / Java 21 | Gradle `runServer` | After the parity ports: a fresh boot regenerated `trueuuid-common.toml` with the new `timeoutMs`, `allowOfflineOnTimeout`, `debug`, and `[auth.recentIpGrace]` options (validator clean) and reached `Done (1.360s)`. No login run. |
 
 This is one acceptance scenario, not a release-wide matrix. The remaining
 scenarios in [`adding-adapter.md`](../development/adding-adapter.md) remain

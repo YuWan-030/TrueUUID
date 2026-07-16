@@ -112,6 +112,11 @@ After the first run, the config file is generated at:
 config/trueuuid-common.toml
 ```
 
+On Fabric the same options live in `config/trueuuid.json` (an `auth` object with
+the same names and defaults); options that Fabric does not implement yet —
+join feedback, the badge position, and the Yggdrasil allowlist — are absent
+from that file.
+
 Important options:
 
 ```toml
