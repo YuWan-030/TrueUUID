@@ -168,8 +168,9 @@ Use one module per declared target:
 ```text
 platform/
   forge-common/     # shared SOURCE root for the modern Forge line (not a module)
+  fabric-common/    # shared SOURCE root for the Fabric line (not a module)
   forge-1.20.1/     # independent pre-configuration-phase island
-  fabric-1.20.1/    # independent Fabric login-phase adapter
+  fabric-1.20.1/    # Fabric login-phase adapter; consumes fabric-common
   forge-1.21.1/     # \
   forge-1.21.3/     #  } each recompiles forge-common against its own Forge/mappings
   forge-1.21.4/     #  } and adds only its version-divergent shims
@@ -215,6 +216,21 @@ Forge 52 (1.21.1) → 58 (1.21.8) the only divergence is:
 `forge-1.20.1` predates the configuration phase (different login classes, `@Mod`
 event API, and `ResourceLocation` constructor) and deliberately does **not** use
 this root.
+
+## Fabric code sharing
+
+The Fabric line uses the same source-sharing model:
+`platform/fabric-common/src` (a **source** root, not a Gradle module) holds the
+version-independent adapter code — entrypoint, JSON config, offline policy,
+verified-name registry, reconnect grace wiring, session check, payload bounds,
+and the login transaction — plus the loader-agnostic tests. Each Fabric module
+adds it via `srcDir` and recompiles it against its own Minecraft/Yarn versions.
+Version-divergent seams stay per module: `FabricLoginNetworking` (the
+`Identifier` constructor and client session API drift), the client HUD classes
+(`HudRenderCallback`'s signature changed at 1.21), the login mixin, and the
+`fabric.mod.json`/mixins metadata. The rule matches forge-common's: a file may
+live in `fabric-common` only if it compiles unchanged against every Fabric
+target that includes it.
 
 ## Modern NeoForge code sharing
 

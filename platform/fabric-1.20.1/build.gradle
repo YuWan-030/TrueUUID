@@ -22,6 +22,11 @@ java {
     withSourcesJar()
 }
 
+// Version-independent Fabric adapter source (recompiled against this
+// module's Minecraft/Yarn versions); see platform/fabric-common/README.md.
+def fabricCommon = "${rootDir}/platform/fabric-common/src"
+sourceSets.main.java.srcDir "${fabricCommon}/main/java"
+sourceSets.test.java.srcDir "${fabricCommon}/test/java"
 // User-facing strings are worded once for every loader in common-assets.
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
