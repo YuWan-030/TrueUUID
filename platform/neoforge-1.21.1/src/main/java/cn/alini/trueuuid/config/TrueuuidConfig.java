@@ -28,6 +28,8 @@ public final class TrueuuidConfig {
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_ON_FAILURE;
     private static final ModConfigSpec.BooleanValue KNOWN_PREMIUM_DENY_OFFLINE;
     private static final ModConfigSpec.BooleanValue ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
+    private static final ModConfigSpec.BooleanValue RECENT_IP_GRACE_ENABLED;
+    private static final ModConfigSpec.IntValue RECENT_IP_GRACE_TTL_SECONDS;
     private static final ModConfigSpec.BooleanValue DEBUG;
     private static final List<String> OVERLAY_CORNERS = List.of(
             "top_left", "top_right", "bottom_left", "bottom_right");
@@ -70,6 +72,10 @@ public final class TrueuuidConfig {
                 .define("knownPremiumDenyOffline", true);
         ALLOW_OFFLINE_FOR_UNKNOWN_ONLY = builder.comment("Restrict offline fallback to names with no prior verified premium login.")
                 .define("allowOfflineForUnknownOnly", true);
+        RECENT_IP_GRACE_ENABLED = builder.comment("Enable short same-IP reconnect grace after logout, reusing the last verified identity only within the TTL window.")
+                .define(List.of("recentIpGrace", "enabled"), true);
+        RECENT_IP_GRACE_TTL_SECONDS = builder.comment("Same-IP grace seconds after logout. Default is 10 seconds to avoid long-lived misleading premium identity.")
+                .defineInRange(List.of("recentIpGrace", "ttlSeconds"), 10, 1, 60);
         DEBUG = builder.comment("Enable debug logging for the login handshake. Never logs tokens, nonces, endpoints, or raw authlib responses.")
                 .define("debug", false);
         builder.pop();
@@ -90,6 +96,8 @@ public final class TrueuuidConfig {
     public static boolean allowOfflineOnFailure() { return ALLOW_OFFLINE_ON_FAILURE.get(); }
     public static boolean knownPremiumDenyOffline() { return KNOWN_PREMIUM_DENY_OFFLINE.get(); }
     public static boolean allowOfflineForUnknownOnly() { return ALLOW_OFFLINE_FOR_UNKNOWN_ONLY.get(); }
+    public static boolean recentIpGraceEnabled() { return RECENT_IP_GRACE_ENABLED.get(); }
+    public static int recentIpGraceTtlSeconds() { return RECENT_IP_GRACE_TTL_SECONDS.get(); }
     public static boolean debug() { return DEBUG.get(); }
     private TrueuuidConfig() {}
 }

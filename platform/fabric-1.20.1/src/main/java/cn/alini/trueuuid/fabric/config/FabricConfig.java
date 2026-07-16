@@ -29,6 +29,8 @@ public final class FabricConfig {
     private static volatile boolean allowOfflineForUnknownOnly = true;
     private static volatile long timeoutMs = 30_000L;
     private static volatile boolean allowOfflineOnTimeout = false;
+    private static volatile boolean recentIpGraceEnabled = true;
+    private static volatile int recentIpGraceTtlSeconds = 10;
     private static volatile boolean debug = false;
 
     public static synchronized void load() {
@@ -50,6 +52,9 @@ public final class FabricConfig {
                 allowOfflineForUnknownOnly = readBoolean(auth, "allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
                 timeoutMs = readBoundedLong(auth, "timeoutMs", timeoutMs, 1_000L, 600_000L);
                 allowOfflineOnTimeout = readBoolean(auth, "allowOfflineOnTimeout", allowOfflineOnTimeout);
+                JsonObject grace = auth.get("recentIpGrace") instanceof JsonObject section ? section : new JsonObject();
+                recentIpGraceEnabled = readBoolean(grace, "enabled", recentIpGraceEnabled);
+                recentIpGraceTtlSeconds = (int) readBoundedLong(grace, "ttlSeconds", recentIpGraceTtlSeconds, 1L, 60L);
                 debug = readBoolean(auth, "debug", debug);
             }
         } catch (Exception failure) {
@@ -74,6 +79,12 @@ public final class FabricConfig {
     /** false: kick when authentication times out. true: apply the offline fallback policy on timeout instead. */
     public static boolean allowOfflineOnTimeout() { return allowOfflineOnTimeout; }
 
+    /** Enable short same-IP reconnect grace after logout, reusing the last verified identity only within the TTL window. */
+    public static boolean recentIpGraceEnabled() { return recentIpGraceEnabled; }
+
+    /** Same-IP grace seconds after logout. */
+    public static int recentIpGraceTtlSeconds() { return recentIpGraceTtlSeconds; }
+
     /** Enable debug logging for the login handshake. Never logs tokens, nonces, endpoints, or raw authlib responses. */
     public static boolean debug() { return debug; }
 
@@ -96,6 +107,10 @@ public final class FabricConfig {
         auth.addProperty("allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
         auth.addProperty("timeoutMs", timeoutMs);
         auth.addProperty("allowOfflineOnTimeout", allowOfflineOnTimeout);
+        JsonObject grace = new JsonObject();
+        grace.addProperty("enabled", recentIpGraceEnabled);
+        grace.addProperty("ttlSeconds", recentIpGraceTtlSeconds);
+        auth.add("recentIpGrace", grace);
         auth.addProperty("debug", debug);
         JsonObject root = new JsonObject();
         root.add("auth", auth);

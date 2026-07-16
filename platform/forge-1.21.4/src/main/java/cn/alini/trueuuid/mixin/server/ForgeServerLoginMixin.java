@@ -83,9 +83,13 @@ abstract class ForgeServerLoginMixin {
                 || authenticatedProfile == null) return;
         callback.cancel();
         Trueuuid.debug("TrueUUID received authentication response: player={}", authenticatedProfile.getName());
+        String ip = connection.getRemoteAddress() instanceof InetSocketAddress address && address.getAddress() != null
+                ? address.getAddress().getHostAddress() : "";
         if (!answer.message().joined()) {
             String playerName = authenticatedProfile.getName();
-            if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
+            if (trueuuid$acceptGraceLogin(playerName, ip)) {
+                // fall through: grace accepted the reconnect as premium
+            } else if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
                 Trueuuid.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", playerName);
                 disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
             } else {
@@ -95,25 +99,35 @@ abstract class ForgeServerLoginMixin {
             trueuuid$closeFlow();
             return;
         }
-        String ip = connection.getRemoteAddress() instanceof InetSocketAddress address && address.getAddress() != null
-                ? address.getAddress().getHostAddress() : "";
         trueuuid$flow.accept(packet.transactionId(), AuthWireCodec.encodeAnswer(answer.message()), authenticatedProfile.getName(), ip,
                         ForgeAdapterRuntime.verifier())
                 .thenAccept(profile -> server.execute(() -> {
                     try {
                         if (!connection.isConnected()) return;
                         if (profile.isEmpty()) {
+                            if (trueuuid$acceptGraceLogin(authenticatedProfile.getName(), ip)) return;
                             Trueuuid.LOGGER.warn("TrueUUID premium verification denied: player={}", authenticatedProfile.getName());
                             disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
                             return;
                         }
                         authenticatedProfile = trueuuid$toNativeProfile(profile.get());
-                        ForgeAdapterRuntime.recordVerifiedProfile(profile.get());
+                        ForgeAdapterRuntime.recordVerifiedProfile(profile.get(), ip);
                         trueuuid$completeNativeLogin(authenticatedProfile);
                     } finally {
                         trueuuid$closeFlow();
                     }
                 }));
+    }
+
+    /** One same-name, same-IP reconnect inside the grace window keeps the verified identity. */
+    @Unique private boolean trueuuid$acceptGraceLogin(String playerName, String ip) {
+        java.util.Optional<UUID> grace = ForgeAdapterRuntime.tryGraceLogin(playerName, ip);
+        if (grace.isEmpty()) return false;
+        Trueuuid.LOGGER.info("TrueUUID recent same-IP grace login: player={}, uuid={}", playerName, grace.get());
+        authenticatedProfile = new GameProfile(grace.get(), playerName);
+        ForgeAdapterRuntime.recordGraceLogin(authenticatedProfile);
+        trueuuid$completeNativeLogin(authenticatedProfile);
+        return true;
     }
 
     @Inject(method = "onDisconnect", at = @At("HEAD"))

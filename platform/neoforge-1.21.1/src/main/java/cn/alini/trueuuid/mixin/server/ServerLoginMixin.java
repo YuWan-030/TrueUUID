@@ -102,8 +102,17 @@ abstract class ServerLoginMixin {
                         if (!connection.isConnected()) return;
                         if (outcome.result() != LoginAttempt.Result.VERIFIED || outcome.profile().isEmpty()) {
                             // Match the Forge adapters: an unverified client may keep its
-                            // offline UUID only when the configured policy allows it.
-                            if (!AdapterRuntime.canUseOfflineFallback(name)) {
+                            // offline UUID only when the configured policy allows it. One
+                            // same-name, same-IP reconnect inside the grace window keeps
+                            // the verified identity instead.
+                            java.util.Optional<UUID> grace = AdapterRuntime.tryGraceLogin(name, ip);
+                            if (grace.isPresent()) {
+                                cn.alini.trueuuid.Trueuuid.LOGGER.info(
+                                        "TrueUUID recent same-IP grace login: player={}, uuid={}", name, grace.get());
+                                authenticatedProfile = new GameProfile(grace.get(), name);
+                                AdapterRuntime.recordGraceLogin(authenticatedProfile);
+                                trueuuid$finishLogin(authenticatedProfile);
+                            } else if (!AdapterRuntime.canUseOfflineFallback(name)) {
                                 cn.alini.trueuuid.Trueuuid.LOGGER.warn(
                                         "TrueUUID offline fallback denied for previously verified name: player={}", name);
                                 disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
@@ -114,7 +123,7 @@ abstract class ServerLoginMixin {
                             return;
                         }
                         authenticatedProfile = trueuuid$profile(outcome.profile().get());
-                        AdapterRuntime.recordVerifiedProfile(outcome.profile().get());
+                        AdapterRuntime.recordVerifiedProfile(outcome.profile().get(), ip);
                         trueuuid$finishLogin(authenticatedProfile);
                     } finally {
                         trueuuid$clear();

@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.Identifier;
 
@@ -29,6 +30,8 @@ public final class FabricLoginNetworking {
             }
         });
         ServerLoginConnectionEvents.DISCONNECT.register((handler, server) -> transaction(handler).cancel());
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                FabricAdapterRuntime.activateGraceAfterLogout(handler.player.getGameProfile().getName(), handler.player.getIp()));
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             FabricSessionCheck.close();
             FabricAdapterRuntime.shutdown();

@@ -2,8 +2,11 @@ package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.api.AccountStatus;
+import cn.alini.trueuuid.protocol.AuthSource;
 import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
 import cn.alini.trueuuid.protocol.EndpointPolicy;
+import cn.alini.trueuuid.protocol.GraceCache;
+import cn.alini.trueuuid.protocol.RecentIpGrace;
 import cn.alini.trueuuid.protocol.SafeSessionHttpClient;
 import cn.alini.trueuuid.protocol.SafeSessionVerifier;
 import cn.alini.trueuuid.protocol.SessionVerifier;
@@ -50,11 +53,13 @@ public final class AdapterRuntime {
     private static BoundedRequestCoordinator requests;
     private static SessionVerifier verifier;
     private static VerifiedNameRegistry verifiedNames;
+    private static RecentIpGrace ipGrace;
 
     public static synchronized void initialize() {
         if (verifier != null) return;
         requests = new BoundedRequestCoordinator();
         verifiedNames = new VerifiedNameRegistry();
+        ipGrace = new RecentIpGrace();
         verifier = new SafeSessionVerifier(requests, () -> new EndpointPolicy(TrueuuidConfig.yggdrasilHosts()), AdapterRuntime::parse);
     }
 
@@ -71,12 +76,34 @@ public final class AdapterRuntime {
         liveStatus.clear();
         if (verifiedNames != null) verifiedNames.close();
         verifiedNames = null;
+        if (ipGrace != null) ipGrace.close();
+        ipGrace = null;
     }
 
     /** Records a TrueUUID session verification until the matching player joins. */
     public static synchronized void recordVerifiedProfile(VerifiedProfile profile) {
+        recordVerifiedProfile(profile, "");
+    }
+
+    /** Records a session verification plus the same-IP reconnect grace seed. */
+    public static synchronized void recordVerifiedProfile(VerifiedProfile profile, String clientIp) {
         recordPendingLogin(profile.uuid(), AuthenticationSource.TRUEUUID_SESSION);
         if (verifiedNames != null) verifiedNames.record(profile.name(), profile.uuid());
+        if (ipGrace != null) {
+            ipGrace.record(profile.name(), clientIp, new GraceCache.Entry(profile.uuid(), AuthSource.MOJANG, "Mojang"));
+        }
+    }
+
+    /** Accepts a same-IP reconnect within the grace window, consuming the entry. */
+    public static synchronized Optional<UUID> tryGraceLogin(String name, String clientIp) {
+        if (ipGrace == null || !TrueuuidConfig.recentIpGraceEnabled()) return Optional.empty();
+        return ipGrace.consume(name, clientIp, Duration.ofSeconds(TrueuuidConfig.recentIpGraceTtlSeconds()))
+                .map(GraceCache.Entry::uuid);
+    }
+
+    /** Records a grace acceptance so join feedback and the API report premium. */
+    public static synchronized void recordGraceLogin(GameProfile profile) {
+        if (profile != null && profile.getId() != null) recordPendingLogin(profile.getId(), AuthenticationSource.TRUEUUID_SESSION);
     }
 
     /** Records a configured offline fallback until the vanilla login completes. */
@@ -137,7 +164,16 @@ public final class AdapterRuntime {
 
     /** Drops a player's live status when they leave. */
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) liveStatus.remove(player.getUUID());
+        if (event.getEntity() instanceof ServerPlayer player) {
+            liveStatus.remove(player.getUUID());
+            activateGraceAfterLogout(player.getGameProfile().getName(), player.getIpAddress());
+        }
+    }
+
+    private static synchronized void activateGraceAfterLogout(String name, String clientIp) {
+        if (ipGrace != null && TrueuuidConfig.recentIpGraceEnabled()) {
+            ipGrace.activateAfterLogout(name, clientIp);
+        }
     }
 
     // ---- Public API surface (see cn.alini.trueuuid.api.TrueuuidApi) ----

@@ -59,7 +59,7 @@ public final class FabricLoginTransaction {
         }
         LoginStateMachine.AnswerResult result = state.acceptAnswer(TRANSACTION_ID, answer);
         if (result == LoginStateMachine.AnswerResult.DENY) {
-            completeOfflineFallbackOrDeny(server, handler);
+            completeOfflineFallbackOrDeny(server, handler, true);
             return;
         }
         if (result != LoginStateMachine.AnswerResult.VERIFY) {
@@ -88,11 +88,20 @@ public final class FabricLoginTransaction {
      * Consults the persistent offline policy before releasing the native
      * offline profile, mirroring the other adapters: a name that has already
      * completed a verified premium login may not be taken by an unverified
-     * client.
+     * client. On authentication failure (not timeout) one same-name, same-IP
+     * reconnect inside the grace window keeps the verified identity instead.
      */
-    private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler) {
+    private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler, boolean allowGrace) {
         GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
         String name = offlineProfile == null ? null : offlineProfile.getName();
+        if (allowGrace && name != null) {
+            var grace = FabricAdapterRuntime.tryGraceLogin(name, clientIp(handler));
+            if (grace.isPresent()) {
+                TrueuuidFabric.LOGGER.info("TrueUUID recent same-IP grace login: player={}, uuid={}", name, grace.get());
+                completeWithProfile(server, handler, new GameProfile(grace.get(), name));
+                return;
+            }
+        }
         if (!FabricAdapterRuntime.canUseOfflineFallback(name)) {
             TrueuuidFabric.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", name);
             closeWithDisconnect(server, handler, "trueuuid.disconnect.bound_premium");
@@ -115,8 +124,9 @@ public final class FabricLoginTransaction {
         TrueuuidFabric.debug("TrueUUID authentication timed out after {} ms", FabricConfig.timeoutMs());
         if (FabricConfig.allowOfflineOnTimeout()) {
             // The offline policy still applies: a timeout must not hand a
-            // previously verified name to a client that never answered.
-            completeOfflineFallbackOrDeny(server, handler);
+            // previously verified name to a client that never answered. No
+            // grace either, matching 1.20.1: grace covers failures, not silence.
+            completeOfflineFallbackOrDeny(server, handler, false);
         } else {
             closeWithDisconnect(server, handler, "trueuuid.disconnect.timeout");
         }
@@ -140,14 +150,32 @@ public final class FabricLoginTransaction {
         synchronized (this) {
             if (closed || completion == null || completion.isDone()) return;
             if (failure == null && verified != null) {
-                FabricAdapterRuntime.recordVerifiedProfile(verified);
+                FabricAdapterRuntime.recordVerifiedProfile(verified, clientIp(handler));
                 ((FabricLoginStateAccess) handler).trueuuid$setProfile(FabricVerifiedProfiles.create(verified));
                 state.reset();
                 completion.complete(null);
                 return;
             }
         }
-        completeOfflineFallbackOrDeny(server, handler);
+        completeOfflineFallbackOrDeny(server, handler, true);
+    }
+
+    /** Grace acceptance: keep the previously verified UUID for this reconnect. */
+    private void completeWithProfile(MinecraftServer server, ServerLoginNetworkHandler handler, GameProfile profile) {
+        server.execute(() -> {
+            synchronized (FabricLoginTransaction.this) {
+                if (closed || completion == null || completion.isDone()) return;
+                ((FabricLoginStateAccess) handler).trueuuid$setProfile(profile);
+                state.reset();
+                completion.complete(null);
+            }
+        });
+    }
+
+    private static String clientIp(ServerLoginNetworkHandler handler) {
+        var connection = ((FabricLoginStateAccess) handler).trueuuid$getConnection();
+        return connection != null && connection.getAddress() instanceof java.net.InetSocketAddress address
+                && address.getAddress() != null ? address.getAddress().getHostAddress() : "";
     }
 
     private void completeOfflineFallback(MinecraftServer server) {

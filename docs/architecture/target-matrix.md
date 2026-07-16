@@ -58,7 +58,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Offline to premium data migration | yes | **no** | **no** | **no** |
 | Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
 | Skin refresh after join | yes | **no** | **no** | **no** |
-| Recent-IP reconnect grace | yes | **no** | **no** | **no** |
+| Recent-IP reconnect grace | yes | yes | yes | yes |
 | Configurable `timeoutMs` / `allowOfflineOnTimeout` | yes | yes | yes | yes |
 | `debug` logging toggle | yes | yes | yes | yes |
 
