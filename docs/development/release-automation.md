@@ -12,6 +12,13 @@ Both matrix workflows derive their jobs from `release/targets.json`, grouped
 into three loader families — Forge, NeoForge, and Fabric — so adding a target
 to the manifest automatically adds it to verify, self-test, and the release
 gate.
+
+Every job installs two JDKs: the target's declared JDK for the Gradle Java
+toolchain, and JDK 21 as the Gradle launcher. The launcher must be 21 on every
+job — including Forge 1.20.1's — because the Fabric module's Loom build is
+configured on each Gradle invocation and requires a 21 JVM;
+`org.gradle.java.installations.fromEnv` in `gradle.properties` lets the
+toolchain resolver find both installs.
 - `.github/workflows/release.yml` runs only when a stable GitHub Release is
   published in `YuWan-030/TrueUUID`. It repeats the full matrix and publishes
   only the exact release-approved target named by the release tag.

@@ -65,10 +65,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+      - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
+      - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
           cache: gradle
       - name: Build and test
         run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
@@ -85,10 +91,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+      - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
+      - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
           cache: gradle
       - name: Build and test
         run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
@@ -105,10 +117,16 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+      - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
+      - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
           cache: gradle
       - name: Build and test
         run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace

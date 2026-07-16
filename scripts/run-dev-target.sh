@@ -10,8 +10,9 @@ usage() {
     cat <<'EOF'
 Usage: scripts/run-dev-target.sh [target] <client|server>
 
-Registered targets:
-  forge-1.20.1  Forge 47.4.10 / Minecraft 1.20.1 / Java 17
+Registered targets (all need a Java 21 Gradle launcher; per-target game
+JVMs come from each module's Java toolchain):
+  forge-1.20.1  Forge 47.4.10 / Minecraft 1.20.1 / Java 17 game toolchain
   fabric-1.20.1  Fabric Loader 0.19.3 / Minecraft 1.20.1 / Java 17 target, Java 21 launcher (planned; no login run)
   forge-1.21.1  Forge 52.1.0  / Minecraft 1.21.1 / Java 21 (test candidate)
   forge-1.21.3  Forge 53.1.0  / Minecraft 1.21.3 / Java 21 (planned; no login run)
@@ -53,10 +54,11 @@ if [[ "$role" != "client" && "$role" != "server" ]]; then
 fi
 
 case "$target" in
-    forge-1.20.1)
-        required_java=17
-        ;;
-    fabric-1.20.1|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
+    # Every target needs a Java 21 GRADLE LAUNCHER: the Fabric module's Loom
+    # build is configured on every Gradle invocation and requires a 21 JVM.
+    # forge-1.20.1 still runs its game process on the module's Java 17
+    # toolchain, which Gradle resolves from the installed JDKs.
+    forge-1.20.1|fabric-1.20.1|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
         required_java=21
         ;;
     *)
