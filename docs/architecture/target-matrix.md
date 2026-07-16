@@ -47,13 +47,13 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 |---|---|---|---|---|
 | Premium (Mojang) verification | yes | yes — runtime pending | yes | yes |
 | Offline fallback (join allowed) | yes | yes — runtime pending | yes | yes |
-| Offline **policy** (deny known-premium names) | yes | **no — unconditional** | yes | yes |
-| Verified-name registry (persisted) | yes | **no** | yes | yes |
+| Offline **policy** (deny known-premium names) | yes | yes | yes | yes |
+| Verified-name registry (persisted) | yes | yes | yes | yes |
 | Join feedback (chat, opt-in title) | yes | **no** | yes | yes |
 | Account-status badge | yes | yes — position/scale hardcoded | yes | yes |
-| Config file | yes | **no — none at all** | yes | yes |
+| Config file | yes | yes — JSON, offline policy only | yes | yes |
 | Addon API (`AccountStatus`, callbacks) | **no** — name lookups only | **no** | yes | yes |
-| Localized strings from `common-assets` | own copy | **no — literal English** | yes | yes |
+| Localized strings from `common-assets` | own copy | yes | yes | yes |
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | **no** — silently ignored | **no** — silently ignored |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
 | Admin commands (`cleanupuuid`, `migrateuuid`) | yes | **no** | **no** | **no** |
@@ -64,18 +64,18 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 
 Traps behind that table:
 
-- **Fabric's offline fallback has no policy gate.** It calls its fallback path
-  unconditionally, so `knownPremiumDenyOffline` has no Fabric equivalent and a
-  name already proven premium can still be taken by an unverified client. Every
-  other adapter consults `OfflineFallbackPolicy` first. This is the same gap
-  NeoForge carried before 2026-07-15.
-- **Fabric's disconnect reasons bypass the language files.** It builds them with
-  `Text.literal("TrueUUID ...")`, so they are English-only and cannot be
-  translated, while every other adapter sends `trueuuid.disconnect.*` keys.
-  Fabric also keeps a duplicate two-key `lang/` copy instead of reading
-  `platform/common-assets`; the text agrees today purely by luck.
+- **Fabric's offline fallback is policy-gated since 2026-07-15.** Every adapter
+  now consults `OfflineFallbackPolicy` plus a persistent verified-name registry
+  before releasing an unverified profile. Fabric's policy options live in
+  `config/trueuuid.json` (same names and defaults as the Forge/NeoForge TOML);
+  its registry shares the `trueuuid-registry.json` file shape with the other
+  loaders.
+- **Fabric strings come from `platform/common-assets` since 2026-07-15.** Its
+  disconnect reasons are `trueuuid.disconnect.*` translation keys and the
+  duplicate two-key `lang/` copy is gone. Its custom-endpoint refusal uses the
+  shared `trueuuid.disconnect.custom_endpoint_unsupported` key.
 - **Fabric fails closed on skin-site logins, the 1.21 line fails open.** Fabric
-  refuses the login with "custom endpoints are not enabled on Fabric yet"; the
+  refuses the login with the `custom_endpoint_unsupported` disconnect; the
   1.21 Forge/NeoForge clients silently answer with an empty endpoint and fall
   back to Mojang. Fabric's behaviour is the honest one.
 
@@ -103,7 +103,7 @@ not a login or release claim.
 | Target | Source state | Build/tests | Recorded runtime | Main gap before Active |
 |---|---|---|---|---|
 | Forge 1.20.1 | Full reference feature set | passed | One Mojang login | Yggdrasil, denial, timeout/grace, migration rollback |
-| Fabric 1.20.1 | Mojang verification, basic offline fallback, and default Forge/NeoForge-matching HUD; no registry/config yet | passed (2026-07-15) | Server bootstrap reached localhost bind; no login run | Two-sided Mojang matrix, then the remaining Forge 1.20.1 features |
+| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON config, shared strings, and default Forge/NeoForge-matching HUD | passed (2026-07-15) | Server bootstrap reached localhost bind; no login run | Two-sided Mojang matrix, then the remaining Forge 1.20.1 features |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
