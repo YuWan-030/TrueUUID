@@ -254,6 +254,20 @@ version and remapped refmap). A single module may still declare a wider
 covering 1.21.6/1.21.7), but only after a two-sided login run passes on each
 covered patch. Modules default to their exact build patch until then.
 
+#### Tracked pending widens — NeoForge (declared ranges unchanged)
+
+Recorded 2026-07-16 from the protocol evidence in
+[`version-consolidation-roadmap.md`](version-consolidation-roadmap.md). Each
+row is a widen candidate only: the declared range stays at the build patch
+until a two-sided login run passes on the newly-claimed patch. Each module's
+`build.gradle` carries the same note next to its `neoforgeMetadata` block.
+
+| Module | Declared range today | Eventual target | Newly-claimed patch | Gate status |
+|---|---|---|---|---|
+| `neoforge-1.21.1` | `[1.21.1,1.21.2)` | `[1.21,1.21.2)` | 1.21 (protocol 767) | Declared range unchanged pending a login run on 1.21 (NeoForge 21.0 line exists, latest 21.0.167) |
+| `neoforge-1.21.3` | `[1.21.3,1.21.4)` | `[1.21.2,1.21.4)` | 1.21.2 (protocol 768) | Declared range unchanged pending a login run on 1.21.2; NeoForge shipped only two early 21.2 betas, so that run rides a beta loader |
+| `neoforge-1.21.8` | `[1.21.8,1.21.9)` | `[1.21.7,1.21.9)` | 1.21.7 (protocol 772) | Declared range unchanged pending a login run on 1.21.7 (NeoForge 21.7 is a beta-only line). 1.21.6 is protocol 771 and gets its own module |
+
 ## Branches and releases
 
 `main` contains the complete active target matrix and is the only integration
