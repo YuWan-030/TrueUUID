@@ -7,8 +7,9 @@ An adapter is the unit of support and release; a Git branch is not.
 
 | Target | Loader | Java | State | Notes |
 |---|---|---:|---|---|
-| Minecraft 1.20.1 | Forge 47.4.10 | 17 | Active | Implemented in `platform/forge-1.20.1` (independent pre-configuration-phase island). Local Mojang login/UUID/name/skin run passed on 2026-07-12 with JDK 17. Yggdrasil, denial/timeout/grace, and migration rollback runs remain pending. |
+| Minecraft 1.20.1 | Forge 47.4.10 | 17 | Active | Implemented in `platform/forge-1.20.1` (independent pre-configuration-phase island). Local Mojang login/UUID/name/skin run passed on 2026-07-12 with JDK 17. Yggdrasil, denial/timeout/grace, and migration rollback runs remain pending. ⚠ 2026-07-16: a fresh `:platform:forge-1.20.1:build` jar carries official-named bytecode and no refmap (`reobfJar` runs but remaps nothing), which cannot apply mixins on Forge 47's SRG-named production runtime — re-validate the 2026-07-12 evidence against a production-shaped artifact before any release claim. Found while proving `forge-1.20.2`'s SRG-era pipeline; see that row. |
 | Minecraft 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 | 17 target / 21 build launcher | Planned | `platform/fabric-1.20.1`; shares `platform/fabric-common`. Yarn `1.20.1+build.10`, Loom `1.13.6`, Gradle 8.14. Mojang login transport and bounded verification compile and test. It has no runtime or support claim until its focused two-sided matrix passes. |
+| Minecraft 1.20.2 | Forge 48.1.0 | 17 | Planned | `platform/forge-1.20.2`; shares `platform/forge-common` (the 1.20.2 configuration-phase pivot joined the existing root — no separate `forge-1.20x-common` was needed; sole exclusion: `ForgeClientGuiMixin`). Build + mixin refmap + focused tests pass (2026-07-16). No login run yet. Protocol 764 is shared with no other patch, so its range stays single-patch permanently. Production Forge 48 runs SRG names: its client mixins drop the 1.21.x `remap = false` and the shipped jar is the reobfuscated one. Not in the root aggregate build, CI, or `release/targets.json` yet. |
 | Minecraft 1.21.1 | Forge 52.1.0 | 21 | Planned | `platform/forge-1.21.1`; shares `platform/forge-common`. A local premium client/server login passed, but the full acceptance matrix remains incomplete. |
 | Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
@@ -23,7 +24,7 @@ An adapter is the unit of support and release; a Git branch is not.
 
 An empty folder, version range in metadata, or successful compilation alone is
 not a support claim. Every supported target needs a real two-sided login run.
-The five modern Forge modules build and pass unit tests, but all remain Planned
+The six modern Forge modules build and pass unit tests, but all remain Planned
 until each has its own login run.
 
 ## Feature parity
@@ -38,7 +39,9 @@ reduced 1.21 feature set.
 Column coverage: **Forge 1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 (five
 targets sharing `platform/forge-common`). **NeoForge 1.21.x** = the same five
 versions, sharing the `neoforge-1.21.1` adapter source. A cell applies to every
-target in its column.
+target in its column. `forge-1.20.2` (added 2026-07-16) also compiles
+`platform/forge-common` and matches the Forge 1.21.x column exactly — same
+login-verification core, same feature gaps.
 
 `fallback` and `policy` are separate rows on purpose: allowing an unverified
 client to keep its offline UUID is not the same as deciding *whether* it may.
@@ -118,6 +121,7 @@ not a login or release claim.
 | Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON config, shared strings, and default Forge/NeoForge-matching HUD | passed (2026-07-15) | Server boot reached `Done` (2026-07-15); no login run | Two-sided Mojang matrix, then migration/admin commands, join feedback, and the addon API |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
+| Forge 1.20.2 | Same core via `forge-common` plus target seams (pre-1.21 overlay API, SRG-era reobf and refmap) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
 | NeoForge 1.21.3 / 1.21.4 / 1.21.5 | Recompile the 1.21.1 core | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.8 | Recompile the 1.21.1 core plus GUI seam | passed | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
@@ -151,6 +155,7 @@ required before a release claim.
 | 2026-07-15 | NeoForge 1.21.5 | NeoForge 21.5.74 / OpenJDK 21.0.11 | `platform/neoforge-1.21.5/build/libs/trueuuid-1.1.0-neoforge1.21.5.jar` | `:platform:neoforge-1.21.5:build` passed; it recompiles the hardened NeoForge source and runs the adapter lifecycle tests. No login run. |
 | 2026-07-15 | NeoForge 1.21.8 | NeoForge 21.8.9 / OpenJDK 21.0.11 | `platform/neoforge-1.21.8/build/libs/trueuuid-1.1.0-neoforge1.21.8.jar` | Build and adapter lifecycle tests passed with a target-local GUI seam for the 1.21.6+ matrix stack. After the config-validator fix, a local `runServer` boot reached `Done` on 127.0.0.1:25565. No client boot or login run. |
 | 2026-07-15 | Fabric 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 / Java 21 launcher (Java 17 target) | `platform/fabric-1.20.1/build/libs/trueuuid-1.1.0-fabric1.20.1.jar` | `:platform:fabric-1.20.1:test :platform:fabric-1.20.1:remapJar` passed. The first slice has login-phase packet bounds, local client `joinServer`, bounded Mojang `hasJoined`, and profile replacement. No client/server runtime run. |
+| 2026-07-16 | Forge 1.20.2 | Forge 48.1.0 / Java 17 toolchain (JDK 21 launcher) | `platform/forge-1.20.2/build/libs/trueuuid-1.1.0-forge1.20.2.jar` | `:platform:forge-1.20.2:build` passed: `forge-common` recompiled against 1.20.2 mappings with the single `ForgeClientGuiMixin` exclusion; unit tests and `shared/protocol` fixtures passed. The jar is the reobfuscated (SRG) artifact — verified to carry the refmap with client-mixin entries and SRG-renamed shadow members, because production Forge 48 runs SRG names (confirmed against the `1.20.2-48.1.0` universal jar). All five 1.21.x modules were rebuilt and re-tested the same day against the shared-root change (`ForgeNetIds` now uses `ResourceLocation.tryParse`, the only factory present across 1.20.2–1.21.8). No login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
 support claims. Every row remains Planned until the complete acceptance matrix
@@ -171,6 +176,8 @@ platform/
   fabric-common/    # shared SOURCE root for the Fabric line (not a module)
   forge-1.20.1/     # independent pre-configuration-phase island
   fabric-1.20.1/    # Fabric login-phase adapter; consumes fabric-common
+  forge-1.20.2/     # first configuration-phase Forge target; recompiles forge-common
+                    # (SRG-era: ships the reobfuscated jar with refmap)
   forge-1.21.1/     # \
   forge-1.21.3/     #  } each recompiles forge-common against its own Forge/mappings
   forge-1.21.4/     #  } and adds only its version-divergent shims
@@ -202,8 +209,17 @@ sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 
 There is no shared bytecode — only shared source — so every module still gets a
 correctly remapped jar and refmap. A file may live in `forge-common` only if it
-compiles unchanged against *every* module that includes it. Empirically, across
-Forge 52 (1.21.1) → 58 (1.21.8) the only divergence is:
+compiles unchanged against *every* module that includes it. Since 2026-07-16 the
+family also spans the configuration-phase pivot: `forge-1.20.2` recompiles this
+same root (no separate `forge-1.20x-common` was needed). Its extra seams beyond
+the list below: `ForgeClientGuiMixin` is 1.21.x-only (`DeltaTracker`) and is
+excluded from the 1.20.2 compile; `ForgeNetIds` uses `ResourceLocation.tryParse`,
+the only factory present across the whole range; and production Forge 48 still
+runs SRG names, so the 1.20.2 client mixins must not use the 1.21.x line's
+`remap = false` and its shipped jar is the reobfuscated one. Forge 49/50
+(1.20.3–1.20.6) production naming must be re-checked when those modules are
+built. Empirically, across Forge 52 (1.21.1) → 58 (1.21.8) the only divergence
+is:
 
 - the login/GUI mixins + `CustomQueryPayload` records + `ClientAccountStatus`
   (copied per module; they compile unchanged because the login classes are stable
