@@ -13,7 +13,7 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.5 | Forge 55.1.10 | 21 | Planned | `platform/forge-1.21.5`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
-| Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.6/1.21.7 once those login runs pass. |
+| Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.7 (protocol 772) once that login run passes; 1.21.6 is protocol 771 and needs its own module. |
 | Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. It is the hardened source baseline for the later NeoForge 1.21.x modules. |
 | Minecraft 1.21.3 | NeoForge 21.3.56 | 21 | Planned | `platform/neoforge-1.21.3`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.3. Build and focused tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | NeoForge 21.4.121 | 21 | Planned | `platform/neoforge-1.21.4`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.4. Build and focused tests pass (2026-07-15). No login run yet. |
@@ -251,8 +251,22 @@ mod-bus subscription, which also compiles on the earlier 1.21 targets.
 Source is shared; a **jar** is per Forge build (each patch has its own Forge
 version and remapped refmap). A single module may still declare a wider
 `mods.toml` Minecraft range to cover adjacent patches (e.g. `forge-1.21.8`
-covering 1.21.6/1.21.7), but only after a two-sided login run passes on each
+covering 1.21.7), but only after a two-sided login run passes on each
 covered patch. Modules default to their exact build patch until then.
+
+#### Tracked pending widens (declared ranges unchanged)
+
+Recorded 2026-07-16 from the protocol evidence in
+[`version-consolidation-roadmap.md`](version-consolidation-roadmap.md). Each
+row is a widen candidate only: the declared range stays at the build patch
+until a two-sided login run passes on the newly-claimed patch. Each module's
+`mods.toml` carries the same note next to its `versionRange`.
+
+| Module | Declared range today | Eventual target | Newly-claimed patch | Gate status |
+|---|---|---|---|---|
+| `forge-1.21.1` | `[1.21.1,1.21.2)` | `[1.21,1.21.2)`, loaderVersion `[51,)` | 1.21 (protocol 767) | Declared range unchanged pending a login run on 1.21 |
+| `forge-1.21.3` | `[1.21.3,1.21.4)` | `[1.21.2,1.21.4)` | 1.21.2 (protocol 768) | Unreachable: Forge never shipped a 1.21.2 loader (promotions checked 2026-07-16), so the login-run gate cannot be met |
+| `forge-1.21.8` | `[1.21.8,1.21.9)` | `[1.21.7,1.21.9)`, loaderVersion `[57,)` | 1.21.7 (protocol 772) | Declared range unchanged pending a login run on 1.21.7. Corrects the earlier `[1.21.6,1.21.9)` note: 1.21.6 is protocol 771 and gets its own module |
 
 ## Branches and releases
 

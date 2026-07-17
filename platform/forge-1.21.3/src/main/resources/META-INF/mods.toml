@@ -21,6 +21,11 @@ versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 
+# Built against 1.21.3/Forge 53. 1.21.2 (protocol 768) is a wire-level match,
+# but Forge never shipped a 1.21.2 loader (promotions_slim.json goes straight
+# from 1.21.1 to 1.21.3; checked 2026-07-16), so the two-sided-login gate for
+# widening to "[1.21.2,1.21.4)" cannot be met and the declared range stays at
+# the build patch. See docs/architecture/version-consolidation-roadmap.md.
 [[dependencies.trueuuid]]
 modId="minecraft"
 mandatory=true
