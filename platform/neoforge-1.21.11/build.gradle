@@ -90,6 +90,8 @@ neoForge {
 }
 
 sourceSets.main.output.dir(sharedProtocolMain.get().output)
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 
 dependencies {
     implementation project(':shared:protocol')

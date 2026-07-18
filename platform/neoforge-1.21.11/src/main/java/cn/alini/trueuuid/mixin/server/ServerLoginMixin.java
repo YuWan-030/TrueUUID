@@ -8,8 +8,10 @@ import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.server.AdapterRuntime;
 import cn.alini.trueuuid.server.LoginAttempt;
+import com.google.common.collect.ImmutableMultimap;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
+import com.mojang.authlib.properties.PropertyMap;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
@@ -138,14 +140,14 @@ abstract class ServerLoginMixin {
         trueuuid$clear();
     }
 
-    @Unique private GameProfile trueuuid$profile(VerifiedProfile profile) {
-        GameProfile nativeProfile = new GameProfile(profile.uuid(), profile.name());
+    @Unique static GameProfile trueuuid$profile(VerifiedProfile profile) {
+        ImmutableMultimap.Builder<String, Property> properties = ImmutableMultimap.builder();
         for (VerifiedProfile.Property property : profile.properties()) {
-            nativeProfile.properties().put(property.name(), property.signature() == null
+            properties.put(property.name(), property.signature() == null
                     ? new Property(property.name(), property.value())
                     : new Property(property.name(), property.value(), property.signature()));
         }
-        return nativeProfile;
+        return new GameProfile(profile.uuid(), profile.name(), new PropertyMap(properties.build()));
     }
 
     @Unique private void trueuuid$clear() {
