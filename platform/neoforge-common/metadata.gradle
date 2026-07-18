@@ -5,22 +5,24 @@ if (!project.ext.has('neoforgeMetadata')) {
 }
 
 def metadata = project.ext.neoforgeMetadata
+def expandedMetadata = [
+        mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
+        mod_license: providers.gradleProperty('mod_license').getOrElse('GNU LGPL 3.0'),
+        mod_version: project.version.toString(),
+        mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
+        mod_description: providers.gradleProperty('mod_description').getOrElse(''),
+        neoforge_version_range: metadata.loaderRange,
+        minecraft_version_range: metadata.minecraftRange,
+        // javafml's language version is era-specific: 20.6 ships 3,
+        // the 1.21.x line ships 4+. Targets may override; the default
+        // preserves the 1.21.x declaration.
+        javafml_version_range: metadata.javafmlRange ?: '[4,)'
+]
 sourceSets.main.resources.srcDir "${rootDir}/platform/neoforge-common/src/main/resources"
 
 tasks.named('processResources', ProcessResources).configure {
+    inputs.properties(expandedMetadata)
     filesMatching('META-INF/neoforge.mods.toml') {
-        expand(
-                mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
-                mod_license: providers.gradleProperty('mod_license').getOrElse('GNU LGPL 3.0'),
-                mod_version: project.version,
-                mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
-                mod_description: providers.gradleProperty('mod_description').getOrElse(''),
-                neoforge_version_range: metadata.loaderRange,
-                minecraft_version_range: metadata.minecraftRange,
-                // javafml's language version is era-specific: 20.6 ships 3,
-                // the 1.21.x line ships 4+. Targets may override; the default
-                // preserves the 1.21.x declaration.
-                javafml_version_range: metadata.javafmlRange ?: '[4,)'
-        )
+        expand(expandedMetadata)
     }
 }

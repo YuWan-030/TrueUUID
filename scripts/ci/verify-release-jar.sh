@@ -47,6 +47,21 @@ for required in \
     grep -Fxq "$required" <<<"$entries" || { echo "missing JAR entry: $required" >&2; exit 65; }
 done
 
+case "$loader" in
+    fabric)
+        embedded_version=$(unzip -p "$artifact" "$metadata" | jq -er '.version')
+        ;;
+    forge|neoforge)
+        embedded_version=$(unzip -p "$artifact" "$metadata" |
+            sed -nE 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' |
+            head -n 1)
+        ;;
+esac
+[[ "$embedded_version" == "$version" ]] || {
+    echo "metadata version mismatch in $artifact: expected $version, found ${embedded_version:-<missing>}" >&2
+    exit 65
+}
+
 duplicate_classes=$(grep '\.class$' <<<"$entries" | sort | uniq -d)
 [[ -z "$duplicate_classes" ]] || { echo "duplicate classes in $artifact:" >&2; printf '%s\n' "$duplicate_classes" >&2; exit 65; }
 if grep -Eq '(^|/)(test|tests)/|Test\.class$' <<<"$entries"; then

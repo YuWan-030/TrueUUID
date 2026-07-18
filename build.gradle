@@ -2,6 +2,15 @@ plugins {
     id 'base'
 }
 
+subprojects {
+    tasks.withType(ProcessResources).configureEach {
+        // gradle.properties is not itself a task input. Track the canonical
+        // project version so an incremental build cannot keep stale loader
+        // metadata inside a newly named release JAR.
+        inputs.property('trueuuidProjectVersion', providers.provider { project.version.toString() })
+    }
+}
+
 tasks.named('build') {
     dependsOn ':shared:protocol:build',
             ':platform:forge-1.20.1:build',
