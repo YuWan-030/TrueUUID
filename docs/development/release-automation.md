@@ -62,10 +62,9 @@ flip all targets merely to make a synchronized version release larger.
 
 Configure these values in the upstream repository:
 
-1. Add `MODRINTH_TOKEN` as a repository secret. Grant Modrinth `USER_READ`
-   (used to identify the token owner during the access check) and
-   `VERSION_CREATE`; that owner must have the project's `UPLOAD_VERSION`
-   permission.
+1. Add `MODRINTH_TOKEN` as a repository secret. Grant only the Modrinth scope
+   needed to create versions (`VERSION_CREATE`); the token owner must also be
+   allowed to upload versions to the project.
 2. Add `MODRINTH_PROJECT_ID` preferably as a repository variable using the
    stable eight-character project ID, not the mutable slug. A repository secret
    is accepted as a fallback.
