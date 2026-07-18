@@ -24,10 +24,12 @@ because Fabric Loom is configured on every Gradle invocation.
 
 ## Publishing gates
 
-Publishing starts only when a stable GitHub Release is published in
-`YuWan-030/TrueUUID`. The workflow requires all of these independent gates:
+Publishing starts only when a maintainer manually runs the `Release` workflow
+from `main` and supplies the tag of an existing draft GitHub Release. The
+workflow requires all of these independent gates:
 
-1. The Release is non-draft and non-prerelease and has a nonempty body.
+1. The GitHub Release is still a draft, is not a prerelease, and has a valid
+   English-first bilingual body.
 2. Its signed annotated tag is exactly `vX.Y.Z`, its version equals
    `mod_version`, and its commit is contained in `main`.
 3. GitHub verifies the tag signature.
@@ -36,11 +38,18 @@ Publishing starts only when a stable GitHub Release is published in
    approved for publication.
 6. The Modrinth project ID/token and CurseForge token are configured.
 
-After those gates pass, the workflow collects only approved JARs, verifies
-their per-target checksums, creates one aggregate `SHA256SUMS`, and attaches
-the JARs and checksums to the existing GitHub Release. It then publishes each
-approved JAR to Modrinth and CurseForge. Every external upload receives the
-same immutable workflow snapshot of the GitHub Release body as its changelog.
+After those gates pass, the workflow freezes the draft body, collects only
+approved JARs, verifies their per-target checksums, creates one aggregate
+`SHA256SUMS`, and attaches the JARs and checksums to the draft. It then
+publishes each approved JAR to Modrinth and CurseForge. Only after every
+external upload succeeds does it publish the GitHub Release. GitHub, Modrinth,
+and CurseForge therefore receive the same frozen changelog file.
+
+The changelog must begin with a nonempty `## English` section and then contain
+a nonempty `## 中文` section. Start from
+[`release-changelog-template.md`](release-changelog-template.md). English is
+always the primary section and Chinese is the translation; do not put Chinese
+release notes before the English source text.
 
 Compiling and booting do not approve a target. Set `"release": true` only
 after its complete real client/server acceptance matrix passes and
@@ -94,6 +103,12 @@ handling, or migration rollback. Those scenarios remain manual release gates.
 
 ## Publishing version 1.2.0
 
+At the time this document was updated, every target in `release/targets.json`
+still had `"release": false`. The repository can build and self-test every
+target, but the Release workflow will intentionally publish nothing until at
+least one target's manual acceptance evidence is complete and that target is
+explicitly approved.
+
 After the manual acceptance matrix passes for each target being approved:
 
 1. Confirm `./scripts/release/set-version.sh 1.2.0` has been committed on
@@ -107,15 +122,44 @@ After the manual acceptance matrix passes for each target being approved:
    git push origin v1.2.0
    ```
 
-4. Create a draft GitHub Release for the existing `v1.2.0` tag. Write the
-   changelog that Modrinth and CurseForge should receive, then publish the
-   GitHub Release.
+4. Create a draft GitHub Release for the existing `v1.2.0` tag. Copy
+   `docs/development/release-changelog-template.md` into its body, replace the
+   placeholders, and leave the Release as a draft.
+5. Open Actions, select `Release`, choose `main`, enter `v1.2.0`, and run the
+   workflow. Do not click GitHub's `Publish release` button yourself.
+6. Confirm that the workflow self-tested all 20 targets, attached only the
+   approved JARs, published those same JARs externally, and finally changed the
+   GitHub Release from draft to public.
 
-Publishing triggers the Release workflow. On rerun, the Modrinth publisher
-accepts an existing version only when its project, version number, and primary
-file SHA-512 match the tested artifact. GitHub, Modrinth, and CurseForge do not
-provide one cross-service transaction, so a later failure can leave an earlier
-service updated; inspect the Release workflow before retrying.
+## Failure recovery
+
+Do not delete or move a release tag as the first response to a failed run.
+GitHub, Modrinth, and CurseForge do not provide one cross-service transaction,
+so the correct recovery depends on whether external state was created:
+
+- For a transient network or service failure with unchanged code, tag,
+  artifacts, and changelog, rerun the entire failed `Release` workflow. The
+  GitHub asset upload is replace-safe, Modrinth accepts an existing version
+  only when its target metadata, exact changelog, and primary file SHA-512 all
+  match, and CurseForge skips an exact-filename upload only after downloading
+  the existing file and confirming byte equality. A same-name byte mismatch
+  fails closed.
+- If validation or self-test fails before any external upload, fix the code,
+  increment the patch version (for example, `1.2.1`), and create a new signed
+  tag and draft. Re-creating `v1.2.0` is acceptable only if it never left the
+  draft/preflight stage and no GitHub asset, Modrinth version, or CurseForge
+  file was created. A new version is still the safer and clearer choice.
+- If any Modrinth or CurseForge upload exists, never move or re-create that
+  version tag for changed code, artifacts, or release notes. Fix the problem,
+  increment the patch version, and publish a new signed tag and draft release.
+- If the draft body changes while publishing is in progress, final GitHub
+  publication stops. Restore the exact frozen bilingual changelog and rerun,
+  or use a new patch version if the externally published notes must change.
+
+The CurseForge action is intentionally limited to one POST attempt per run;
+the next full workflow run performs the byte-safe preflight before trying
+again. This avoids an uploader retry creating a duplicate after an ambiguous
+timeout.
 
 ## Artifact signatures
 
