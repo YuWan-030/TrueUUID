@@ -12,36 +12,46 @@ def sharedProtocolMain = project(':shared:protocol')
         .named('main')
 def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
 def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
-def minecraftVersion = '1.21.8'
-def neoForgeVersion = '21.8.9'
+def minecraftVersion = '1.20.6'
+// NeoForge 20.6.139 is the latest stable of the 20.6 line
+// (maven.neoforged.net, checked 2026-07-16).
+def neoForgeVersion = '20.6.139'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
-// Built against 1.21.8/NeoForge 21.8. Only 1.21.7 (protocol 772, NeoForge
-// 21.7 — beta-only line, latest 21.7.25-beta, checked 2026-07-16) is a
-// wire-level match for this build; 1.21.6 is protocol 771 and gets its own
-// module (neoforge-1.21.6). Widen minecraftRange to "[1.21.7,1.21.9)" only
-// after a two-sided login run passes on 1.21.7 — declared range unchanged
-// until then. See docs/architecture/version-consolidation-roadmap.md and
-// target-matrix.md.
+// 20.6 already uses META-INF/neoforge.mods.toml, but its javafml language
+// version is 3 (verified against the 20.6.139 universal jar's own manifest,
+// 2026-07-16), so the shared template's default "[4,)" is overridden here.
+// 1.20.5 (protocol 766) is a wire-level match, but NeoForge shipped only
+// betas for it (20.5.21-beta is the last, checked 2026-07-16); widen
+// minecraftRange to "[1.20.5,1.20.7)" only after a two-sided login run
+// passes on 1.20.5 — single-patch until then, per the sharing-a-jar policy
+// in target-matrix.md.
 ext.neoforgeMetadata = [
         loaderRange: "[${neoForgeVersion},)",
-        minecraftRange: '[1.21.8,1.21.9)'
+        minecraftRange: '[1.20.6,1.20.7)',
+        javafmlRange: '[3,)'
 ]
 apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
 
 base { archivesName = 'trueuuid' }
+
 repositories { mavenCentral() }
 
+// Recompile the hardened modern NeoForge adapter against this exact target.
+// Only this target's metadata, era seams, and run configuration live in this
+// module.
+// 20.6 is nearly modern: RegisterGuiLayersEvent, the top-level
+// EventBusSubscriber form, and ModContainer.registerConfig all already exist
+// (diagnostic compile 2026-07-16), and the shared TrueuuidClientOverlay uses
+// the range-stable ResourceLocation.tryParse. The single remaining seam is
+// the login mixin: onDisconnect takes Component before 1.21.
+def preModernSources = [
+        'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java'
+]
 sourceSets.main.java.srcDir "${adapterMain}/java"
 sourceSets.test.java.srcDir "${adapterTests}/java"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
-
-// Minecraft 1.21.6+ replaced the GUI PoseStack with Matrix3x2fStack. Keep
-// that render-only change in this target; login/authentication remains shared.
-def modernGuiSources = [
-        'cn/alini/trueuuid/client/ClientAccountStatus.java'
-]
 
 java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
 
@@ -79,8 +89,11 @@ tasks.named('processResources', ProcessResources).configure {
     from("${adapterMain}/resources") { include 'trueuuid.mixins.json', 'trueuuid-banner.png' }
 }
 
+// Same mechanism as neoforge-1.21.8's modernGuiSources: compile the shared
+// tree minus the era seams, plus this module's local replacements (which live
+// at the same relative paths, so a plain source-set exclude would drop both).
 tasks.named('compileJava', JavaCompile).configure {
-    source = files(fileTree("${adapterMain}/java") { exclude modernGuiSources }, fileTree('src/main/java'))
+    source = files(fileTree("${adapterMain}/java") { exclude preModernSources }, fileTree('src/main/java'))
 }
 
 tasks.named('jar', Jar).configure {

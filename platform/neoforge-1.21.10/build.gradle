@@ -12,21 +12,21 @@ def sharedProtocolMain = project(':shared:protocol')
         .named('main')
 def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
 def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
-def minecraftVersion = '1.21.8'
-def neoForgeVersion = '21.8.9'
+def minecraftVersion = '1.21.10'
+def neoForgeVersion = '21.10.64'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
-// Built against 1.21.8/NeoForge 21.8. Only 1.21.7 (protocol 772, NeoForge
-// 21.7 — beta-only line, latest 21.7.25-beta, checked 2026-07-16) is a
-// wire-level match for this build; 1.21.6 is protocol 771 and gets its own
-// module (neoforge-1.21.6). Widen minecraftRange to "[1.21.7,1.21.9)" only
-// after a two-sided login run passes on 1.21.7 — declared range unchanged
-// until then. See docs/architecture/version-consolidation-roadmap.md and
-// target-matrix.md.
+// Built against 1.21.10/NeoForge 21.10. 1.21.9 (protocol 773, NeoForge 21.9 —
+// beta-only line, latest 21.9.16-beta, checked 2026-07-16) is a wire-level
+// match; widen minecraftRange to "[1.21.9,1.21.11)" only after a two-sided
+// login run passes on 1.21.9 — declared range unchanged until then. javafml
+// is "[3,)" to match 21.10's own manifest. See
+// docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
 ext.neoforgeMetadata = [
         loaderRange: "[${neoForgeVersion},)",
-        minecraftRange: '[1.21.8,1.21.9)'
+        minecraftRange: '[1.21.10,1.21.11)',
+        javafmlRange: '[3,)'
 ]
 apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
 
@@ -41,6 +41,17 @@ sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/res
 // that render-only change in this target; login/authentication remains shared.
 def modernGuiSources = [
         'cn/alini/trueuuid/client/ClientAccountStatus.java'
+]
+
+// Minecraft 1.21.9+ made authlib's GameProfile a record (id()/name()/
+// properties()), moved the client session service to Minecraft.services(),
+// and removed ServerPlayer.getServer(). Exactly these three shared files
+// carry those call sites (diagnostic compile against the unmodified shared
+// source, 2026-07-17); this module supplies record-era local copies.
+def recordEraSources = [
+        'cn/alini/trueuuid/server/AdapterRuntime.java',
+        'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
+        'cn/alini/trueuuid/mixin/client/ClientHandshakeMixin.java'
 ]
 
 java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
@@ -80,7 +91,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('compileJava', JavaCompile).configure {
-    source = files(fileTree("${adapterMain}/java") { exclude modernGuiSources }, fileTree('src/main/java'))
+    source = files(fileTree("${adapterMain}/java") { exclude modernGuiSources + recordEraSources }, fileTree('src/main/java'))
 }
 
 tasks.named('jar', Jar).configure {

@@ -1,7 +1,7 @@
 package cn.alini.trueuuid;
 
 import cn.alini.trueuuid.client.ClientAccountStatus;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -21,7 +21,7 @@ public final class TrueuuidClientOverlay {
         // present across the whole range this file compiles on (1.20.6+).
         // The 20.2/20.4 modules exclude this file entirely (pre-layers era).
         event.registerAboveAll(java.util.Objects.requireNonNull(
-                        ResourceLocation.tryParse(Trueuuid.MODID + ":account_status")),
+                        Identifier.tryParse(Trueuuid.MODID + ":account_status")),
                 (graphics, deltaTracker) -> ClientAccountStatus.render(graphics));
     }
 

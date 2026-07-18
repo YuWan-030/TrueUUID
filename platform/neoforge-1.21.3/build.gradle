@@ -17,6 +17,12 @@ def neoForgeVersion = '21.3.56'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+// Built against 1.21.3/NeoForge 21.3. 1.21.2 (protocol 768) is a wire-level
+// match, but NeoForge shipped only two early betas for it (21.2.0-beta /
+// 21.2.1-beta, checked 2026-07-16), so a two-sided login run on 1.21.2 would
+// ride a beta loader; widen minecraftRange to "[1.21.2,1.21.4)" only after
+// that run passes — declared range unchanged until then. See
+// docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
 ext.neoforgeMetadata = [
         loaderRange: "[${neoForgeVersion},)",
         minecraftRange: '[1.21.3,1.21.4)'

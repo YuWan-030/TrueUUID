@@ -16,7 +16,11 @@ tasks.named('processResources', ProcessResources).configure {
                 mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
                 mod_description: providers.gradleProperty('mod_description').getOrElse(''),
                 neoforge_version_range: metadata.loaderRange,
-                minecraft_version_range: metadata.minecraftRange
+                minecraft_version_range: metadata.minecraftRange,
+                // javafml's language version is era-specific: 20.6 ships 3,
+                // the 1.21.x line ships 4+. Targets may override; the default
+                // preserves the 1.21.x declaration.
+                javafml_version_range: metadata.javafmlRange ?: '[4,)'
         )
     }
 }

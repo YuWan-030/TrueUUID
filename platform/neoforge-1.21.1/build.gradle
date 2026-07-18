@@ -13,6 +13,11 @@ def sharedProtocolMain = project(':shared:protocol')
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+// Built against 1.21.1/NeoForge 21.1. Bare 1.21 (protocol 767, NeoForge 21.0,
+// latest 21.0.167) is a wire-level match; widen minecraftRange to
+// "[1.21,1.21.2)" (and loaderRange to the 21.0 line) only after a two-sided
+// login run passes on 1.21 — declared range unchanged until then. See
+// docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
 ext.neoforgeMetadata = [
         loaderRange: '[21.1.213,)',
         minecraftRange: '[1.21.1,1.21.2)'

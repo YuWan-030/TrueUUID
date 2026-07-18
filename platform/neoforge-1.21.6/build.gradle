@@ -12,21 +12,20 @@ def sharedProtocolMain = project(':shared:protocol')
         .named('main')
 def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
 def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
-def minecraftVersion = '1.21.8'
-def neoForgeVersion = '21.8.9'
+def minecraftVersion = '1.21.6'
+def neoForgeVersion = '21.6.20-beta'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
-// Built against 1.21.8/NeoForge 21.8. Only 1.21.7 (protocol 772, NeoForge
-// 21.7 — beta-only line, latest 21.7.25-beta, checked 2026-07-16) is a
-// wire-level match for this build; 1.21.6 is protocol 771 and gets its own
-// module (neoforge-1.21.6). Widen minecraftRange to "[1.21.7,1.21.9)" only
-// after a two-sided login run passes on 1.21.7 — declared range unchanged
-// until then. See docs/architecture/version-consolidation-roadmap.md and
-// target-matrix.md.
+// Built against 1.21.6/NeoForge 21.6 — a beta-only NeoForge line (21.6.20-beta
+// is the last build, checked 2026-07-16; the line never got a stable). 1.21.6
+// is protocol 771, shared with no other patch, so minecraftRange stays
+// single-patch permanently. javafml is "[3,)" to match 21.6's own manifest.
+// See docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
 ext.neoforgeMetadata = [
         loaderRange: "[${neoForgeVersion},)",
-        minecraftRange: '[1.21.8,1.21.9)'
+        minecraftRange: '[1.21.6,1.21.7)',
+        javafmlRange: '[3,)'
 ]
 apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
 

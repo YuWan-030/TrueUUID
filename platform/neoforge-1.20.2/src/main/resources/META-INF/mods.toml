@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="${javafml_version_range}"
+loaderVersion="[1,)"
 license="${mod_license}"
 
 [[mods]]
@@ -16,14 +16,19 @@ config="trueuuid.mixins.json"
 
 [[dependencies.${mod_id}]]
 modId="neoforge"
-type="required"
+mandatory=true
 versionRange="${neoforge_version_range}"
 ordering="NONE"
 side="BOTH"
 
+# 1.20.2-era NeoForge predates the neoforge.mods.toml rename and the
+# type="required" dependency syntax, hence META-INF/mods.toml and
+# mandatory=true here. 1.20.2 is protocol 764, shared with no other patch, so
+# this range stays single-patch permanently. See
+# docs/architecture/version-consolidation-roadmap.md.
 [[dependencies.${mod_id}]]
 modId="minecraft"
-type="required"
+mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
