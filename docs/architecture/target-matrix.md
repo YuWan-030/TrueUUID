@@ -22,6 +22,9 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.21.4 | NeoForge 21.4.121 | 21 | Planned | `platform/neoforge-1.21.4`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.4. Build and focused tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.5 | NeoForge 21.5.74 | 21 | Planned | `platform/neoforge-1.21.5`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.5. Build and focused tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.8 | NeoForge 21.8.9 | 21 | Planned | `platform/neoforge-1.21.8`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.8. Build, focused tests, and a local server boot pass (2026-07-15); the GUI seam uses the new 2D matrix stack. No login run yet. |
+| Minecraft 1.21.6 | NeoForge 21.6.20-beta | 21 | Planned | `platform/neoforge-1.21.6`; recompiles the `neoforge-1.21.1` privileged source with the same `modernGuiSources` seam as `neoforge-1.21.8` (1.21.6 is where the Matrix3x2fStack pipeline begins). NeoForge never shipped a stable 21.6 — this builds on the beta-only line's last build. javafml `[3,)` per 21.6's own manifest. Build + focused tests pass (2026-07-17). No login run yet. Protocol 771 pairs with no other patch: single-patch range permanently. Not in the root aggregate build, CI, or `release/targets.json`. |
+| Minecraft 1.21.10 | NeoForge 21.10.64 | 21 | Planned | `platform/neoforge-1.21.10`; recompiles the privileged source with `modernGuiSources` plus the new `recordEraSources` seam — Minecraft 1.21.9+ made authlib's `GameProfile` a record (`id()`/`name()`/`properties()`), moved the client session service to `Minecraft.services()`, and removed `ServerPlayer.getServer()`; exactly `AdapterRuntime`, `ServerLoginMixin`, and `ClientHandshakeMixin` carry those call sites. Build + focused tests pass (2026-07-17). No login run yet. Declares `[1.21.10,1.21.11)`; widening to cover 1.21.9 (protocol 773) waits on a 1.21.9 login run (beta-only 21.9 loader line). Not in the root aggregate build, CI, or `release/targets.json`. |
+| Minecraft 1.21.11 | NeoForge 21.11.44 | 21 | Planned | `platform/neoforge-1.21.11`; recompiles the privileged source with `modernGuiSources` + `recordEraSources` + a third seam unique to this patch: 1.21.11's official mappings rename `ResourceLocation` to `Identifier` (verified in the 21.11 compile artifacts; 1.21.10 still has `ResourceLocation`), touching `NetIds`, `AuthPayload`, `ClientboundCustomQueryMixin`, and `TrueuuidClientOverlay`. Build + focused tests pass (2026-07-17). No login run yet. Protocol 774 pairs with no other patch and this is the final legacy-scheme release: single-patch range permanently. Not in the root aggregate build, CI, or `release/targets.json`. |
 | Minecraft 1.12.2 | Forge 14.23.5.2860 | 8 | Deferred legacy | Requires an isolated JDK 8 build and protocol-compatibility fixtures. |
 
 An empty folder, version range in metadata, or successful compilation alone is
@@ -127,6 +130,9 @@ not a login or release claim.
 | NeoForge 1.20.2 | Recompile the 1.21.1 core plus three era seams (overlay API, onDisconnect signature, config registration) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.20.4 | Recompile the 1.21.1 core plus the same three era seams (ModDevGradle toolchain) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.20.6 | Recompile the 1.21.1 core plus one era seam (onDisconnect signature) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
+| NeoForge 1.21.6 | Recompile the 1.21.1 core plus the 1.21.6+ GUI seam | passed (2026-07-17) | none | Per-target login matrix and the shared 1.21 feature backlog |
+| NeoForge 1.21.10 | Recompile the 1.21.1 core plus GUI + record-era seams | passed (2026-07-17) | none | Per-target login matrix and the shared 1.21 feature backlog |
+| NeoForge 1.21.11 | Recompile the 1.21.1 core plus GUI + record-era + Identifier-rename seams | passed (2026-07-17) | none | Per-target login matrix and the shared 1.21 feature backlog |
 
 ## Recorded runtime evidence
 
@@ -159,6 +165,9 @@ required before a release claim.
 | 2026-07-15 | Fabric 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 / Java 21 launcher (Java 17 target) | `platform/fabric-1.20.1/build/libs/trueuuid-1.1.0-fabric1.20.1.jar` | `:platform:fabric-1.20.1:test :platform:fabric-1.20.1:remapJar` passed. The first slice has login-phase packet bounds, local client `joinServer`, bounded Mojang `hasJoined`, and profile replacement. No client/server runtime run. |
 | 2026-07-16 | NeoForge 1.20.4 | NeoForge 20.4.251 / Java 17 toolchain (JDK 21 launcher) / ModDevGradle 2.0.118 | `platform/neoforge-1.20.4/build/libs/trueuuid-1.1.0-neoforge1.20.4.jar` | `:platform:neoforge-1.20.4:build` passed with the same three era-seam exclusions as 1.20.2 (diagnostic-verified identical failure set); era-correct `META-INF/mods.toml` (javafml `[1,)`), JAVA_17 mixin config. No login run. |
 | 2026-07-16 | NeoForge 1.20.6 | NeoForge 20.6.139 / Java 21 / ModDevGradle 2.0.118 | `platform/neoforge-1.20.6/build/libs/trueuuid-1.1.0-neoforge1.20.6.jar` | `:platform:neoforge-1.20.6:build` passed with a single era-seam exclusion (`ServerLoginMixin`); the shared `TrueuuidClientOverlay` compiles unchanged there now that it uses `ResourceLocation.tryParse`. `neoforge.mods.toml` with javafml `[3,)` (matching 20.6's own manifest). All other NeoForge modules rebuilt clean against the shared-source change. No login run. |
+| 2026-07-17 | NeoForge 1.21.6 | NeoForge 21.6.20-beta / Java 21 / ModDevGradle 2.0.118 | `platform/neoforge-1.21.6/build/libs/trueuuid-1.1.0-neoforge1.21.6.jar` | `:platform:neoforge-1.21.6:build` passed with the `modernGuiSources` seam only — the 1.21.8 recipe transplants cleanly to the beta-only 21.6 line. No login run. |
+| 2026-07-17 | NeoForge 1.21.10 | NeoForge 21.10.64 / Java 21 / ModDevGradle 2.0.118 | `platform/neoforge-1.21.10/build/libs/trueuuid-1.1.0-neoforge1.21.10.jar` | `:platform:neoforge-1.21.10:build` passed after adding `recordEraSources`: authlib 7 (`GameProfile` record), `Minecraft.services().sessionService()`, and `player.level().getServer()` verified against the 21.10 compile artifacts. No login run. |
+| 2026-07-17 | NeoForge 1.21.11 | NeoForge 21.11.44 / Java 21 / ModDevGradle 2.0.118 | `platform/neoforge-1.21.11/build/libs/trueuuid-1.1.0-neoforge1.21.11.jar` | `:platform:neoforge-1.21.11:build` passed after additionally adding `identifierEraSources` for the `ResourceLocation` → `Identifier` official-mappings rename (verified: `net/minecraft/resources/Identifier.class` in the 21.11 artifacts, absent in 21.10's). No login run. |
 | 2026-07-16 | NeoForge 1.20.2 | NeoForge 20.2.93 / Java 17 toolchain (JDK 21 launcher) / NeoGradle 7.0.192 | `platform/neoforge-1.20.2/build/libs/trueuuid-1.1.0-neoforge1.20.2.jar` | `:platform:neoforge-1.20.2:build` passed: the `neoforge-1.21.1` privileged source recompiled against 1.20.2 with three era-seam file exclusions and the shared `NetIds` moved to `ResourceLocation.tryParse`; focused tests passed; the jar carries era-correct `META-INF/mods.toml` (javafml `[1,)`), JAVA_17 mixin config, and Java 17 bytecode. All five 1.21.x NeoForge modules rebuilt and re-tested the same day against the shared-source change. No login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
@@ -193,7 +202,10 @@ platform/
   neoforge-1.21.3/ # per-version metadata/build, recompiles the shared source
   neoforge-1.21.4/
   neoforge-1.21.5/
+  neoforge-1.21.6/  # beta-only NeoForge line; 1.21.6+ GUI seam
   neoforge-1.21.8/
+  neoforge-1.21.10/ # + record-era seams (GameProfile record, services())
+  neoforge-1.21.11/ # + Identifier rename (final legacy-scheme release)
 ```
 
 Directories are added only when they contain a compiling adapter. Shared code
@@ -264,7 +276,25 @@ NeoForge 20.2 predates the moddev-bundle Gradle metadata ModDevGradle 2
 requires (20.4+ publish it), so `neoforge-1.20.2` alone builds with NeoGradle 7
 userdev; it also predates the `neoforge.mods.toml` rename, so it owns its
 `META-INF/mods.toml` (javafml `[1,)`, `mandatory=true`) instead of applying
-`neoforge-common/metadata.gradle`. Each later module owns its `neoforge.mods.toml`, Gradle run
+`neoforge-common/metadata.gradle`.
+
+Two newer era seams sit at the top of the range (2026-07-17, both found by
+diagnostic compiles and verified against the published compile artifacts) —
+**these are vanilla/authlib changes, so the Forge 1.21.9–1.21.11 session will
+hit them too**:
+
+- **1.21.9+ record era** (`recordEraSources` in `neoforge-1.21.10` and
+  `neoforge-1.21.11`): authlib's `GameProfile` became a record
+  (`id()`/`name()`/`properties()`), the client session service moved to
+  `Minecraft.services().sessionService()`, and `ServerPlayer.getServer()` is
+  gone (use `player.level().getServer()`; `ServerPlayer.level()` returns
+  `ServerLevel` covariantly). Affects exactly `AdapterRuntime`,
+  `ServerLoginMixin`, `ClientHandshakeMixin`.
+- **1.21.11 Identifier rename** (`identifierEraSources` in
+  `neoforge-1.21.11` only): the official mappings rename `ResourceLocation`
+  to `Identifier` in the final legacy-scheme release (1.21.10 still has
+  `ResourceLocation`). Affects exactly `NetIds`, `AuthPayload`,
+  `ClientboundCustomQueryMixin`, `TrueuuidClientOverlay`. Each later module owns its `neoforge.mods.toml`, Gradle run
 configuration, artifact name, and version range. This is source sharing only;
 no compiled classes or refmaps are reused between Minecraft versions. If a
 NeoForge API diverges, the affected source must move to that target module

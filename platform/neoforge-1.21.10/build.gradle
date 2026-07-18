@@ -1,0 +1,103 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.118'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def minecraftVersion = '1.21.10'
+def neoForgeVersion = '21.10.64'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+// Built against 1.21.10/NeoForge 21.10. 1.21.9 (protocol 773, NeoForge 21.9 —
+// beta-only line, latest 21.9.16-beta, checked 2026-07-16) is a wire-level
+// match; widen minecraftRange to "[1.21.9,1.21.11)" only after a two-sided
+// login run passes on 1.21.9 — declared range unchanged until then. javafml
+// is "[3,)" to match 21.10's own manifest. See
+// docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
+ext.neoforgeMetadata = [
+        loaderRange: "[${neoForgeVersion},)",
+        minecraftRange: '[1.21.10,1.21.11)',
+        javafmlRange: '[3,)'
+]
+apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
+
+base { archivesName = 'trueuuid' }
+repositories { mavenCentral() }
+
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+
+// Minecraft 1.21.6+ replaced the GUI PoseStack with Matrix3x2fStack. Keep
+// that render-only change in this target; login/authentication remains shared.
+def modernGuiSources = [
+        'cn/alini/trueuuid/client/ClientAccountStatus.java'
+]
+
+// Minecraft 1.21.9+ made authlib's GameProfile a record (id()/name()/
+// properties()), moved the client session service to Minecraft.services(),
+// and removed ServerPlayer.getServer(). Exactly these three shared files
+// carry those call sites (diagnostic compile against the unmodified shared
+// source, 2026-07-17); this module supplies record-era local copies.
+def recordEraSources = [
+        'cn/alini/trueuuid/server/AdapterRuntime.java',
+        'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
+        'cn/alini/trueuuid/mixin/client/ClientHandshakeMixin.java'
+]
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
+
+neoForge {
+    version = neoForgeVersion
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
+    }
+    mods {
+        trueuuid {
+            sourceSet(sourceSets.main)
+            sourceSet(sharedProtocolMain.get())
+        }
+    }
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+dependencies {
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    from("${adapterMain}/resources") { include 'trueuuid.mixins.json', 'trueuuid-banner.png' }
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    source = files(fileTree("${adapterMain}/java") { exclude modernGuiSources + recordEraSources }, fileTree('src/main/java'))
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
