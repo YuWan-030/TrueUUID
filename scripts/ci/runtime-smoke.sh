@@ -16,15 +16,15 @@ case "$role" in
 esac
 
 case "$target_id" in
-    forge-1.20.1)
-        task=":platform:forge-1.20.1:run${role^}"
+    forge-1.20.1|neoforge-1.20.1)
+        task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID 已经加载'
         ;;
-    forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8)
+    forge-1.20.2|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8)
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID Forge adapter loaded'
         ;;
-    neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
+    neoforge-1.20.2|neoforge-1.20.4|neoforge-1.20.6|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.6|neoforge-1.21.8|neoforge-1.21.10|neoforge-1.21.11)
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID NeoForge adapter loaded'
         ;;

@@ -21,15 +21,11 @@ pluginManagement {
 
 rootProject.name = 'TrueUUID'
 
-// The active target matrix is explicit. Add an adapter here only after it has
-// a self-contained build and the acceptance gates in docs/development pass.
+// Every compiling adapter is included here and in release/targets.json. Runtime
+// acceptance controls its release flag; it does not remove the adapter from CI.
 include 'shared:protocol'
 include 'platform:forge-1.20.1'
-// Inclusion makes the standalone Fabric tasks addressable. The root lifecycle
-// build does not depend on this Planned adapter.
 include 'platform:fabric-1.20.1'
-// Inclusion makes the standalone tasks of these Planned adapters addressable.
-// The root lifecycle build does not depend on them.
 include 'platform:neoforge-1.20.1'
 include 'platform:neoforge-1.20.2'
 include 'platform:neoforge-1.20.4'
@@ -42,8 +38,6 @@ include 'platform:neoforge-1.21.3'
 include 'platform:neoforge-1.21.4'
 include 'platform:neoforge-1.21.5'
 include 'platform:neoforge-1.21.8'
-// Inclusion makes the standalone forge-1.20.2 tasks addressable. The root
-// lifecycle build does not depend on this Planned adapter.
 include 'platform:forge-1.20.2'
 include 'platform:forge-1.21.1'
 include 'platform:forge-1.21.8'

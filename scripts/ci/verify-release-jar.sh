@@ -15,6 +15,8 @@ version=$(sed -n 's/^mod_version=//p' gradle.properties)
 target=$(jq -ce --arg id "$target_id" '.targets[] | select(.id == $id)' release/targets.json)
 artifact=$(jq -r --arg version "$version" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
 loader=$(jq -r '.loader' <<<"$target")
+metadata=$(jq -r '.metadata' <<<"$target")
+srg_probe=$(jq -r '.srg_probe // empty' <<<"$target")
 
 [[ -f "$artifact" ]] || { echo "missing built artifact: $artifact" >&2; exit 66; }
 unzip -tqq "$artifact"
@@ -23,17 +25,14 @@ case "$loader" in
     forge)
         entry_class=cn/alini/trueuuid/Trueuuid.class
         mixins=trueuuid.mixins.json
-        metadata=META-INF/mods.toml
         ;;
     neoforge)
         entry_class=cn/alini/trueuuid/Trueuuid.class
         mixins=trueuuid.mixins.json
-        metadata=META-INF/neoforge.mods.toml
         ;;
     fabric)
         entry_class=cn/alini/trueuuid/fabric/TrueuuidFabric.class
         mixins=trueuuid.fabric.mixins.json
-        metadata=fabric.mod.json
         ;;
     *) echo "unsupported loader for JAR verification: $loader" >&2; exit 65 ;;
 esac
@@ -55,22 +54,9 @@ if grep -Eq '(^|/)(test|tests)/|Test\.class$' <<<"$entries"; then
     exit 65
 fi
 
-# Forge 47/48 and the legacy NeoForge 47.1 coordinate run SRG names in
-# production. Their Mixin classes therefore require both a refmap and actual
-# SRG-reobfuscated member references. A successful Gradle task is insufficient:
-# missing MixinGradle outputs can otherwise leave an official-named JAR behind.
-case "$target_id" in
-    forge-1.20.1|neoforge-1.20.1)
-        ./scripts/ci/verify-srg-mixin-jar.sh \
-            "$artifact" \
-            cn.alini.trueuuid.mixin.server.ServerLoginMixin
-        ;;
-    forge-1.20.2)
-        ./scripts/ci/verify-srg-mixin-jar.sh \
-            "$artifact" \
-            cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin
-        ;;
-esac
+if [[ -n "$srg_probe" ]]; then
+    ./scripts/ci/verify-srg-mixin-jar.sh "$artifact" "$srg_probe"
+fi
 
 mkdir -p "$output_dir"
 cp "$artifact" "$output_dir/"
