@@ -140,7 +140,7 @@ abstract class ServerLoginMixin {
         trueuuid$clear();
     }
 
-    @Unique static GameProfile trueuuid$profile(VerifiedProfile profile) {
+    @Unique private static GameProfile trueuuid$profile(VerifiedProfile profile) {
         ImmutableMultimap.Builder<String, Property> properties = ImmutableMultimap.builder();
         for (VerifiedProfile.Property property : profile.properties()) {
             properties.put(property.name(), property.signature() == null
