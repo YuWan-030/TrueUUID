@@ -1,30 +1,13 @@
-buildscript {
-    repositories {
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
-    }
-}
-
-plugins {
-    id 'eclipse'
-    id 'idea'
-    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
-}
-
+// Shared ForgeGradle wiring for the SRG-named Minecraft 1.20.2-1.20.6 era.
+// Each thin target build supplies only its exact dependency and metadata values.
 apply plugin: 'org.spongepowered.mixin'
 
 evaluationDependsOn(':shared:protocol')
+def target = project.ext.forgeTarget
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
 def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
-def minecraftVersion = '1.21.5'
-def forgeVersion = '55.1.10'
-// Forge 55.1.10; range allows the whole [55,56) line.
-def forgeVersionRange = '[55,56)'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').get()
@@ -33,22 +16,27 @@ base {
     archivesName = 'trueuuid'
 }
 
-// Version-independent adapter code + identical resources live once in
-// platform/forge-common and are recompiled here against 1.21.5 mappings.
-// Only the version-divergent shims (mixins, payloads, client render, mods.toml)
-// live in this module's own src tree. See platform/forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def legacyMatrix = "${rootDir}/platform/forge-common/src/legacy-matrix"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
-sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
-sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+sourceSets.main.java.srcDir "${legacyMatrix}/java"
+sourceSets.main.java.exclude 'cn/alini/trueuuid/mixin/client/ForgeClientGuiMixin.java'
+if (target.layeredHud) {
+    sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
+} else {
+    sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/legacy-overlay/java"
+}
+sourceSets.main.resources.srcDir "${legacyMatrix}/resources"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+sourceSets.test.java.srcDir "${rootDir}/platform/forge-common/src/legacy-matrix-test/java"
+sourceSets.test.java.srcDir "${rootDir}/platform/forge-common/src/${target.streamCodec ? 'stream-packet-test' : 'legacy-packet-test'}/java"
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    toolchain.languageVersion = JavaLanguageVersion.of(target.javaVersion as int)
 }
 
 minecraft {
-    mappings channel: 'official', version: minecraftVersion
+    mappings channel: 'official', version: target.minecraftVersion
     copyIdeResources = true
     runs {
         configureEach {
@@ -96,7 +84,7 @@ repositories {
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}"
+    minecraft "net.minecraftforge:forge:${target.minecraftVersion}-${target.forgeVersion}"
     compileOnly project(':shared:protocol')
     testImplementation project(':shared:protocol')
     testImplementation platform('org.junit:junit-bom:5.11.4')
@@ -105,13 +93,31 @@ dependencies {
 }
 
 tasks.named('processResources', ProcessResources).configure {
-    filesMatching('META-INF/mods.toml') {
-        expand minecraft_version: minecraftVersion, forge_version_range: forgeVersionRange, mod_version: project.version
+    // These values live in each thin target build, not in source files. Track
+    // them explicitly so an incremental build cannot retain another era's
+    // loader range, Java compatibility label, or pack format.
+    inputs.properties([
+            minecraftVersionRange: target.minecraftVersionRange,
+            forgeVersionRange    : target.forgeVersionRange,
+            forgeLoaderRange     : target.forgeLoaderRange,
+            javaCompatibility    : target.javaCompatibility,
+            packFormat           : target.packFormat
+    ])
+    filesMatching(['META-INF/mods.toml', 'trueuuid.mixins.json', 'pack.mcmeta']) {
+        expand minecraft_version_range: target.minecraftVersionRange,
+                forge_version_range: target.forgeVersionRange,
+                forge_loader_range: target.forgeLoaderRange,
+                java_compatibility: target.javaCompatibility,
+                pack_format: target.packFormat,
+                mod_version: project.version
     }
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-forge1.21.5.jar"
+    archiveFileName = "trueuuid-${project.version}-forge${target.minecraftVersion}.jar"
+    // Forge 48-50 production uses SRG names. Keep the generated refmap and
+    // ForgeGradle reobfuscation output as the shipped target artifact.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes('MixinConfigs': 'trueuuid.mixins.json')
     }

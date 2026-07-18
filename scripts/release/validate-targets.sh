@@ -35,7 +35,7 @@ jq -e '
       (.srg_probe | type == "string" and
         test("^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"))) and
     (.id as $id |
-      if (["forge-1.20.1", "forge-1.20.2", "neoforge-1.20.1"] | index($id))
+      if (["forge-1.20.1", "forge-1.20.2", "forge-1.20.4", "neoforge-1.20.1"] | index($id))
       then (.srg_probe != null)
       else (.srg_probe == null)
       end) and

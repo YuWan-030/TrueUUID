@@ -39,6 +39,7 @@ base {
 // live in this module's own src tree. See platform/forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 

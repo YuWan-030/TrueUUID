@@ -64,7 +64,7 @@ it claims.
 The Forge range candidates differ deliberately from the generic protocol table:
 a protocol match cannot manufacture an upstream Forge loader for a patch.
 
-## First implementation session after the parity/runtime gate
+## Implementation progress
 
 Progress on 2026-07-18: `feature/forge-legacy-coverage` added the first unit,
 `forge-1.21.6`, on Forge 56.0.9. The adapter recompiles `forge-common` plus a
@@ -75,22 +75,19 @@ GUI mixin. Focused tests, both affected Forge builds, structural JAR checks, the
 `release:false`; client/login evidence is still absent. Continue with a separate
 reviewable target family.
 
-Start a short-lived `feature/forge-legacy-coverage` branch from refreshed
-`origin/main`. The first reviewable unit should be **one target family only**:
+Session 1 of the 1.20.x release scope added `forge-1.20.4` (Forge 49.2.8) and
+`forge-1.20.6` (Forge 50.2.9). Forge 1.20.2/1.20.4/1.20.6 now share one
+source-only legacy login matrix, parameterized resources and Gradle wiring;
+only the old-overlay/layered-draw and pre-/post-StreamCodec seams split. The
+layered-draw source is also shared with Forge 1.21.4/1.21.5. Focused builds,
+tests, release-JAR structure, and Gradle development-server boots pass. Both
+targets remain Planned and `release:false`: the exact production JARs still
+need client/server login acceptance. See `forge-1.20x-runtime-handoff.md`.
 
-1. Re-query official Forge promotions and exact published artifacts. Record
-   loader version, Java level, mappings, and the absence/presence result in
-   `target-matrix.md` before scaffolding.
-2. Start with `forge-1.21.6`, an independent protocol patch in the established
-   modern `forge-common` family. Keep it `Planned` and `release:false`.
-3. Add its module, root/settings registration, release inventory entry,
-   verify/self-test selection, local dev-run registration, structural JAR
-   verification, and target-matrix row together.
-4. Run the declared-JDK focused build and shared protocol fixtures. Only then
-   attempt its real modded client/server matrix. Do not widen a neighboring
-   range in the same commit.
-5. Commit signed, merge directly to `main` only after that reviewable unit is
-   validated. Do not use or rewrite `archive/*` branches.
+The next implementation session should not add another Forge version until
+those exact artifacts have runtime evidence. Record the Forge 1.20.4 and 1.20.6
+results first, then decide whether 1.20.3 can safely join the 1.20.4 artifact
+range. Forge has no 1.20.5 loader, so 1.20.6 stays a single-patch target.
 
 Fabric expansion starts separately after the Fabric runtime proof, with
 `fabric-1.20.2` as its first module. Keep version-specific networking, client

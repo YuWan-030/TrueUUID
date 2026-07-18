@@ -3,6 +3,14 @@ plugins {
 }
 
 subprojects {
+    tasks.withType(Jar).configureEach {
+        // Release provenance must survive a clean rebuild. ZIP entry timestamps
+        // and filesystem traversal order otherwise change artifact hashes even
+        // when every source and dependency is identical.
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
     tasks.withType(ProcessResources).configureEach {
         // gradle.properties is not itself a task input. Track the canonical
         // project version so an incremental build cannot keep stale loader
@@ -15,6 +23,8 @@ tasks.named('build') {
     dependsOn ':shared:protocol:build',
             ':platform:forge-1.20.1:build',
             ':platform:forge-1.20.2:build',
+            ':platform:forge-1.20.4:build',
+            ':platform:forge-1.20.6:build',
             ':platform:forge-1.21.1:build',
             ':platform:forge-1.21.3:build',
             ':platform:forge-1.21.4:build',

@@ -98,7 +98,7 @@ each target, the workflow:
 2. Checks the actual release JAR as a ZIP, verifies the entrypoint, protocol,
    Mixin configuration, and era-correct loader metadata, rejects duplicate or
    test classes, and records `SHA256SUMS`.
-3. For Forge 1.20.1, Forge 1.20.2, and NeoForge 1.20.1, additionally requires a
+3. For Forge 1.20.1, Forge 1.20.2, Forge 1.20.4, and NeoForge 1.20.1, additionally requires a
    nonempty refmap, a `MixinConfigs` manifest entry, SRG method references, and
    SRG-renamed shadow fields.
 4. Boots an offline-mode server on `127.0.0.1` and requires both the TrueUUID

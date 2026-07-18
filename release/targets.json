@@ -25,6 +25,28 @@
       "release": false
     },
     {
+      "id": "forge-1.20.4",
+      "build_task": ":platform:forge-1.20.4:build",
+      "artifact": "platform/forge-1.20.4/build/libs/trueuuid-%VERSION%-forge1.20.4.jar",
+      "loader": "forge",
+      "game_version": "1.20.4",
+      "java": 17,
+      "metadata": "META-INF/mods.toml",
+      "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
+      "release": false
+    },
+    {
+      "id": "forge-1.20.6",
+      "build_task": ":platform:forge-1.20.6:build",
+      "artifact": "platform/forge-1.20.6/build/libs/trueuuid-%VERSION%-forge1.20.6.jar",
+      "loader": "forge",
+      "game_version": "1.20.6",
+      "java": 21,
+      "metadata": "META-INF/mods.toml",
+      "srg_probe": null,
+      "release": false
+    },
+    {
       "id": "forge-1.21.1",
       "build_task": ":platform:forge-1.21.1:build",
       "artifact": "platform/forge-1.21.1/build/libs/trueuuid-%VERSION%-forge1.21.1.jar",

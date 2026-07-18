@@ -1,14 +1,15 @@
-# Handoff: Forge version consolidation (1.20.1–1.20.6, 1.21–1.21.11)
+# Historical plan: Forge version consolidation (1.20.1–1.20.6, 1.21–1.21.11)
 
-**This is a handoff document, not an implementation log.** It describes work
-for a future session to plan and execute — nothing in this doc has been built
-yet. Read [`version-consolidation-roadmap.md`](../architecture/version-consolidation-roadmap.md)
-first; it has the protocol-version evidence and the shared rule this doc
-builds on rather than repeats.
+**Do not execute this plan literally.** It preserves the original sequencing,
+but Phases B, C, and D are implemented as of 2026-07-18. Forge also publishes
+no 1.20.5 or 1.21.2 loader, which invalidates two original range assumptions.
+Use [`target-matrix.md`](../architecture/target-matrix.md) for live state and
+[`full-legacy-loader-coverage-handoff.md`](full-legacy-loader-coverage-handoff.md)
+for the corrected end state.
 
 ## Objective and boundaries
 
-Extend Forge coverage from today's 6 modules (`forge-1.20.1`, `forge-1.21.1`,
+The original objective was to extend Forge coverage from the then-current 6 modules (`forge-1.20.1`, `forge-1.21.1`,
 `forge-1.21.3`, `forge-1.21.4`, `forge-1.21.5`, `forge-1.21.8`) to 12 modules
 covering every Minecraft patch from 1.20.1–1.20.6 and 1.21–1.21.11, while
 keeping the module *count* as low as the protocol-version evidence allows —
@@ -35,14 +36,14 @@ sed -n '1,240p' docs/development/adding-adapter.md
 | Module | Action | Covers | Protocol |
 |---|---|---|---|
 | `forge-1.20.1` | unchanged | 1.20.1 | 763 (pre-config-phase island — never merges forward) |
-| `forge-1.20.2` | **new** | 1.20.2 | 764 (solo) |
-| `forge-1.20.4` | **new** | 1.20.3 + 1.20.4 | 765 |
-| `forge-1.20.6` | **new** | 1.20.5 + 1.20.6 | 766 |
+| `forge-1.20.2` | implemented | 1.20.2 | 764 (solo) |
+| `forge-1.20.4` | implemented; widen pending | 1.20.4 (1.20.3 only after exact runtime) | 765 |
+| `forge-1.20.6` | implemented | 1.20.6 (no Forge 1.20.5 loader exists) | 766 |
 | `forge-1.21.1` | **widen** | 1.21 + 1.21.1 | 767 |
 | `forge-1.21.3` | **widen** | 1.21.2 + 1.21.3 | 768 |
 | `forge-1.21.4` | unchanged | 1.21.4 | 769 (solo) |
 | `forge-1.21.5` | unchanged | 1.21.5 | 770 (solo) |
-| `forge-1.21.6` | **new** | 1.21.6 | 771 (solo — see the correction below) |
+| `forge-1.21.6` | implemented | 1.21.6 | 771 (solo — see the correction below) |
 | `forge-1.21.8` | **widen** | 1.21.7 + 1.21.8 | 772 |
 | `forge-1.21.10` | **new** | 1.21.9 + 1.21.10 | 773 |
 | `forge-1.21.11` | **new** | 1.21.11 | 774 (solo) |
@@ -109,6 +110,10 @@ on architecturally. Do this before Phase C.
 
 ### Phase C — `forge-1.20.4`, `forge-1.20.6`
 
+Completed 2026-07-18 through shared `forge-common` legacy-matrix, overlay-era,
+layered-draw, and packet-codec source roots. Exact production JAR runtime
+acceptance remains in `forge-1.20x-runtime-handoff.md`.
+
 Same recipe as whatever Phase B settled on (either `forge-common` or the new
 `forge-1.20x-common`). `forge-1.20.4` targets 1.20.4's mappings and declares
 `versionRange` covering 1.20.3 as well only once 1.20.3 also has its own
@@ -116,6 +121,9 @@ login run — same "prove before you widen" rule as everything else. Likewise
 `forge-1.20.6` for the 1.20.5/1.20.6 pair.
 
 ### Phase D — `forge-1.21.6`
+
+Completed 2026-07-18 through the source-only `modern-matrix` root; server boot
+passes and client/login acceptance remains pending.
 
 Lowest-risk module in the whole session: another spoke of the
 already-proven, already-working 1.21.x `forge-common` family, same recipe as

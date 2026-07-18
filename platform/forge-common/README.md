@@ -1,8 +1,9 @@
 # forge-common — shared source for modern Forge adapters
 
 This directory is **not a Gradle module**. It is a shared source root consumed by
-every modern Forge target (the 1.20.2+ payload-based login protocol: `forge-1.20.2`,
-`forge-1.21.1`, `forge-1.21.3`, `forge-1.21.4`, `forge-1.21.5`, `forge-1.21.6`,
+every modern Forge target (the 1.20.2+ payload-based login protocol:
+`forge-1.20.2`, `forge-1.20.4`, `forge-1.20.6`, `forge-1.21.1`,
+`forge-1.21.3`, `forge-1.21.4`, `forge-1.21.5`, `forge-1.21.6`,
 `forge-1.21.8`, …).
 Each of those modules adds this tree via:
 
@@ -24,6 +25,13 @@ Narrow API eras use additional source-only roots beneath this directory. The
 not exist until the later Forge line, so 1.21.6 uses the shared GUI mixin. Tests
 live in `src/modern-matrix-test`. This avoids copying an entire target adapter
 while still compiling and remapping each artifact against its exact dependency.
+
+The `src/legacy-matrix` root similarly owns the unchanged Forge 48-50 login,
+payload, event, HUD-scale, and lifecycle seams. `src/legacy-overlay` is the old
+Forge 48/49 overlay API, while `src/layered-draw` is shared by Forge 50, 54,
+and 55. Packet-envelope tests split only at Minecraft 1.20.5's StreamCodec
+boundary. `legacy-matrix.gradle` holds the common ForgeGradle wiring and each
+1.20.x target build supplies only exact version/toolchain metadata.
 
 User-facing strings are **not** here: they live in `platform/common-assets`, which
 both Forge and NeoForge consume, so a message is worded once for every loader. This
@@ -49,7 +57,7 @@ shared `cn.alini.trueuuid.protocol` module.
 - `mixin/client/ForgeClientGuiMixin.java` — badge draw for Forge 52/53 only
 - `resources/` — `trueuuid.mixins.json`, `pack.mcmeta`
 
-## What stays in each per-version module (version-divergent)
+## What stays in narrow era roots or per-version modules
 
 Anything that binds to a Minecraft or Forge API that changes between API eras.
 Keep it in either a narrowly named source-only era root or the module's own
@@ -63,8 +71,8 @@ Keep it in either a narrowly named source-only era root or the module's own
 - `TrueuuidForgeEvents.java` — game-event seam; differs only by the
   `@SubscribeEvent` import (`eventbus.api` on Forge ≤ 55 vs
   `eventbus.api.listener` on Forge 56+)
-- `TrueuuidClientOverlay.java` — HUD seam; present on Forge 48 (the pre-1.21
-  `RegisterGuiOverlaysEvent` API) and on Forge 54+ (`ForgeLayeredDraw`); see
+- `TrueuuidClientOverlay.java` — HUD seam; Forge 48/49 use the old
+  `RegisterGuiOverlaysEvent` API while Forge 50/54+ use `ForgeLayeredDraw`; see
   the HUD table below
 - `META-INF/mods.toml` — version and loader ranges
 
@@ -76,33 +84,32 @@ named variant root such as `src/modern-matrix`; only a truly single-target seam 
 duplicated in a module. `forge-1.20.1` is a separate pre-configuration-phase
 protocol era and does **not** use this root.
 
-Two recorded qualifications to that rule (from wiring `forge-1.20.2` into this
-root, 2026-07-16 — the only compile failure in the whole tree was
-`ForgeClientGuiMixin`):
+Two recorded qualifications to that rule:
 
 - `mixin/client/ForgeClientGuiMixin.java` compiles only on 1.21.x
   (`DeltaTracker` does not exist before 1.21). It stays here because the
   shared `trueuuid.mixins.json` used by the six 1.21.x modules lists it;
-  `forge-1.20.2` excludes this one file in its `build.gradle` (`sourceSets`
-  `exclude`) and ships its own mixins config without the GUI mixin entry. So
+  the shared 1.20.x Gradle wiring excludes this one file and ships a
+  parameterized mixins config without the GUI mixin entry. So
   the rule reads precisely: it compiles unchanged against every module that
   *includes* it.
-- `resources/` here (`trueuuid.mixins.json`, `pack.mcmeta`) is consumed by the
-  1.21.x modules only. `forge-1.20.2` carries its own copies: its mixin list
-  differs (no GUI mixin), its compatibility level is `JAVA_17` (Java 17
-  toolchain), and its `pack_format` is 18.
+- `src/main/resources` is consumed by the 1.21.x modules only. Forge
+  1.20.2/1.20.4/1.20.6 consume the single parameterized resource templates in
+  `src/legacy-matrix/resources`; each thin module provides its Minecraft/Forge
+  ranges, pack format, and Mixin compatibility label.
 
 ## The HUD badge: two paths, one per pipeline
 
-Forge's HUD extension API changed with the 1.21.5+ render pipeline, so the badge
-registration is a per-version seam while the drawing stays shared here in
+Forge's HUD extension API changes twice across the supported range, so badge
+registration is an era seam while the drawing stays shared here in
 `client/ClientAccountStatus`:
 
 | Forge | HUD hook available | Path used |
 |---|---|---|
-| 48 (1.20.2) | `RegisterGuiOverlaysEvent` + `IGuiOverlay` (the pre-1.21 overlay API, removed in Forge 51+) | per-module `TrueuuidClientOverlay`; `ForgeClientGuiMixin` is excluded from the compile entirely |
+| 48/49 (1.20.2/1.20.4) | `RegisterGuiOverlaysEvent` + `IGuiOverlay` | shared `src/legacy-overlay`; `ForgeClientGuiMixin` is excluded from the compile entirely |
+| 50 (1.20.6) | `AddGuiOverlayLayersEvent` + `ForgeLayeredDraw` | shared `src/layered-draw`, also consumed by Forge 54/55 |
 | 52 (1.21.1), 53 (1.21.3) | none | shared `mixin/client/ForgeClientGuiMixin` injects `Gui.render` |
-| 54 (1.21.4), 55 (1.21.5) | `AddGuiOverlayLayersEvent` (EventBus 6) + `ForgeLayeredDraw.add(id, LayeredDraw.Layer)` | per-module `TrueuuidClientOverlay` |
+| 54 (1.21.4), 55 (1.21.5) | `AddGuiOverlayLayersEvent` (EventBus 6) + `ForgeLayeredDraw.add(id, LayeredDraw.Layer)` | shared `src/layered-draw` |
 | 56 (1.21.6) | no Forge HUD layer event; 2D matrix `GuiGraphics` | shared `ForgeClientGuiMixin` + `src/modern-matrix` scale seam; overlay event file excluded |
 | 58 (1.21.8) | `AddGuiOverlayLayersEvent` (EventBus 7) + `ForgeLayeredDraw.add(id, ForgeLayer)` | shared `src/modern-matrix` `TrueuuidClientOverlay` |
 

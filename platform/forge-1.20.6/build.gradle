@@ -1,0 +1,37 @@
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    // Forge 50's current MDK uses ForgeGradle 7, which requires Gradle 9.3.
+    // This multi-loader repository must stay on Gradle 8.14 for its older
+    // plugins, so Forge 50 consumes the same userdev bundle through FG 6.0.54.
+    // Its official-named output intentionally has no legacy reobfJar task.
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+}
+
+ext.forgeTarget = [
+        minecraftVersion     : '1.20.6',
+        minecraftVersionRange: '[1.20.6,1.20.7)',
+        forgeVersion         : '50.2.9',
+        forgeVersionRange    : '[50.2.0,51)',
+        forgeLoaderRange     : '[50,)',
+        javaVersion          : 21,
+        // Forge 50 bundles Mixin 0.8.5, whose highest recognized label is
+        // JAVA_17. The game/toolchain still runs Java 21; our mixins use no
+        // post-17 language features and are safe at this compatibility level.
+        javaCompatibility    : 'JAVA_17',
+        packFormat           : 32,
+        layeredHud           : true,
+        streamCodec          : true
+]
+
+apply from: "${rootDir}/platform/forge-common/legacy-matrix.gradle"

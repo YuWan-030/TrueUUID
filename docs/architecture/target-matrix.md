@@ -10,6 +10,8 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.20.1 | Forge 47.4.10 | 17 | Re-validation pending | Implemented in `platform/forge-1.20.1` (independent pre-configuration-phase island). **Artifact defect resolved 2026-07-18:** MixinGradle generated the refmap and reobfuscation mappings under `build/tmp/compileJava` without registering them as `compileJava` outputs. If those files disappeared from an incremental workspace, Gradle could leave `compileJava` up to date, package no refmap, and give ForgeGradle no mappings to reobfuscate. The module now declares all three generated files as task outputs, sets `MixinConfigs` explicitly, and release validation requires a refmap plus SRG method and shadow-field references. A repaired JAR booted in a non-Gradle Forge 47.4.10 server with no Mixin refmap/apply errors; the premium login evidence still must be re-recorded against that repaired artifact before release approval. |
 | Minecraft 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 | 17 target / 21 build launcher | Planned | `platform/fabric-1.20.1`; shares `platform/fabric-common`. Yarn `1.20.1+build.10`, Loom `1.13.6`, Gradle 8.14. Mojang login transport and bounded verification compile and test. It has no runtime or support claim until its focused two-sided matrix passes. |
 | Minecraft 1.20.2 | Forge 48.1.0 | 17 | Planned | `platform/forge-1.20.2`; shares `platform/forge-common` (the 1.20.2 configuration-phase pivot joined the existing root — no separate `forge-1.20x-common` was needed; sole exclusion: `ForgeClientGuiMixin`). Build + mixin refmap + focused tests pass (2026-07-16). No login run yet. Protocol 764 is shared with no other patch, so its range stays single-patch permanently. Production Forge 48 runs SRG names: its client mixins drop the 1.21.x `remap = false`, the shipped jar is reobfuscated, and CI checks its SRG method and field references. Included in the root build, CI, and release inventory with `release: false`. |
+| Minecraft 1.20.4 | Forge 49.2.8 | 17 | Planned | `platform/forge-1.20.4`; recompiles the source-only `forge-common` legacy matrix used by 1.20.2. Forge 49 accepts the login, payload, event, old-overlay, metadata, and focused-test roots unchanged. Build/tests, generated refmap, SRG-reobfuscated release-JAR probe, and a Gradle development-server boot pass (2026-07-18). Declares `[1.20.4,1.20.5)`; widening to 1.20.3 waits on an exact 1.20.3 client/server login run. No client/login run yet; `release: false`. |
+| Minecraft 1.20.6 | Forge 50.2.9 | 21 | Planned | `platform/forge-1.20.6`; recompiles the same legacy login matrix but switches two narrow seams: Forge 50 uses `AddGuiOverlayLayersEvent`/`ForgeLayeredDraw`, shared with Forge 54/55, and Minecraft 1.20.5+ packet tests use `StreamCodec`. Forge 50 bundles Mixin 0.8.5, so the mixin config correctly declares `JAVA_17` even though Minecraft and the module require Java 21. Forge 50's current MDK requires ForgeGradle 7 + Gradle 9.3; the multi-loader Gradle 8.14 build uses FG 6.0.54's compatible userdev path and intentionally produces no legacy `reobfJar`. Build/tests, refmap/JAR structure, and a Gradle development-server boot pass (2026-07-18). Declares `[1.20.6,1.20.7)`; Forge published no 1.20.5 loader. No exact release-JAR client/login run yet; `release: false`. |
 | Minecraft 1.21.1 | Forge 52.1.0 | 21 | Planned | `platform/forge-1.21.1`; shares `platform/forge-common`. A local premium client/server login passed, but the full acceptance matrix remains incomplete. |
 | Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
@@ -32,7 +34,7 @@ An adapter is the unit of support and release; a Git branch is not.
 
 An empty folder, version range in metadata, or successful compilation alone is
 not a support claim. Every supported target needs a real two-sided login run.
-The seven modern Forge modules build and pass unit tests, but all remain Planned
+The nine modern Forge modules build and pass unit tests, but all remain Planned
 until each has its own login run.
 
 ## Feature parity
@@ -48,9 +50,9 @@ Column coverage: **Forge 1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 /
 1.21.6 / 1.21.8 (six targets sharing `platform/forge-common`). **NeoForge
 1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 / 1.21.6 / 1.21.8 / 1.21.10 /
 1.21.11 (eight targets sharing the `neoforge-1.21.1` adapter source plus narrow
-era seams). A cell applies to every target in its column. `forge-1.20.2` also compiles
-`platform/forge-common` and matches the Forge 1.21.x column exactly — same
-login-verification core, same feature gaps.
+era seams). A cell applies to every target in its column. Forge 1.20.2, 1.20.4,
+and 1.20.6 also compile `platform/forge-common` and match the Forge 1.21.x
+column's login-verification core and feature gaps.
 
 `fallback` and `policy` are separate rows on purpose: allowing an unverified
 client to keep its offline UUID is not the same as deciding *whether* it may.
@@ -131,7 +133,8 @@ not a login or release claim.
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | Forge 1.21.6 | Same core plus the source-only `modern-matrix` seam; Forge 56 excludes the unavailable overlay event | passed (2026-07-18) | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
-| Forge 1.20.2 | Same core via `forge-common` plus target seams (pre-1.21 overlay API, SRG-era reobf and refmap) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
+| Forge 1.20.2 / 1.20.4 | Same core via `forge-common` plus the shared legacy matrix (old overlay API, SRG-era reobf and refmap) | passed (1.20.4 added 2026-07-18) | 1.20.4 development-server boot only | Exact release-JAR client/login matrix and the shared 1.21 feature backlog |
+| Forge 1.20.6 | Same legacy login matrix plus the shared layered-draw HUD seam and StreamCodec-era packet test | passed (2026-07-18) | Development-server boot only | Exact release-JAR client/login matrix, production naming confirmation, and the shared 1.21 feature backlog |
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
 | NeoForge 1.21.3 / 1.21.4 / 1.21.5 | Recompile the 1.21.1 core | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.8 | Recompile the 1.21.1 core plus GUI seam | passed | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
@@ -147,6 +150,7 @@ not a login or release claim.
 
 | Date | Target | Loader/JDK | Artifact | Result |
 |---|---|---|---|---|
+| 2026-07-18 | All 23 targets | Forge, Fabric, and NeoForge / declared Java toolchains | `trueuuid-1.2.0-<target>.jar` | Root `build` passed (229 actionable tasks). The release-JAR verifier passed all 23 artifacts. Forge 1.20.1, Forge 1.20.2, Forge 1.20.4, and NeoForge 1.20.1 additionally passed the SRG-era method/field probe. This is build evidence only, not login or release approval. |
 | 2026-07-12 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | `trueuuid-1.1.0-forge1.20.1.jar` (provenance unresolved) | Matching Prism client and offline-mode development server: Mojang `joinServer` and server `hasJoined` passed; verified UUID/name/skin and Mojang join feedback observed. This must be repeated against the repaired artifact before it supports a release claim. |
 | 2026-07-18 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | repaired `platform/forge-1.20.1/build/libs/trueuuid-1.2.0-forge1.20.1.jar` | Installed directly in a non-Gradle dedicated server's `mods/` directory. The offline-mode production server loaded `trueuuid.mixins.json`, logged `TrueUUID 已经加载`, reached `Done (16.205s)!`, and reported zero refmap or Mixin apply errors. No premium client was used; premium re-validation remains a separate desktop run. |
 | 2026-07-15 | Forge 1.21.1 | Forge 52.1.0 / Java 21.0.11 | `trueuuid-1.1.0-forge1.21.1.jar` | Matching Prism premium client and offline-mode development server: TrueUUID challenge, client `joinServer`, server session verification, premium UUID replacement, and localized join feedback passed. Offline fallback and the remaining acceptance scenarios are still pending runtime validation. |
@@ -167,6 +171,8 @@ required before a release claim.
 | 2026-07-18 | Forge 1.21.6 | Forge 56.0.9 / OpenJDK 21.0.11 | `platform/forge-1.21.6/build/libs/trueuuid-1.2.0-forge1.21.6.jar` (SHA-256 `74af0d16467a14407092635c41a41f3593b8d18b91932e4939308fd343b2bf1b`) | Shared protocol fixtures, focused build/tests, mixin refmap generation, and the release-JAR verifier passed. The 1.21.8 consumer of the extracted `modern-matrix` root rebuilt and its release JAR re-verified; the 21-target root build passed (205 actionable tasks). Forge 56 compile artifacts confirmed that `AddGuiOverlayLayersEvent` is absent, so only that source is excluded and the badge uses the shared GUI mixin. A bounded development server smoke loaded the adapter and reached `Done (5.253s)!`; no client/login run. |
 | 2026-07-18 | All 20 targets | Forge, Fabric, and NeoForge / declared Java toolchains | `trueuuid-1.2.0-<target>.jar` | Root `build` passed (195 tasks). The release-JAR verifier passed every artifact. Forge 1.20.1, Forge 1.20.2, and NeoForge 1.20.1 each additionally passed the SRG-era probe with 1 SRG method reference and 3 SRG shadow-field references. This is build evidence only, not login or release approval. |
 | 2026-07-18 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | `platform/forge-1.20.1/build/libs/trueuuid-1.2.0-forge1.20.1.jar` | Plain incremental `:platform:forge-1.20.1:build` regenerated deliberately removed Mixin outputs. The final `build/libs` JAR contains `trueuuid.refmap.json`, declares `MixinConfigs: trueuuid.mixins.json`, is byte-identical to `build/reobfJar/output.jar`, and the structural release probe found 1 SRG method reference plus 3 SRG shadow-field references in `ServerLoginMixin`. Focused tests passed. |
+| 2026-07-18 | Forge 1.20.4 | Forge 49.2.8 / Java 17 toolchain (JDK 21 launcher) / ForgeGradle 6.0.54 | `platform/forge-1.20.4/build/libs/trueuuid-1.2.0-forge1.20.4.jar` (reproducible SHA-256 `053d4d2286b49aa86a992765a293223643f5a18c2a607a48f8ce80e1df9b9c7a`) | Shared legacy-matrix build and focused tests passed. The release-JAR verifier found the refmap and 1 SRG method plus 3 SRG shadow-field references. The Gradle development server loaded `TrueUUID Forge adapter loaded` and reached `Done`; this was not an installed release-JAR run and no client joined. |
+| 2026-07-18 | Forge 1.20.6 | Forge 50.2.9 / Java 21 / ForgeGradle 6.0.54 compatibility path | `platform/forge-1.20.6/build/libs/trueuuid-1.2.0-forge1.20.6.jar` (reproducible SHA-256 `151420db0a763d550eeb860f6e8276d95c58c5768cba77ba120b763b0dcb2cff`) | Shared legacy-matrix build and StreamCodec-era focused tests passed; the structural release-JAR verifier passed. The Gradle development server loaded the JAVA_17-labelled Mixin 0.8.5 config, logged `TrueUUID Forge adapter loaded`, and reached `Done`. This was not an installed release-JAR run; exact artifact production naming and the client/login matrix remain runtime gates. |
 | 2026-07-12 | NeoForge 1.21.1 | NeoForge 21.1.213 / OpenJDK 21.0.11 | `platform/neoforge-1.21.1/build/libs/trueuuid-1.1.0-neoforge1.21.1.jar` | `:shared:protocol:test :platform:neoforge-1.21.1:build` passed. The adapter codec and lifecycle tests passed; safe endpoint verification is wired, but the real login acceptance matrix is pending. |
 | 2026-07-15 | Forge 1.21.1 | Forge 52.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.1/build/libs/trueuuid-1.1.0-forge1.21.1.jar` | JDK 21 build, shared fixtures, codec/lifecycle tests, and one real premium client/server login passed. The full matrix is still pending. |
 | 2026-07-15 | Forge 1.21.3 | Forge 53.1.0 / OpenJDK 21.0.11 | `platform/forge-1.21.3/build/libs/trueuuid-1.1.0-forge1.21.3.jar` | `:platform:forge-1.21.3:build` passed (shared `platform/forge-common` recompiled against 1.21.3 mappings; mixin refmap generated; unit tests passed). No login run. |
@@ -215,6 +221,8 @@ platform/
   fabric-1.20.1/    # Fabric login-phase adapter; consumes fabric-common
   forge-1.20.2/     # first configuration-phase Forge target; recompiles forge-common
                     # (SRG-era: ships the reobfuscated jar with refmap)
+  forge-1.20.4/     # same source-only legacy matrix and SRG output as 1.20.2
+  forge-1.20.6/     # same login matrix; layered HUD + StreamCodec test seams
   forge-1.21.1/     # \
   forge-1.21.3/     #  } each recompiles forge-common against its own Forge/mappings
   forge-1.21.4/     #  } and adds only its version-divergent shims
@@ -243,7 +251,7 @@ does not make an untested loader or Minecraft version supported.
 ## Modern Forge code sharing
 
 The 1.20.2+ payload-based login protocol is one family. Rather than duplicate the
-adapter across every 1.21.x patch, the version-independent code lives once in
+adapter across every patch, the version-independent code lives once in
 `platform/forge-common/src/main` (a **source** root, not a Gradle module) and each
 per-version module compiles it against its own Forge version and Minecraft
 mappings via:
@@ -257,16 +265,19 @@ sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 There is no shared bytecode — only shared source — so every module still gets a
 correctly remapped jar and refmap. A file may live in `forge-common` only if it
 compiles unchanged against *every* module that includes it. Since 2026-07-16 the
-family also spans the configuration-phase pivot: `forge-1.20.2` recompiles this
-same root (no separate `forge-1.20x-common` was needed). Its extra seams beyond
-the list below: `ForgeClientGuiMixin` is 1.21.x-only (`DeltaTracker`) and is
-excluded from the 1.20.2 compile; `ForgeNetIds` uses `ResourceLocation.tryParse`,
-the only factory present across the whole range; and production Forge 48 still
-runs SRG names, so the 1.20.2 client mixins must not use the 1.21.x line's
-`remap = false` and its shipped jar is the reobfuscated one. Forge 49/50
-(1.20.3–1.20.6) production naming must be re-checked when those modules are
-built. Empirically, across Forge 52 (1.21.1) → 58 (1.21.8) the only divergence
-is:
+family also spans the configuration-phase pivot. Forge 1.20.2, 1.20.4, and
+1.20.6 share `src/legacy-matrix` for login/payload/event source,
+`src/legacy-matrix-test` for common focused tests, parameterized resources, and
+`legacy-matrix.gradle` for build wiring. Forge 48/49 add the one-file
+`legacy-overlay` root and legacy packet-codec test; Forge 50 adds the one-file
+`layered-draw` root and StreamCodec test. That same layered-draw source is also
+consumed by Forge 54/55, eliminating three copies. `ForgeClientGuiMixin` remains
+1.21.x-only (`DeltaTracker`) and is excluded from all three 1.20.x compiles.
+`ForgeNetIds` uses `ResourceLocation.tryParse`, the only factory present across
+the whole range. Production Forge 48/49 run SRG names, so their shipped JARs
+are reobfuscated and structurally probed. Forge 50's Gradle 8 compatibility
+build has no legacy reobf task; its exact installed-JAR run remains the naming
+gate. Across Forge 52 (1.21.1) through 58 (1.21.8), the remaining divergence is:
 
 - the login/GUI mixins + `CustomQueryPayload` records + `ClientAccountStatus`
   (copied per module; they compile unchanged because the login classes are stable

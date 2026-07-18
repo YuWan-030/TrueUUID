@@ -15,14 +15,14 @@ plugins {
 }
 
 ext.forgeTarget = [
-        minecraftVersion     : '1.20.2',
-        minecraftVersionRange: '[1.20.2,1.20.3)',
-        forgeVersion         : '48.1.0',
-        forgeVersionRange    : '[48.1.0,49)',
-        forgeLoaderRange     : '[48,)',
+        minecraftVersion     : '1.20.4',
+        minecraftVersionRange: '[1.20.4,1.20.5)',
+        forgeVersion         : '49.2.8',
+        forgeVersionRange    : '[49.2.0,50)',
+        forgeLoaderRange     : '[49,)',
         javaVersion          : 17,
         javaCompatibility    : 'JAVA_17',
-        packFormat           : 18,
+        packFormat           : 22,
         layeredHud           : false,
         streamCodec          : false
 ]

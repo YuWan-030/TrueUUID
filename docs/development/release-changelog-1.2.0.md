@@ -3,7 +3,7 @@
 ### Platform expansion
 
 - Added a Fabric 1.20.1 adapter with Mojang account verification, policy-gated offline fallback, a persistent verified-name registry, bounded login handling, and a client account-status indicator.
-- Added Forge build coverage for Minecraft 1.20.2, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, and 1.21.8.
+- Added Forge build coverage for Minecraft 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, and 1.21.8.
 - Added NeoForge build coverage for Minecraft 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and 1.21.11.
 - Each downloadable JAR remains specific to its exact loader and Minecraft version. Release assets are limited to targets that completed the recorded acceptance checks.
 
@@ -17,8 +17,9 @@
 
 ### Build and release reliability
 
-- Unified every loader module on version 1.2.0 and added build/test coverage for all 21 declared targets.
+- Unified every loader module on version 1.2.0 and added build/test coverage for all 23 declared targets.
 - Repaired the Forge 1.20.1 production JAR so its Mixin refmap, manifest entry, and SRG-reobfuscated references are always packaged correctly.
+- Made release JAR ordering and timestamps reproducible so clean rebuilds retain the same SHA-256 hashes.
 - Added structural release checks for SRG-era artifacts and synchronized GitHub, Modrinth, and CurseForge publishing from the same tested JARs and changelog.
 
 ## 中文
@@ -26,7 +27,7 @@
 ### 平台扩展
 
 - 新增 Fabric 1.20.1 适配器，包含 Mojang 账号验证、受策略控制的离线回退、持久化已验证名称注册表、有界登录处理和客户端账号状态提示。
-- 新增 Minecraft 1.20.2、1.21.1、1.21.3、1.21.4、1.21.5、1.21.6 和 1.21.8 的 Forge 构建支持。
+- 新增 Minecraft 1.20.2、1.20.4、1.20.6、1.21.1、1.21.3、1.21.4、1.21.5、1.21.6 和 1.21.8 的 Forge 构建支持。
 - 新增 Minecraft 1.20.2、1.20.4、1.20.6、1.21.1、1.21.3、1.21.4、1.21.5、1.21.6、1.21.8、1.21.10 和 1.21.11 的 NeoForge 构建支持。
 - 每个可下载 JAR 仅适用于其对应的加载器和 Minecraft 版本。Release 附件只包含已完成并记录验收检查的目标。
 
@@ -40,6 +41,7 @@
 
 ### 构建与发布可靠性
 
-- 所有加载器模块统一使用 1.2.0 版本，并为全部 21 个已声明目标加入构建和测试覆盖。
+- 所有加载器模块统一使用 1.2.0 版本，并为全部 23 个已声明目标加入构建和测试覆盖。
 - 修复 Forge 1.20.1 生产 JAR，确保始终正确打包 Mixin refmap、清单属性和 SRG 重混淆引用。
+- 固定 Release JAR 的文件顺序和时间戳，使干净重建保持相同的 SHA-256 哈希。
 - 新增 SRG 时代产物结构检查，并让 GitHub、Modrinth 和 CurseForge 使用同一批已测试 JAR 和同一份更新日志同步发布。

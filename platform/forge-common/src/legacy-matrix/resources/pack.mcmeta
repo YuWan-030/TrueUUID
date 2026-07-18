@@ -1,0 +1,6 @@
+{
+  "pack": {
+    "description": "TrueUUID resources",
+    "pack_format": ${pack_format}
+  }
+}
