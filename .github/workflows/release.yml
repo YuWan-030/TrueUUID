@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   metadata:
-    name: Validate published release
+    name: Validate version release
     if: >-
       github.repository == 'YuWan-030/TrueUUID' &&
       github.event.release.draft == false &&
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      target: ${{ steps.release.outputs.target }}
+      approved: ${{ steps.release.outputs.approved }}
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
     steps:
@@ -31,16 +31,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - id: release
-        name: Validate tag and target approval
+        name: Validate tag, changelog, and approvals
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^([a-z0-9]+([.-][a-z0-9]+)*)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
-          target_id="${BASH_REMATCH[1]}"
-          version="${BASH_REMATCH[3]}"
+          [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
+          version="${BASH_REMATCH[1]}"
           [[ "$(sed -n 's/^mod_version=//p' gradle.properties)" == "$version" ]]
           [[ "$(git cat-file -t "refs/tags/${RELEASE_TAG}")" == tag ]]
           tag_object=$(git rev-parse "refs/tags/${RELEASE_TAG}")
@@ -48,10 +48,24 @@ jobs:
           git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
           tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
           git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main
-          ./scripts/release/validate-targets.sh --approved "$target_id" >/dev/null
-          echo "target=$target_id" >> "$GITHUB_OUTPUT"
+          ./scripts/release/validate-targets.sh
+          approved=$(jq -c \
+            '{include: [.targets[] | select(.release == true) | {target: .id}]}' \
+            release/targets.json)
+          jq -e '.include | length > 0' <<<"$approved" >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --jq '.body // ""' > release-changelog.md
+          [[ -s release-changelog.md ]]
+          echo "approved=$approved" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Preserve the published GitHub changelog
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: published-changelog
+          path: release-changelog.md
+          if-no-files-found: error
+          retention-days: 14
 
   full-self-test:
     name: Full release self-test
@@ -62,8 +76,8 @@ jobs:
     permissions:
       contents: read
 
-  publish:
-    name: Publish verified artifact
+  attach:
+    name: Attach approved artifacts
     needs: [metadata, full-self-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -74,68 +88,109 @@ jobs:
         with:
           ref: ${{ needs.metadata.outputs.tag }}
           persist-credentials: false
-      - name: Download tested release artifact
+      - name: Download all tested artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: release-${{ needs.metadata.outputs.target }}
-          path: release-assets
-      - name: Verify downloaded artifact
+          pattern: release-*
+          path: tested-artifacts
+      - name: Collect only release-approved JARs
         env:
-          TARGET_ID: ${{ needs.metadata.outputs.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir release-assets
+          while IFS= read -r target_id; do
+            target=$(./scripts/release/validate-targets.sh --approved "$target_id")
+            expected=$(jq -r --arg version "$VERSION" \
+              '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
+            source_dir="tested-artifacts/release-${target_id}"
+            (cd "$source_dir" && sha256sum --check SHA256SUMS)
+            source_jar="${source_dir}/$(basename "$expected")"
+            [[ -f "$source_jar" ]]
+            cp "$source_jar" release-assets/
+          done < <(jq -r '.targets[] | select(.release == true) | .id' release/targets.json)
+          (cd release-assets && sha256sum -- *.jar > SHA256SUMS)
+      - name: Attach tested assets to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
+
+  publish-external:
+    name: Publish ${{ matrix.target }}
+    needs: [metadata, attach]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.approved) }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Download tested target artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-${{ matrix.target }}
+          path: tested-artifact
+      - name: Download the published GitHub changelog
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-changelog
+          path: published-changelog
+      - name: Verify artifact and publishing metadata
+        env:
+          TARGET_ID: ${{ matrix.target }}
           VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           target=$(./scripts/release/validate-targets.sh --approved "$TARGET_ID")
-          expected=$(jq -r --arg version "$VERSION" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
+          expected=$(jq -r --arg version "$VERSION" \
+            '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
           loader=$(jq -r '.loader' <<<"$target")
           game_version=$(jq -r '.game_version' <<<"$target")
           curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
-          (cd release-assets && sha256sum --check SHA256SUMS)
-          jar="release-assets/$(basename "$expected")"
-          [[ -f "$jar" ]]
+          (cd tested-artifact && sha256sum --check SHA256SUMS)
+          tested_jar="tested-artifact/$(basename "$expected")"
+          [[ -f "$tested_jar" ]]
           [[ "$curseforge_project_id" =~ ^[1-9][0-9]*$ ]]
           mkdir -p "$(dirname "$expected")"
-          cp "$jar" "$expected"
+          cp "$tested_jar" "$expected"
+          [[ -s published-changelog/release-changelog.md ]]
           {
-            echo "RELEASE_JAR=$jar"
+            echo "RELEASE_JAR=$expected"
             echo "RELEASE_LOADER=$loader"
             echo "RELEASE_GAME_VERSION=$game_version"
             echo "CURSEFORGE_PROJECT_ID=$curseforge_project_id"
           } >> "$GITHUB_ENV"
-      - name: Attach tested assets to GitHub Release
+      - name: Publish to Modrinth
         env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
-        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
-      - name: Publish approved target to Modrinth
-        env:
-          GH_TOKEN: ${{ github.token }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
-          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
-          TARGET_ID: ${{ needs.metadata.outputs.target }}
+          TARGET_ID: ${{ matrix.target }}
           VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "$MODRINTH_TOKEN" ]]
           [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]]
-          gh release view "$RELEASE_TAG" --json body --jq '.body // ""' > release-changelog.md
-          if [[ ! -s release-changelog.md ]]; then
-            printf 'TrueUUID %s for %s.\n' "$VERSION" "$TARGET_ID" > release-changelog.md
-          fi
-          ./scripts/release/publish-modrinth.sh "$TARGET_ID" "$VERSION" release-changelog.md
-      - name: Publish approved target to CurseForge
+          ./scripts/release/publish-modrinth.sh \
+            "$TARGET_ID" "$VERSION" published-changelog/release-changelog.md
+      - name: Publish to CurseForge
         uses: Kir-Antipov/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
         with:
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ env.RELEASE_JAR }}
-          name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ needs.metadata.outputs.target }}
-          version: ${{ needs.metadata.outputs.version }}+${{ needs.metadata.outputs.target }}
+          name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.target }}
+          version: ${{ needs.metadata.outputs.version }}+${{ matrix.target }}
           version-type: release
-          changelog-file: release-changelog.md
+          changelog-file: published-changelog/release-changelog.md
           loaders: ${{ env.RELEASE_LOADER }}
           game-versions: ${{ env.RELEASE_GAME_VERSION }}
           fail-mode: fail

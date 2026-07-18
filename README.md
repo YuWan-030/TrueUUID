@@ -276,8 +276,8 @@ macOS/Linux:
 ```
 
 Each platform build writes its target-specific artifact to its own
-`platform/<loader>-<minecraft-version>/build/libs/` directory. Forge 1.20.1
-is the runtime-proven target; see
+`platform/<loader>-<minecraft-version>/build/libs/` directory. The root build
+covers every declared target; see
 [`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
 the exact target status and release model.
 

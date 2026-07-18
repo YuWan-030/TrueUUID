@@ -182,8 +182,9 @@ required before a release claim.
 | 2026-07-16 | NeoForge 1.20.2 | NeoForge 20.2.93 / Java 17 toolchain (JDK 21 launcher) / NeoGradle 7.0.192 | `platform/neoforge-1.20.2/build/libs/trueuuid-1.1.0-neoforge1.20.2.jar` | `:platform:neoforge-1.20.2:build` passed: the `neoforge-1.21.1` privileged source recompiled against 1.20.2 with three era-seam file exclusions and the shared `NetIds` moved to `ResourceLocation.tryParse`; focused tests passed; the jar carries era-correct `META-INF/mods.toml` (javafml `[1,)`), JAVA_17 mixin config, and Java 17 bytecode. All five 1.21.x NeoForge modules rebuilt and re-tested the same day against the shared-source change. No login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
-support claims. Every row remains Planned until the complete acceptance matrix
-in `docs/development/adding-adapter.md` passes, including migration rollback.
+support claims. Targets remain non-release-approved until the complete
+acceptance matrix in `docs/development/adding-adapter.md` passes, including
+migration rollback.
 
 The 2026-07-12 Prism login most plausibly consumed either the pre-monorepo/store
 JAR or a reobfuscated archive selected manually rather than the defective
