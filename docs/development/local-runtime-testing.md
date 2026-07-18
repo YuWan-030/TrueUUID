@@ -1,17 +1,19 @@
 # Local runtime testing
 
-Registered development targets can be launched from two terminals without
-remembering their Gradle module paths:
+Every module declared in `release/targets.json` can be launched from two
+terminals without remembering its Gradle module path. The launcher validates
+that manifest first, so its target inventory cannot silently drift behind the
+build, smoke-test, and release inventories:
 
 ```bash
 scripts/run-dev-target.sh forge-1.20.1 server
 scripts/run-dev-target.sh forge-1.20.1 client
 ```
 
-The script uses Java 17 for Forge 1.20.1. Override the detected JDK with
-`TRUEUUID_JAVA_HOME=/path/to/jdk` when necessary. The server run directory is
-owned by ForgeGradle; accept the EULA and configure its `server.properties`
-there before a real login test.
+All invocations need a Java 21 Gradle launcher because Fabric Loom is
+configured during every Gradle invocation. Java 17 targets still run the game
+with their module toolchain. Select the launcher with
+`TRUEUUID_JAVA_HOME=/path/to/jdk` when necessary.
 
 ## Fabric 1.20.1
 
@@ -26,9 +28,9 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
 ```
 
 The script prepares `platform/fabric-1.20.1/run/server` with `eula=true`,
-`online-mode=false`, and a localhost bind. The Fabric adapter currently covers
-only a Mojang premium login assertion; it has no fallback, migration, or
-Yggdrasil runtime claim.
+`online-mode=false`, and a localhost bind. Fabric has policy-gated offline
+fallback and a verified-name registry, but no migration, addon API, admin
+commands, or Yggdrasil runtime claim.
 
 For concurrent local runs, the launcher caps Gradle at 1G, the Fabric server
 at 1536M, and the Fabric client at 3G. Override one cap only when needed:
@@ -87,7 +89,7 @@ Run the server and client commands in separate terminals. The client must use
 the same freshly built protocol-v1 source tree as the server; it cannot
 interoperate with an older TrueUUID jar.
 
-The launcher intentionally rejects targets not listed in its case statement.
-It is a test convenience, not a support or release claim. Add a target only
-after its module, declared JDK build, focused tests, and runtime acceptance
-prerequisites exist. It does not launch the historical NeoForge 1.21.1 work.
+The launcher accepts every target in the validated manifest, including
+NeoForge 1.20.x, 1.21.6, 1.21.10, and 1.21.11. This is a test convenience, not
+a support or release claim; record each real login result separately in the
+target matrix before changing its release flag.

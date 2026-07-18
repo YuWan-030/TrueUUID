@@ -5,25 +5,23 @@ set -euo pipefail
 
 target="${1:-forge-1.20.1}"
 role="${2:-}"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+targets_file="$root/release/targets.json"
 
 usage() {
     cat <<'EOF'
 Usage: scripts/run-dev-target.sh [target] <client|server>
 
-Registered targets (all need a Java 21 Gradle launcher; per-target game
-JVMs come from each module's Java toolchain):
-  forge-1.20.1  Forge 47.4.10 / Minecraft 1.20.1 / Java 17 game toolchain
-  fabric-1.20.1  Fabric Loader 0.19.3 / Minecraft 1.20.1 / Java 17 target, Java 21 launcher (planned; no login run)
-  forge-1.21.1  Forge 52.1.0  / Minecraft 1.21.1 / Java 21 (test candidate)
-  forge-1.21.3  Forge 53.1.0  / Minecraft 1.21.3 / Java 21 (planned; no login run)
-  forge-1.21.4  Forge 54.1.14 / Minecraft 1.21.4 / Java 21 (planned; no login run)
-  forge-1.21.5  Forge 55.1.10 / Minecraft 1.21.5 / Java 21 (planned; no login run)
-  forge-1.21.8  Forge 58.1.0  / Minecraft 1.21.8 / Java 21 (planned; no login run)
-  neoforge-1.21.1  NeoForge 21.1.213 / Minecraft 1.21.1 / Java 21 (planned; no login run)
-  neoforge-1.21.3  NeoForge 21.3.56  / Minecraft 1.21.3 / Java 21 (planned; no login run)
-  neoforge-1.21.4  NeoForge 21.4.121 / Minecraft 1.21.4 / Java 21 (planned; no login run)
-  neoforge-1.21.5  NeoForge 21.5.74  / Minecraft 1.21.5 / Java 21 (planned; no login run)
-  neoforge-1.21.8  NeoForge 21.8.9   / Minecraft 1.21.8 / Java 21 (planned; no login run)
+Registered targets come from release/targets.json. All need a Java 21 Gradle
+launcher; each game JVM uses its module's declared Java toolchain:
+EOF
+    if command -v jq >/dev/null 2>&1 && [[ -f "$targets_file" ]]; then
+        jq -r '.targets[] | "  \(.id)  \(.loader) / Minecraft \(.game_version) / Java \(.java) game toolchain"' \
+            "$targets_file"
+    else
+        printf '  (install jq and verify release/targets.json to list targets)\n'
+    fi
+    cat <<'EOF'
 
 Examples (use two terminals):
   scripts/run-dev-target.sh forge-1.20.1 server
@@ -33,7 +31,7 @@ Examples (use two terminals):
   TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     scripts/run-dev-target.sh forge-1.21.8 server
   TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
-    scripts/run-dev-target.sh neoforge-1.21.8 server
+    scripts/run-dev-target.sh neoforge-1.21.11 server
 
 The first launch of a new Minecraft version downloads that version's assets, so
 runs are online by default. Set TRUEUUID_OFFLINE=1 to force --offline once a
@@ -53,24 +51,30 @@ if [[ "$role" != "client" && "$role" != "server" ]]; then
     exit 64
 fi
 
-case "$target" in
-    # Every target needs a Java 21 GRADLE LAUNCHER: the Fabric module's Loom
-    # build is configured on every Gradle invocation and requires a 21 JVM.
-    # forge-1.20.1 still runs its game process on the module's Java 17
-    # toolchain, which Gradle resolves from the installed JDKs.
-    forge-1.20.1|fabric-1.20.1|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.8)
-        required_java=21
-        ;;
-    *)
-        printf 'Target %q is not registered for local development runs.\n' "$target" >&2
-        usage >&2
-        exit 64
-        ;;
-esac
+command -v jq >/dev/null 2>&1 || {
+    echo 'jq is required to read the development target manifest.' >&2
+    exit 69
+}
+(cd "$root" && ./scripts/release/validate-targets.sh)
+if ! target_metadata=$(jq -ce --arg id "$target" '
+    [.targets[] | select(.id == $id)] as $matches |
+    if ($matches | length) == 1 then $matches[0]
+    else error("target must appear exactly once")
+    end
+' "$targets_file" 2>/dev/null); then
+    printf 'Target %q is not registered for local development runs.\n' "$target" >&2
+    usage >&2
+    exit 64
+fi
+
+# Every target needs a Java 21 GRADLE LAUNCHER because the Fabric Loom plugin
+# is configured on every Gradle invocation. Gradle launches each game with the
+# Java 17 or Java 21 toolchain declared by the selected module.
+required_java=21
+target_game_java=$(jq -r '.java' <<<"$target_metadata")
 role_cap="$(tr '[:lower:]' '[:upper:]' <<< "${role:0:1}")${role:1}"
 gradle_task=":platform:${target}:run${role_cap}"
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 java_home="${TRUEUUID_JAVA_HOME:-${JAVA_HOME:-/usr/lib/jvm/jdk-17.0.12-oracle-x64}}"
 
 if [[ ! -x "$java_home/bin/java" ]]; then
@@ -80,7 +84,8 @@ fi
 
 actual_java="$($java_home/bin/java -version 2>&1 | sed -n '1s/.*"\([0-9][0-9]*\).*/\1/p')"
 if [[ "$actual_java" != "$required_java" ]]; then
-    printf 'Target %s requires Java %s; TRUEUUID_JAVA_HOME selects Java %s.\n' "$target" "$required_java" "${actual_java:-unknown}" >&2
+    printf 'Target %s requires a Java %s Gradle launcher; TRUEUUID_JAVA_HOME selects Java %s. The game uses its Java %s toolchain.\n' \
+        "$target" "$required_java" "${actual_java:-unknown}" "$target_game_java" >&2
     exit 78
 fi
 
