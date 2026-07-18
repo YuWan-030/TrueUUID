@@ -15,7 +15,13 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 public final class TrueuuidClientOverlay {
     @SubscribeEvent
     public static void registerLayers(RegisterGuiLayersEvent event) {
-        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(Trueuuid.MODID, "account_status"),
+        // tryParse instead of fromNamespaceAndPath: RegisterGuiLayersEvent
+        // and this annotation form already exist on NeoForge 20.6, but the
+        // fromNamespaceAndPath factory only exists from 1.21 — tryParse is
+        // present across the whole range this file compiles on (1.20.6+).
+        // The 20.2/20.4 modules exclude this file entirely (pre-layers era).
+        event.registerAboveAll(java.util.Objects.requireNonNull(
+                        ResourceLocation.tryParse(Trueuuid.MODID + ":account_status")),
                 (graphics, deltaTracker) -> ClientAccountStatus.render(graphics));
     }
 
