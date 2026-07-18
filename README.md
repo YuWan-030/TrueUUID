@@ -4,203 +4,126 @@
 
 English | [简体中文](README_zh-CN.md)
 
-TrueUUID is a Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.
+TrueUUID adds account verification to modded Minecraft servers that run in
+offline mode. A premium player's access token stays on their own computer; the
+server receives only the login proof needed to verify their UUID and skin.
 
-It also supports configured Yggdrasil/authlib-injector skin-site accounts. The
-current tested and planned target status is maintained in the
-[`target matrix`](docs/architecture/target-matrix.md).
+The same TrueUUID JAR must be installed on the client and server. Always choose
+the JAR made for your exact Minecraft version and loader.
 
-Both the client and the server must install this mod. The server must run with:
+> [!IMPORTANT]
+> Not every target that builds is release-ready. Check the
+> [target matrix](docs/architecture/target-matrix.md) for tested versions and
+> known feature gaps.
 
-```properties
-online-mode=false
-```
+## Quick start
 
-## Features
+1. Download or build the JAR for your exact loader and Minecraft version.
+2. Put that same JAR in the client's and server's `mods` folders.
+3. Set the server to offline mode:
 
-- Privacy-preserving authentication: the player's access token is only used locally on the client.
-- Premium/Yggdrasil UUID support on offline-mode servers.
-- Correct username casing after successful verification.
-- Signed skin texture injection during login.
-- Player info refresh after joining, helping skins update correctly.
-- Clear join feedback for premium, skin-site, and offline fallback states.
-- Localized UI text through Minecraft language files, so each client sees messages in its selected language.
-- Offline-to-verified player data migration with confirmation and backups.
-- Protection against known verified players rejoining with the same name in offline mode.
+   ```properties
+   online-mode=false
+   ```
 
-## Why
+4. Start the server once to generate the TrueUUID configuration.
+5. Join with a matching modded client. The HUD shows green for a verified
+   premium login and red when the server accepts offline fallback.
 
-Offline-mode servers normally cannot trust player UUIDs. TrueUUID improves identity integrity while keeping the server in offline mode.
+Do not expose a development server created by `run-dev-target.sh` to the
+internet. It deliberately binds to localhost and uses offline mode for testing.
 
-Verified players can keep their official Mojang or Yggdrasil UUID and skin data, while the server never sees their access token.
+## What TrueUUID does
 
-This is useful for modpacks, LAN-style servers, private offline-mode communities, and servers that want better identity consistency without enabling Mojang online-mode directly.
+- Verifies Mojang sessions without sending the player's access token to the
+  server.
+- Uses the verified UUID, username casing, and signed skin properties during
+  login.
+- Can allow offline players while blocking offline reuse of names that were
+  previously verified.
+- Stores known verified names in `trueuuid-registry.json`.
+- Shows localized login feedback and a small premium/offline status badge.
+- Supports bounded login timeouts, response limits, HTTPS validation, public
+  address checks, and redirect refusal.
+- Supports configured Yggdrasil/authlib-injector services on adapters that list
+  that feature in the target matrix.
 
-## How It Works
+Some older adapters also include offline-to-verified data migration, admin
+commands, and the addon API. Fabric and the newer Forge/NeoForge adapters do
+not yet have every Forge 1.20.1 feature, so consult the target matrix instead
+of assuming full parity.
 
-1. The server runs in offline mode.
-2. During login, the server sends a custom login query with a nonce.
-3. The modded client receives the query and locally calls `joinServer` with the player's profile, token, and nonce. The token never leaves the client.
-4. The client replies with the authentication result and the selected authentication source.
-5. The server verifies the nonce through Mojang Session Server or a supported Yggdrasil `hasJoined` endpoint.
-6. If verification succeeds:
-   - The pending login profile is replaced with the verified UUID.
-   - Username casing is corrected.
-   - Signed skin texture properties are injected.
-   - The authentication source is recorded.
-   - Player info is refreshed after joining.
-7. If verification fails or times out:
-   - Behavior is controlled by the config.
-   - Known verified names can be prevented from falling back to offline mode.
-   - Unknown names may still be allowed to use offline fallback if configured.
+## How login verification works
 
-## Offline Data Migration
+1. The offline-mode server sends the client a one-time login challenge.
+2. The client uses its local session to answer the challenge through Mojang's
+   `joinServer` call. Its access token never leaves the client.
+3. The server checks the result with Mojang's `hasJoined` endpoint.
+4. A successful login receives the verified UUID and signed skin properties.
+5. A failed or timed-out check is either rejected or handled by the configured
+   offline-fallback policy.
 
-TrueUUID includes a safer migration flow for players who used to play offline and later switch to a premium or skin-site account with the same name.
-
-When a verified login detects matching offline UUID data, the player will see a confirmation screen. Migration only happens after confirmation.
-
-Before migration, TrueUUID backs up both the old offline data and any existing target verified UUID data.
-
-Supported migration targets include:
-
-- Vanilla `playerdata`
-- Vanilla `playerdata_old`
-- Advancements
-- Stats
-- Cosmetic Armor `.cosarmor` data
-- Open Parties and Claims
-- FTB Chunks
-- FTB Essentials
-- FTB Teams
-- FTB Quests
-- FTB Ranks
-- CustomNPCs playerdata
-
-## Requirements
-
-Current runtime-proven target:
-
-- Minecraft: 1.20.1
-- Loader: Forge
-- Java: 17
-
-Do not infer support from a source directory or a successful build. See
-[`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
-the exact status of every adapter.
-
-Client and server must both install TrueUUID.
+For an allowed Yggdrasil provider, the same flow uses its HTTPS session
+endpoint. Custom endpoints are disabled until their host is explicitly
+allowlisted.
 
 ## Installation
 
-Server:
+### Server
 
-1. Set `online-mode=false` in `server.properties`.
-2. Place the matching TrueUUID jar in the server's `mods` folder.
+1. Install the loader and Minecraft version matching the TrueUUID filename.
+2. Copy the JAR into the server's `mods` directory.
+3. Set `online-mode=false` in `server.properties`.
+4. Keep the server behind a firewall while configuring and testing it.
 
-Client:
+### Prism Launcher
 
-1. Place the matching TrueUUID jar in the client's `mods` folder.
+1. Open the instance matching the JAR's Minecraft version and loader.
+2. Select **Edit** → **Mods** → **Add file**.
+3. Select the built TrueUUID JAR from the target's `build/libs` directory.
+4. Install the same JAR on the server.
 
-If the client does not have this mod installed, the server will not receive the expected login query response. Depending on configuration, the player may be kicked or allowed to fall back to offline mode.
+Do not use a Forge JAR in NeoForge, or a JAR built for another Minecraft patch.
+For Fabric, use the remapped JAR in `build/libs`, never the development JAR in
+`build/devlibs`.
 
 ## Configuration
 
-After the first run, the config file is generated at:
+Forge and NeoForge generate:
 
 ```text
 config/trueuuid-common.toml
 ```
 
-On Fabric the same options live in `config/trueuuid.json` (an `auth` object with
-the same names and defaults); options that Fabric does not implement yet —
-join feedback, the badge position, and the Yggdrasil allowlist — are absent
-from that file.
+Fabric generates:
 
-Important options:
+```text
+config/trueuuid.json
+```
+
+Forge and NeoForge use the TOML keys below. Fabric stores the matching login
+policy settings in the JSON `auth` object; the target matrix lists any
+adapter-specific gaps.
+
+The main policy options are:
 
 ```toml
 auth.timeoutMs = 30000
-```
-
-Login-phase wait time in milliseconds.
-
-```toml
 auth.allowOfflineOnTimeout = false
-```
-
-`false`: kick on timeout.
-
-`true`: allow offline fallback on timeout.
-
-```toml
 auth.allowOfflineOnFailure = true
-```
-
-`true`: allow offline fallback for normal verification failures.
-
-`false`: disconnect on verification failure.
-
-```toml
 auth.knownPremiumDenyOffline = true
-```
-
-If a name has already been verified as premium or Yggdrasil, deny later offline fallback for that name.
-
-```toml
 auth.allowOfflineForUnknownOnly = true
-```
-
-Only allow offline fallback for names that have never been verified before.
-
-```toml
 auth.recentIpGrace.enabled = true
 auth.recentIpGrace.ttlSeconds = 10
-```
-
-Allows a short same-IP reconnect grace period after a verified player disconnects. This grace is not used when the client explicitly rejects authentication or logs in as offline.
-
-```toml
 auth.showJoinFeedback = true
-```
-
-Show the join feedback chat message for premium, skin-site, offline fallback, and single-player states. Set to `false` to silence it without changing authentication or skin refresh behavior.
-
-```toml
 auth.showJoinTitle = false
-```
-
-Additionally show a full-screen title/subtitle on join. Off by default, because the persistent account-status overlay below already reports the same state without interrupting the screen. Set to `true` to restore the old title behavior.
-
-```toml
 auth.showAccountOverlay = true
 ```
 
-Shows a small client-side badge after a TrueUUID handshake: green `Premium` or
-red `Offline`, drawn as plain corner text with no backdrop. It is client-local
-and only appears after a TrueUUID-enabled server has responded.
+The recommended defaults allow an unknown offline name but stop that name from
+falling back to offline mode after it has completed a verified login.
 
-Default feedback and disconnect messages are sent as Minecraft translation keys and rendered by the player's client language files (`en_us` / `zh_cn`). If you previously generated a config with custom bilingual strings, change those message values back to `trueuuid.*` keys or regenerate the config to use client-side localization.
-
-```text
-/trueuuid cleanupuuid <name>
-```
-
-Admin-only command, permission level 4. It backs up and removes the duplicate offline UUID data for a player name without touching the verified UUID data.
-
-```text
-/trueuuid migrateuuid <name>
-```
-
-Admin-only command, permission level 4. It approves inheriting the same-name offline UUID data by migrating it to the verified Mojang/Yggdrasil UUID with backups.
-
-```toml
-auth.yggdrasil.apiRootWhitelist = []
-```
-
-Allowlist for Yggdrasil/authlib-injector `hasJoined` hosts. An empty list rejects all client-reported endpoints and keeps Mojang as the safe default. Add an exact host such as `"littleskin.cn"`, or an explicit wildcard such as `"*.example.com"`. Custom endpoints must pass HTTPS/443, path, DNS/IP, response-size, timeout, and no-redirect checks.
-
-The account-status badge position is configurable:
+Forge and NeoForge can position the account badge:
 
 ```toml
 auth.overlayCorner = "bottom_right"
@@ -209,95 +132,119 @@ auth.overlayOffsetY = 0
 auth.overlayScale = 1.25
 ```
 
-`overlayCorner` accepts `top_left`, `top_right`, `bottom_left`, or `bottom_right`.
-`bottom_right` is the default because vanilla keeps status effects and
-advancement toasts in the top right, chat in the bottom left, and other mods
-commonly claim the top left. The offsets nudge the badge by that many pixels
-(positive = right/down) if it still collides with another mod's HUD.
-`overlayScale` sizes the padlock and label together; whole numbers (`1.0`, `2.0`)
-keep Minecraft's bitmap font perfectly crisp, values in between are slightly soft.
+For Yggdrasil/authlib-injector providers, add only hosts you trust:
 
-These options behave identically on every supported target.
+```toml
+auth.yggdrasil.apiRootWhitelist = ["littleskin.cn"]
+```
+
+An empty allowlist keeps Mojang as the only accepted session service.
+
+## Migration and admin commands
+
+Adapters with migration support can back up and move same-name offline player
+data to a verified UUID. Migration requires confirmation and preserves both
+the old offline data and any existing destination data before changing files.
+
+Available admin commands on those adapters:
+
+```text
+/trueuuid cleanupuuid <name>
+/trueuuid migrateuuid <name>
+```
+
+Both commands require permission level 4. The target matrix identifies which
+adapters currently include migration.
 
 ## Addon API
 
-TrueUUID exposes a small server-side API (`cn.alini.trueuuid.api`) so other mods
-can branch on whether an online player authenticated as premium or through
-offline fallback — for example, sending offline players to a separate spawn.
-
-`AccountStatus` is one of `PREMIUM_VERIFIED`, `ONLINE_MODE`, `OFFLINE_FALLBACK`,
-or `UNKNOWN` (with `isPremium()` / `isOffline()` helpers).
-
-Query a player's status at any time while they are online:
+Adapters with the server-side API expose `cn.alini.trueuuid.api.TrueuuidApi`.
+Other mods can query whether a player joined as premium or through offline
+fallback:
 
 ```java
-import cn.alini.trueuuid.api.TrueuuidApi;
-import cn.alini.trueuuid.api.AccountStatus;
-
 AccountStatus status = TrueuuidApi.getStatus(serverPlayer);
 if (status.isOffline()) {
-    // e.g. restrict permissions, or teleport to an offline-only world
+    // Apply your server's offline-player policy.
 }
 ```
 
-Or register a callback fired on the server thread the moment a player's status
-is known at join (register once during your mod's setup):
+The API also provides a login callback and access to the verified-name
+registry. Check the target matrix before depending on it.
 
-```java
-TrueuuidApi.registerLoginCallback((player, status) -> {
-    if (status.isOffline()) {
-        // first-join spawn handling for offline accounts
-    }
-});
-```
+## Build one JAR for Prism Launcher
 
-Also available: `TrueuuidApi.isKnownPremiumName(name)` and
-`TrueuuidApi.getPremiumUuid(name)` for the persistent verified-name registry.
+Gradle must be launched with Java 21 for every target. Java 17 targets are
+still compiled and run with their declared Java 17 toolchain automatically.
 
-## Compatibility Notes
-
-- Proxies: Mojang's `hasJoined` IP parameter is optional. Verification can still work when the real client IP is hidden by a proxy.
-- Skins: TrueUUID injects signed skin properties during login and refreshes player info after joining. If a client still shows stale skins, rejoining or clearing the skin cache may help.
-- Offline fallback: Offline fallback is configurable. In the recommended setup, previously verified names cannot be reused by offline clients.
-- Registry: TrueUUID stores known verified names in `trueuuid-registry.json`. If this file is cleared, the server forgets previous premium/Yggdrasil bindings.
-
-## Building
-
-Windows:
-
-```powershell
-.\gradlew.bat build
-```
-
-macOS/Linux:
+On Linux, from the repository checkout:
 
 ```bash
-./gradlew build
+cd ~/TrueUUID
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+
+TARGET=neoforge-1.21.11
+./gradlew ":platform:${TARGET}:build" --no-daemon
 ```
 
-Each platform build writes its target-specific artifact to its own
-`platform/<loader>-<minecraft-version>/build/libs/` directory. The root build
-covers every declared target; see
-[`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md) for
-the exact target status and release model.
+The Prism-ready JAR is then:
 
-## Privacy
+```text
+platform/neoforge-1.21.11/build/libs/trueuuid-1.2.0-neoforge1.21.11.jar
+```
 
-The player's access token is never sent to the server.
+Change `TARGET` to any ID in `release/targets.json`, for example:
 
-The client uses the token locally for `joinServer`. The server only receives the authentication result and verifies the nonce through Mojang Session Server or a supported Yggdrasil endpoint.
+```text
+forge-1.20.1
+forge-1.21.8
+fabric-1.20.1
+neoforge-1.20.4
+neoforge-1.21.11
+```
+
+List every available target with:
+
+```bash
+jq -r '.targets[].id' release/targets.json
+```
+
+On Windows PowerShell, with Java 21 selected:
+
+```powershell
+.\gradlew.bat :platform:neoforge-1.21.11:build --no-daemon
+```
+
+To build every target instead:
+
+```bash
+./gradlew build --no-daemon
+```
+
+Each finished production JAR is written to:
+
+```text
+platform/<loader>-<minecraft-version>/build/libs/
+```
+
+For local client/server development runs, see
+[local runtime testing](docs/development/local-runtime-testing.md).
+
+## Privacy and security
+
+- The player's access token stays on the client.
+- The server receives a nonce result, UUID, username, and signed profile
+  properties—not the token.
+- Custom authentication endpoints must use HTTPS and pass the configured host,
+  DNS/IP, timeout, response-size, and redirect checks.
+- Offline fallback is a server policy. Keep known-name protection enabled on
+  shared servers.
 
 ## License
 
-GNU LGPL 3.0
+TrueUUID is licensed under the GNU LGPL 3.0.
 
-## Credits
-
-- Mojang authlib and session API
-- Sponge Mixin
-- ForgeGradle
-- NeoForge / ModDevGradle
-
----
-
-Maintained by [@YuWan-030](https://github.com/YuWan-030), [@wish131400](https://github.com/wish131400), and [@F1xGOD](https://github.com/F1xGOD).
+Maintained by [@YuWan-030](https://github.com/YuWan-030),
+[@wish131400](https://github.com/wish131400), and
+[@F1xGOD](https://github.com/F1xGOD).
