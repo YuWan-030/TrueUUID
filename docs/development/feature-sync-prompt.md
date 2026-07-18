@@ -38,7 +38,7 @@ BUILD ENV:
   export PATH="$JAVA_HOME/bin:$PATH"
 
 Known live state at handoff time (2026-07-18; verify it):
-  - All 20 declared targets build in CI, but all remain release:false.
+  - All 21 declared targets build locally, but all remain release:false.
   - NeoForge 1.21.11 completed one real Prism premium login with verified UUID,
     signed skin, localized premium chat, premium HUD, and clean disconnect.
   - Fabric 1.20.1 can verify Mojang and shows a client HUD, but sends no join

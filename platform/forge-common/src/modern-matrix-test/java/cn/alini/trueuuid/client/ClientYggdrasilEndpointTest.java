@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/** Contract test reused by each modern-matrix Forge target. */
 class ClientYggdrasilEndpointTest {
     @Test
     void buildsHasJoinedUrlFromApiRoot() {

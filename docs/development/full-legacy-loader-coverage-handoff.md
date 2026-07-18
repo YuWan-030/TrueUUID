@@ -66,6 +66,15 @@ a protocol match cannot manufacture an upstream Forge loader for a patch.
 
 ## First implementation session after the parity/runtime gate
 
+Progress on 2026-07-18: `feature/forge-legacy-coverage` added the first unit,
+`forge-1.21.6`, on Forge 56.0.9. The adapter recompiles `forge-common` plus a
+new source-only `modern-matrix` seam shared with `forge-1.21.8`; Forge 56 excludes
+only the later line's absent `AddGuiOverlayLayersEvent` source and uses the shared
+GUI mixin. Focused tests, both affected Forge builds, structural JAR checks, the
+21-target root build, and a bounded server boot pass. It remains Planned and
+`release:false`; client/login evidence is still absent. Continue with a separate
+reviewable target family.
+
 Start a short-lived `feature/forge-legacy-coverage` branch from refreshed
 `origin/main`. The first reviewable unit should be **one target family only**:
 

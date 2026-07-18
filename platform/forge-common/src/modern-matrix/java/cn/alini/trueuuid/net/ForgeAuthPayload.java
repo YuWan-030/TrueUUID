@@ -6,6 +6,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.login.custom.CustomQueryPayload;
 import net.minecraft.resources.ResourceLocation;
 
+/** Login query payload shared by the pre-record 1.21.6+ Forge mappings. */
 public record ForgeAuthPayload(AuthMessages.Query message) implements CustomQueryPayload {
     public ForgeAuthPayload(FriendlyByteBuf buffer) { this(AuthWireCodec.decodeQuery(read(buffer))); }
     @Override public ResourceLocation id() { return ForgeNetIds.AUTH; }

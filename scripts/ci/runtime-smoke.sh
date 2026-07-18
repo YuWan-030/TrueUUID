@@ -20,7 +20,7 @@ case "$target_id" in
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID 已经加载'
         ;;
-    forge-1.20.2|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.8)
+    forge-1.20.2|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.6|forge-1.21.8)
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID Forge adapter loaded'
         ;;

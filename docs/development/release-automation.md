@@ -37,7 +37,7 @@ workflow requires all of these independent gates:
 5. An idempotent no-change draft update verifies GitHub Release write access;
    non-creating permission probes verify Modrinth `VERSION_CREATE`, the
    CurseForge upload token, and CurseForge project upload access.
-6. The full self-test passes for all 20 targets, including targets that are not
+6. The full self-test passes for all declared targets, including targets that are not
    approved for publication.
 
 After those gates pass, the workflow freezes the draft body, collects only
@@ -140,7 +140,7 @@ After the manual acceptance matrix passes for each target being approved:
    draft.
 5. Open Actions, select `Release`, choose `main`, enter `v1.2.0`, and run the
    workflow. Do not click GitHub's `Publish release` button yourself.
-6. Confirm that the workflow self-tested all 20 targets, attached only the
+6. Confirm that the workflow self-tested all declared targets, attached only the
    approved JARs, published those same JARs externally, and finally changed the
    GitHub Release from draft to public.
 

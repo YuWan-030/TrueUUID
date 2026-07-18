@@ -14,6 +14,7 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.21.3 | Forge 53.1.0 | 21 | Planned | `platform/forge-1.21.3`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.5 | Forge 55.1.10 | 21 | Planned | `platform/forge-1.21.5`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
+| Minecraft 1.21.6 | Forge 56.0.9 | 21 | Planned | `platform/forge-1.21.6`; recompiles `platform/forge-common` plus its source-only `modern-matrix` seam. Forge 56 has EventBus 7 and the 2D matrix stack but no `AddGuiOverlayLayersEvent`, so this target excludes that single source and uses the shared GUI mixin. Official promotions list 56.0.9 as latest with no recommended build (rechecked 2026-07-18). Protocol 771 is unique to this patch, so the Minecraft range is permanently single-patch. Build, refmap, tests, root build, structural JAR verification, and server boot pass (2026-07-18); no client/login evidence. `release: false`. |
 | Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.7 (protocol 772) once that login run passes; 1.21.6 is protocol 771 and needs its own module. |
 | Minecraft 1.20.1 | NeoForge 47.1.106 (legacy `net.neoforged:forge` coordinate) | 17 | Planned (best-effort) | `platform/neoforge-1.20.1`; the `forge-1.20.1` island's source recompiled unchanged against the NeoForge 1.20.1 artifact under ForgeGradle 6 — that era keeps `net.minecraftforge` packages, the `forge` mod id, FML 47, and SRG production names, so there is no NeoForge-flavored source to write. Uniquely among NeoForge targets it carries the full 1.20.1 feature set (it is the island's code). Build + the island's tests pass and the jar is SRG-reobfuscated with its refmap (2026-07-17). Explicitly approved best-effort against upstream guidance (NeoForged recommend Forge on 1.20.1): stays `release: false` regardless of outcome, lowest priority for runtime validation. Included in the root build and CI, including the same mechanical SRG/refmap validation as Forge 1.20.1. |
 | Minecraft 1.20.2 | NeoForge 20.2.93 | 17 | Planned | `platform/neoforge-1.20.2`; recompiles the `neoforge-1.21.1` privileged source (the configuration-phase pivot reuses it — no separate 1.20.x privileged module was needed). Three era seams are module-local copies (`TrueuuidClientOverlay`, `ServerLoginMixin`, `TrueuuidConfig`); `NetIds` was made range-stable in the shared source. Built with NeoGradle 7 because NeoForge 20.2 predates ModDevGradle's moddev-bundle metadata (20.4+ have it). Era metadata: `META-INF/mods.toml`, javafml `[1,)`, `mandatory=true`. Build + focused tests pass (2026-07-16). No login run yet. Protocol 764 pairs with no other patch, so the range stays single-patch permanently. Included in the root build, CI, and release inventory with `release: false`. |
@@ -31,7 +32,7 @@ An adapter is the unit of support and release; a Git branch is not.
 
 An empty folder, version range in metadata, or successful compilation alone is
 not a support claim. Every supported target needs a real two-sided login run.
-The six modern Forge modules build and pass unit tests, but all remain Planned
+The seven modern Forge modules build and pass unit tests, but all remain Planned
 until each has its own login run.
 
 ## Feature parity
@@ -43,10 +44,11 @@ same gap. Fabric 1.20.1 is a new adapter whose first secure vertical slice is
 Mojang login verification; its goal is the Forge 1.20.1 column, not the
 reduced 1.21 feature set.
 
-Column coverage: **Forge 1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 (five
-targets sharing `platform/forge-common`). **NeoForge 1.21.x** = the same five
-versions, sharing the `neoforge-1.21.1` adapter source. A cell applies to every
-target in its column. `forge-1.20.2` (added 2026-07-16) also compiles
+Column coverage: **Forge 1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 /
+1.21.6 / 1.21.8 (six targets sharing `platform/forge-common`). **NeoForge
+1.21.x** = 1.21.1 / 1.21.3 / 1.21.4 / 1.21.5 / 1.21.6 / 1.21.8 / 1.21.10 /
+1.21.11 (eight targets sharing the `neoforge-1.21.1` adapter source plus narrow
+era seams). A cell applies to every target in its column. `forge-1.20.2` also compiles
 `platform/forge-common` and matches the Forge 1.21.x column exactly — same
 login-verification core, same feature gaps.
 
@@ -128,6 +130,7 @@ not a login or release claim.
 | Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON feedback/overlay config, shared strings, and a bounded server-owned result consumed at play join for audit/chat/title/HUD; addon API remains absent | focused tests and root build passed (2026-07-18) | Partial two-sided run (2026-07-17): premium client joined with green badge, but the run predates the server-owned result path; rerun pending | Real premium and offline runs capturing server audit, localized chat, and server-confirmed HUD; then the full Mojang matrix, migration/admin commands, and the addon API |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
+| Forge 1.21.6 | Same core plus the source-only `modern-matrix` seam; Forge 56 excludes the unavailable overlay event | passed (2026-07-18) | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
 | Forge 1.20.2 | Same core via `forge-common` plus target seams (pre-1.21 overlay API, SRG-era reobf and refmap) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
 | NeoForge 1.21.3 / 1.21.4 / 1.21.5 | Recompile the 1.21.1 core | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
@@ -161,6 +164,7 @@ required before a release claim.
 
 | Date | Target | Loader/JDK | Artifact | Result |
 |---|---|---|---|---|
+| 2026-07-18 | Forge 1.21.6 | Forge 56.0.9 / OpenJDK 21.0.11 | `platform/forge-1.21.6/build/libs/trueuuid-1.2.0-forge1.21.6.jar` (SHA-256 `74af0d16467a14407092635c41a41f3593b8d18b91932e4939308fd343b2bf1b`) | Shared protocol fixtures, focused build/tests, mixin refmap generation, and the release-JAR verifier passed. The 1.21.8 consumer of the extracted `modern-matrix` root rebuilt and its release JAR re-verified; the 21-target root build passed (205 actionable tasks). Forge 56 compile artifacts confirmed that `AddGuiOverlayLayersEvent` is absent, so only that source is excluded and the badge uses the shared GUI mixin. A bounded development server smoke loaded the adapter and reached `Done (5.253s)!`; no client/login run. |
 | 2026-07-18 | All 20 targets | Forge, Fabric, and NeoForge / declared Java toolchains | `trueuuid-1.2.0-<target>.jar` | Root `build` passed (195 tasks). The release-JAR verifier passed every artifact. Forge 1.20.1, Forge 1.20.2, and NeoForge 1.20.1 each additionally passed the SRG-era probe with 1 SRG method reference and 3 SRG shadow-field references. This is build evidence only, not login or release approval. |
 | 2026-07-18 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | `platform/forge-1.20.1/build/libs/trueuuid-1.2.0-forge1.20.1.jar` | Plain incremental `:platform:forge-1.20.1:build` regenerated deliberately removed Mixin outputs. The final `build/libs` JAR contains `trueuuid.refmap.json`, declares `MixinConfigs: trueuuid.mixins.json`, is byte-identical to `build/reobfJar/output.jar`, and the structural release probe found 1 SRG method reference plus 3 SRG shadow-field references in `ServerLoginMixin`. Focused tests passed. |
 | 2026-07-12 | NeoForge 1.21.1 | NeoForge 21.1.213 / OpenJDK 21.0.11 | `platform/neoforge-1.21.1/build/libs/trueuuid-1.1.0-neoforge1.21.1.jar` | `:shared:protocol:test :platform:neoforge-1.21.1:build` passed. The adapter codec and lifecycle tests passed; safe endpoint verification is wired, but the real login acceptance matrix is pending. |
@@ -215,6 +219,7 @@ platform/
   forge-1.21.3/     #  } each recompiles forge-common against its own Forge/mappings
   forge-1.21.4/     #  } and adds only its version-divergent shims
   forge-1.21.5/     # /
+  forge-1.21.6/     # } EventBus 7 + 2D matrix seam from forge-common
   forge-1.21.8/     # /  (EventBus 7)
   neoforge-1.20.1/ # best-effort: the forge-1.20.1 island recompiled against
                    # NeoForge 47.1 (legacy coordinate, FG6, full feature set)
@@ -361,6 +366,7 @@ carry the note in `mods.toml`; NeoForge modules carry it next to their
 |---|---|---|---|---|
 | `forge-1.21.1` | `[1.21.1,1.21.2)` | `[1.21,1.21.2)`, loaderVersion `[51,)` | 1.21 (protocol 767) | Declared range unchanged pending a login run on 1.21 |
 | `forge-1.21.3` | `[1.21.3,1.21.4)` | `[1.21.2,1.21.4)` | 1.21.2 (protocol 768) | Unreachable: Forge never shipped a 1.21.2 loader (promotions checked 2026-07-16), so the login-run gate cannot be met |
+| `forge-1.21.6` | `[1.21.6,1.21.7)` | single patch permanently | none | Protocol 771 is unique to 1.21.6; no widening candidate |
 | `forge-1.21.8` | `[1.21.8,1.21.9)` | `[1.21.7,1.21.9)`, loaderVersion `[57,)` | 1.21.7 (protocol 772) | Declared range unchanged pending a login run on 1.21.7. Corrects the earlier `[1.21.6,1.21.9)` note: 1.21.6 is protocol 771 and gets its own module |
 
 ##### NeoForge

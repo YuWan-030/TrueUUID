@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+/** Login handshake seam shared by the pre-record 1.21.6+ Forge mappings. */
 @Mixin(ClientHandshakePacketListenerImpl.class)
 abstract class ForgeClientHandshakeMixin {
     @Shadow private Connection connection;

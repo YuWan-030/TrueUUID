@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.fml.common.Mod;
-// EventBus 7 (Forge 58). Forge <=55 uses eventbus.api.SubscribeEvent.
+// EventBus 7 (Forge 56+). Forge <=55 uses eventbus.api.SubscribeEvent.
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 
 /**

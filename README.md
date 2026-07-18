@@ -198,6 +198,7 @@ Change `TARGET` to any ID in `release/targets.json`, for example:
 
 ```text
 forge-1.20.1
+forge-1.21.6
 forge-1.21.8
 fabric-1.20.1
 neoforge-1.20.4

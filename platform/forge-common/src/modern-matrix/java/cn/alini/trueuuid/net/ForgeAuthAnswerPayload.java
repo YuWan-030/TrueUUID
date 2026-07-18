@@ -5,6 +5,7 @@ import cn.alini.trueuuid.protocol.AuthWireCodec;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.login.custom.CustomQueryAnswerPayload;
 
+/** Login answer payload shared by the pre-record 1.21.6+ Forge mappings. */
 public record ForgeAuthAnswerPayload(AuthMessages.Answer message) implements CustomQueryAnswerPayload {
     public ForgeAuthAnswerPayload(FriendlyByteBuf buffer) { this(AuthWireCodec.decodeAnswer(read(buffer))); }
     @Override public void write(FriendlyByteBuf buffer) { buffer.writeBytes(AuthWireCodec.encodeAnswer(message)); }

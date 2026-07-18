@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/** Query decoder shared by the pre-record 1.21.6+ Forge mappings. */
 @Mixin(ClientboundCustomQueryPacket.class)
 abstract class ForgeClientQueryDecodeMixin {
     // Forge's distributed client jar retains Mojang's official private method

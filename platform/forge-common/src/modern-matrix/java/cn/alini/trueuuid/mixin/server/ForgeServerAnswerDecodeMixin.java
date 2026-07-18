@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/** Answer decoder shared by the pre-record 1.21.6+ Forge mappings. */
 @Mixin(ServerboundCustomQueryAnswerPacket.class)
 abstract class ForgeServerAnswerDecodeMixin {
     @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true)

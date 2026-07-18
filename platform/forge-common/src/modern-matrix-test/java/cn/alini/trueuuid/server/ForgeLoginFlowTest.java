@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/** Contract test reused by each modern-matrix Forge target. */
 class ForgeLoginFlowTest {
     @Test
     void usesSharedQueryFixtureAndOnlyAcceptsTheActiveTransaction() {

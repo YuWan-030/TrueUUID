@@ -4,9 +4,9 @@ import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
-// EventBus 7 (Forge 58 / MC 1.21.8). The EventBus 6 line (Forge 52 / MC 1.21.1)
+// EventBus 7 (Forge 56+ / MC 1.21.6+). The EventBus 6 line (Forge <=55)
 // uses net.minecraftforge.eventbus.api.SubscribeEvent instead. This import is the
-// ONLY per-version difference in the whole Forge adapter; all login/verification
+// is the event-bus seam; all login/verification
 // logic is shared from platform/forge-common.
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 

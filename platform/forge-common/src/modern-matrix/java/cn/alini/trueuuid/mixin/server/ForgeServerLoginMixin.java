@@ -30,6 +30,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.security.SecureRandom;
 
+/** Login lifecycle seam shared by the pre-record 1.21.6+ Forge mappings. */
 @Mixin(ServerLoginPacketListenerImpl.class)
 abstract class ForgeServerLoginMixin {
     @Unique private static final SecureRandom TRUEUUID$TRANSACTIONS = new SecureRandom();
