@@ -22,10 +22,59 @@ curseforge_project_id=$1
 
 user_agent="YuWan-030/TrueUUID publishing access check (https://github.com/YuWan-030/TrueUUID)"
 
-# A listed Modrinth version must contain a file. A complete version request with
-# no file is therefore a non-creating authorization probe: an authorized token
-# reaches the file validation error, while a bad token/scope/project role is
-# rejected first.
+# Identify the token owner, then confirm that owner has the first project
+# permission bit (UPLOAD_VERSION). USER_READ is intentionally required so this
+# check never has to infer the token owner from public team data.
+if ! modrinth_user=$(curl --silent --show-error \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --header "User-Agent: ${user_agent}" \
+    --header "Authorization: ${MODRINTH_TOKEN}" \
+    --write-out $'\n%{http_code}' \
+    https://api.modrinth.com/v2/user); then
+    echo "Modrinth token identity check could not reach the API" >&2
+    exit 69
+fi
+modrinth_user_status=${modrinth_user##*$'\n'}
+modrinth_user_body=${modrinth_user%$'\n'*}
+if [[ "$modrinth_user_status" != 200 ]] ||
+    ! jq -e '.id | type == "string" and length > 0' <<<"$modrinth_user_body" >/dev/null; then
+    echo "Modrinth rejected MODRINTH_TOKEN or its USER_READ scope (HTTP ${modrinth_user_status})." >&2
+    exit 77
+fi
+modrinth_user_id=$(jq -r '.id' <<<"$modrinth_user_body")
+
+if ! modrinth_members=$(curl --silent --show-error \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --header "User-Agent: ${user_agent}" \
+    --header "Authorization: ${MODRINTH_TOKEN}" \
+    --write-out $'\n%{http_code}' \
+    "https://api.modrinth.com/v2/project/${MODRINTH_PROJECT_ID}/members"); then
+    echo "Modrinth project-team check could not reach the API" >&2
+    exit 69
+fi
+modrinth_members_status=${modrinth_members##*$'\n'}
+modrinth_members_body=${modrinth_members%$'\n'*}
+if [[ "$modrinth_members_status" != 200 ]] || ! jq -e --arg user_id "$modrinth_user_id" '
+    type == "array" and any(.[];
+        .user.id == $user_id and
+        .accepted == true and
+        (((.permissions // 0) % 2) == 1 or ((.role // "") | ascii_downcase) == "owner")
+    )
+' <<<"$modrinth_members_body" >/dev/null; then
+    echo "The Modrinth token owner lacks UPLOAD_VERSION permission for the configured project (HTTP ${modrinth_members_status})." >&2
+    exit 77
+fi
+
+# VERSION_CREATE is a token scope rather than a project permission. A listed
+# version must contain a file, so this complete metadata request with no file is
+# a non-creating scope probe: 400 means authorization passed and body validation
+# rejected the intentional omission. Other statuses are credential failures.
 modrinth_probe=$(jq -cn \
     --arg project_id "$MODRINTH_PROJECT_ID" \
     '{
@@ -57,15 +106,12 @@ if ! modrinth_response=$(curl --silent --show-error \
     exit 69
 fi
 modrinth_status=${modrinth_response##*$'\n'}
-modrinth_body=${modrinth_response%$'\n'*}
-if [[ "$modrinth_status" != 400 ]] || ! jq -e '
-    ((.description // "") | test("file"; "i"))
-' <<<"$modrinth_body" >/dev/null; then
+if [[ "$modrinth_status" != 400 ]]; then
     echo "Modrinth rejected the publishing credential or project permission probe (HTTP ${modrinth_status})." >&2
-    echo "Required: a token with VERSION_CREATE and permission to upload versions to the configured project ID." >&2
+    echo "Required: a token with USER_READ and VERSION_CREATE whose owner has UPLOAD_VERSION on the configured project." >&2
     exit 77
 fi
-echo "Verified Modrinth VERSION_CREATE access without creating a version."
+echo "Verified Modrinth USER_READ, VERSION_CREATE, and project upload access without creating a version."
 
 # The CurseForge upload API requires its publisher token even for this read.
 # This catches missing, malformed, expired, and revoked upload tokens before the
