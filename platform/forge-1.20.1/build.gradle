@@ -21,6 +21,7 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
+def generatedMixinDir = layout.buildDirectory.dir('tmp/compileJava')
 
 group = mod_group_id
 version = mod_version
@@ -216,13 +217,23 @@ tasks.named('jar', Jar).configure {
                     "Implementation-Title"    : project.name,
                     "Implementation-Version"  : project.jar.archiveVersion,
                     "Implementation-Vendor"   : mod_authors,
-                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")])
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                    "MixinConfigs"            : "${mod_id}.mixins.json"])
     }
 
     from { project(':shared:protocol').sourceSets.main.output }
+}
 
-    // This is the preferred method to reobfuscate your jar file
-    finalizedBy 'reobfJar'
+// MixinGradle writes these outside JavaCompile's normal classes directory but
+// does not register them as task outputs. If an incremental workspace loses
+// them, Gradle otherwise leaves compileJava UP-TO-DATE, addMixinsToJar has no
+// refmap, and ForgeGradle has no Mixin mappings to reobfuscate. Declaring the
+// generated files makes a plain build recompile whenever any are absent.
+tasks.named('compileJava', JavaCompile).configure {
+    outputs.files(
+            generatedMixinDir.map { it.file('trueuuid.refmap.json') },
+            generatedMixinDir.map { it.file('compileJava-refmap.json') },
+            generatedMixinDir.map { it.file('compileJava-mappings.tsrg') })
 }
 
 tasks.withType(JavaCompile).configureEach {

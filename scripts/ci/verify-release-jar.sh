@@ -55,6 +55,23 @@ if grep -Eq '(^|/)(test|tests)/|Test\.class$' <<<"$entries"; then
     exit 65
 fi
 
+# Forge 47/48 and the legacy NeoForge 47.1 coordinate run SRG names in
+# production. Their Mixin classes therefore require both a refmap and actual
+# SRG-reobfuscated member references. A successful Gradle task is insufficient:
+# missing MixinGradle outputs can otherwise leave an official-named JAR behind.
+case "$target_id" in
+    forge-1.20.1|neoforge-1.20.1)
+        ./scripts/ci/verify-srg-mixin-jar.sh \
+            "$artifact" \
+            cn.alini.trueuuid.mixin.server.ServerLoginMixin
+        ;;
+    forge-1.20.2)
+        ./scripts/ci/verify-srg-mixin-jar.sh \
+            "$artifact" \
+            cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin
+        ;;
+esac
+
 mkdir -p "$output_dir"
 cp "$artifact" "$output_dir/"
 (
