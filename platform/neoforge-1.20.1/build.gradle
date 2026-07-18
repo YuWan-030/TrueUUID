@@ -1,0 +1,132 @@
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+// Best-effort target (see the NeoForge consolidation handoff): NeoForge on
+// 1.20.1 predates its independence — it was published as
+// net.neoforged:forge:1.20.1-47.1.x, keeps the net.minecraftforge packages,
+// the "forge" mod id, FML 47, and the SRG production runtime, and is
+// mod-compatible with Forge 47 by design. So this module is the
+// platform/forge-1.20.1 island's source recompiled unchanged against the
+// NeoForge 1.20.1 artifact under ForgeGradle 6 — there is no NeoForge-flavored
+// source to write at this version. Build last, stays release: false
+// regardless of outcome.
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def adapterRoot = "${rootDir}/platform/forge-1.20.1/src"
+// 1.20.1-47.1.106 is the last NeoForge 1.20.1 build under the legacy
+// net.neoforged:forge coordinate (maven.neoforged.net, checked 2026-07-17;
+// the net.neoforged:neoforge coordinate starts at 20.2).
+def neoForgeArtifactVersion = '1.20.1-47.1.106'
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = 'trueuuid'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+sourceSets.main.java.srcDir "${adapterRoot}/main/java"
+sourceSets.main.resources.srcDir "${adapterRoot}/main/resources"
+sourceSets.main.resources.srcDir "${adapterRoot}/generated/resources"
+sourceSets.test.java.srcDir "${adapterRoot}/test/java"
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source sharedProtocolMain.get()
+                }
+            }
+        }
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            workingDirectory project.file('run/server')
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'NeoForged'
+        url = 'https://maven.neoforged.net/releases/'
+    }
+}
+
+dependencies {
+    // FG6 accepts any patcher artifact with a userdev classifier; NeoForge
+    // 1.20.1 publishes exactly that layout under the legacy coordinate.
+    minecraft "net.neoforged:forge:${neoForgeArtifactVersion}"
+
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
+                             forge_version       : forge_version, forge_version_range: forge_version_range,
+                             loader_version_range: loader_version_range,
+                             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+                             mod_authors         : mod_authors, mod_description: mod_description,]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge1.20.1.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+    manifest {
+        attributes('MixinConfigs': "${mod_id}.mixins.json")
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

@@ -30,6 +30,7 @@ include 'platform:forge-1.20.1'
 include 'platform:fabric-1.20.1'
 // Inclusion makes the standalone tasks of these Planned adapters addressable.
 // The root lifecycle build does not depend on them.
+include 'platform:neoforge-1.20.1'
 include 'platform:neoforge-1.20.2'
 include 'platform:neoforge-1.20.4'
 include 'platform:neoforge-1.20.6'
