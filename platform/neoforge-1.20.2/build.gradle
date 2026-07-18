@@ -1,0 +1,110 @@
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    // NeoForge 20.2 predates the moddev-bundle Gradle metadata that
+    // ModDevGradle 2 requires (verified against 20.2.93's .module file,
+    // 2026-07-16: 20.4+ publish the bundle, 20.2 does not), so this one
+    // module uses the era-native NeoGradle 7 userdev plugin instead. Every
+    // other NeoForge module stays on ModDevGradle.
+    id 'net.neoforged.gradle.userdev' version '7.0.192'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def minecraftVersion = '1.20.2'
+// NeoForge 20.2.93 is the latest stable of the 20.2 line
+// (maven.neoforged.net, checked 2026-07-16).
+def neoForgeVersion = '20.2.93'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+
+// This era predates the neoforge.mods.toml rename: its metadata file is
+// META-INF/mods.toml with javafml "[1,)" (verified against the 20.2.93
+// universal jar's own manifest, 2026-07-16). The shared
+// platform/neoforge-common/metadata.gradle expands neoforge.mods.toml, so it
+// is not applied here; this module owns its metadata expansion below.
+
+base { archivesName = 'trueuuid' }
+
+repositories { mavenCentral() }
+
+// Recompile the hardened modern NeoForge adapter against this exact target.
+// Only this target's metadata, era seams, and run configuration live in this
+// module. Pointing this module at the unmodified shared source (2026-07-16)
+// failed to compile exactly four files; NetIds was fixed in the shared source
+// itself (ResourceLocation.tryParse is present across 1.20.2-1.21.11) and the
+// other three are excluded here, each replaced by a local copy whose only
+// change is the era seam named in its comment:
+// - TrueuuidClientOverlay: RegisterGuiLayersEvent is 1.21+; 20.2 uses the
+//   pre-1.21 RegisterGuiOverlaysEvent + Mod.EventBusSubscriber form.
+// - mixin/server/ServerLoginMixin: onDisconnect takes Component before 1.21
+//   (DisconnectionDetails does not exist yet).
+// - config/TrueuuidConfig: FML 1.x registers configs on ModLoadingContext,
+//   not ModContainer.
+def preModernSources = [
+        'cn/alini/trueuuid/TrueuuidClientOverlay.java',
+        'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
+        'cn/alini/trueuuid/config/TrueuuidConfig.java'
+]
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
+
+runs {
+    client {
+        modSource sourceSets.main
+    }
+    server {
+        modSource sourceSets.main
+        programArgument '--nogui'
+    }
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+dependencies {
+    implementation "net.neoforged:neoforge:${neoForgeVersion}"
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    // trueuuid.mixins.json is module-local (JAVA_17 compatibility level for
+    // the Java 17 toolchain); only the banner comes from the shared source.
+    from("${adapterMain}/resources") { include 'trueuuid-banner.png' }
+    filesMatching('META-INF/mods.toml') {
+        expand(
+                mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
+                mod_license: providers.gradleProperty('mod_license').getOrElse('GNU LGPL 3.0'),
+                mod_version: project.version,
+                mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
+                mod_description: providers.gradleProperty('mod_description').getOrElse(''),
+                neoforge_version_range: "[${neoForgeVersion},)",
+                minecraft_version_range: '[1.20.2,1.20.3)'
+        )
+    }
+}
+
+// Same mechanism as neoforge-1.21.8's modernGuiSources: compile the shared
+// tree minus the era seams, plus this module's local replacements (which live
+// at the same relative paths, so a plain source-set exclude would drop both).
+tasks.named('compileJava', JavaCompile).configure {
+    source = files(fileTree("${adapterMain}/java") { exclude preModernSources }, fileTree('src/main/java'))
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }

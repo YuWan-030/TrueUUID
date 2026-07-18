@@ -9,6 +9,13 @@ pluginManagement {
             name = 'MinecraftForge'
             url = 'https://maven.minecraftforge.net/'
         }
+        // NeoGradle 7 (used only by neoforge-1.20.2: NeoForge 20.2 predates
+        // the moddev-bundle metadata that ModDevGradle requires) is not on
+        // the Gradle plugin portal.
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases/'
+        }
     }
 }
 
@@ -21,6 +28,9 @@ include 'platform:forge-1.20.1'
 // Inclusion makes the standalone Fabric tasks addressable. The root lifecycle
 // build does not depend on this Planned adapter.
 include 'platform:fabric-1.20.1'
+// Inclusion makes the standalone neoforge-1.20.2 tasks addressable. The root
+// lifecycle build does not depend on this Planned adapter.
+include 'platform:neoforge-1.20.2'
 include 'platform:neoforge-1.21.1'
 include 'platform:neoforge-1.21.3'
 include 'platform:neoforge-1.21.4'

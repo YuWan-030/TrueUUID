@@ -14,6 +14,7 @@ An adapter is the unit of support and release; a Git branch is not.
 | Minecraft 1.21.4 | Forge 54.1.14 | 21 | Planned | `platform/forge-1.21.4`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.5 | Forge 55.1.10 | 21 | Planned | `platform/forge-1.21.5`; shares `platform/forge-common`. Build + mixin refmap + tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.8 | Forge 58.1.0 | 21 | Planned | `platform/forge-1.21.8`; shares `platform/forge-common`. Uses the EventBus 7 seam. Build + mixin refmap + tests pass (2026-07-15). No login run yet. Candidate to cover 1.21.6/1.21.7 once those login runs pass. |
+| Minecraft 1.20.2 | NeoForge 20.2.93 | 17 | Planned | `platform/neoforge-1.20.2`; recompiles the `neoforge-1.21.1` privileged source (the configuration-phase pivot reuses it — no separate 1.20.x privileged module was needed). Three era seams are module-local copies (`TrueuuidClientOverlay`, `ServerLoginMixin`, `TrueuuidConfig`); `NetIds` was made range-stable in the shared source. Built with NeoGradle 7 because NeoForge 20.2 predates ModDevGradle's moddev-bundle metadata (20.4+ have it). Era metadata: `META-INF/mods.toml`, javafml `[1,)`, `mandatory=true`. Build + focused tests pass (2026-07-16). No login run yet. Protocol 764 pairs with no other patch, so the range stays single-patch permanently. Not in the root aggregate build, CI, or `release/targets.json`. |
 | Minecraft 1.21.1 | NeoForge 21.1.213 | 21 | Planned | Implemented in `platform/neoforge-1.21.1`; the preserved `archive/neoforge-1.21.1-pre-monorepo` branch was API/lifecycle evidence only. Its JDK 21 build, shared fixtures, and codec/lifecycle tests pass, but no modded client/server matrix has run. It is the hardened source baseline for the later NeoForge 1.21.x modules. |
 | Minecraft 1.21.3 | NeoForge 21.3.56 | 21 | Planned | `platform/neoforge-1.21.3`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.3. Build and focused tests pass (2026-07-15). No login run yet. |
 | Minecraft 1.21.4 | NeoForge 21.4.121 | 21 | Planned | `platform/neoforge-1.21.4`; recompiles the hardened NeoForge 1.21 adapter source against 1.21.4. Build and focused tests pass (2026-07-15). No login run yet. |
@@ -121,6 +122,7 @@ not a login or release claim.
 | NeoForge 1.21.1 | Login-verification core | passed | none | Full login matrix and Forge 1.20.1 feature backlog |
 | NeoForge 1.21.3 / 1.21.4 / 1.21.5 | Recompile the 1.21.1 core | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | NeoForge 1.21.8 | Recompile the 1.21.1 core plus GUI seam | passed | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
+| NeoForge 1.20.2 | Recompile the 1.21.1 core plus three era seams (overlay API, onDisconnect signature, config registration) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |
 
 ## Recorded runtime evidence
 
@@ -151,6 +153,7 @@ required before a release claim.
 | 2026-07-15 | NeoForge 1.21.5 | NeoForge 21.5.74 / OpenJDK 21.0.11 | `platform/neoforge-1.21.5/build/libs/trueuuid-1.1.0-neoforge1.21.5.jar` | `:platform:neoforge-1.21.5:build` passed; it recompiles the hardened NeoForge source and runs the adapter lifecycle tests. No login run. |
 | 2026-07-15 | NeoForge 1.21.8 | NeoForge 21.8.9 / OpenJDK 21.0.11 | `platform/neoforge-1.21.8/build/libs/trueuuid-1.1.0-neoforge1.21.8.jar` | Build and adapter lifecycle tests passed with a target-local GUI seam for the 1.21.6+ matrix stack. After the config-validator fix, a local `runServer` boot reached `Done` on 127.0.0.1:25565. No client boot or login run. |
 | 2026-07-15 | Fabric 1.20.1 | Fabric Loader 0.19.3 / Fabric API 0.92.9+1.20.1 / Java 21 launcher (Java 17 target) | `platform/fabric-1.20.1/build/libs/trueuuid-1.1.0-fabric1.20.1.jar` | `:platform:fabric-1.20.1:test :platform:fabric-1.20.1:remapJar` passed. The first slice has login-phase packet bounds, local client `joinServer`, bounded Mojang `hasJoined`, and profile replacement. No client/server runtime run. |
+| 2026-07-16 | NeoForge 1.20.2 | NeoForge 20.2.93 / Java 17 toolchain (JDK 21 launcher) / NeoGradle 7.0.192 | `platform/neoforge-1.20.2/build/libs/trueuuid-1.1.0-neoforge1.20.2.jar` | `:platform:neoforge-1.20.2:build` passed: the `neoforge-1.21.1` privileged source recompiled against 1.20.2 with three era-seam file exclusions and the shared `NetIds` moved to `ResourceLocation.tryParse`; focused tests passed; the jar carries era-correct `META-INF/mods.toml` (javafml `[1,)`), JAVA_17 mixin config, and Java 17 bytecode. All five 1.21.x NeoForge modules rebuilt and re-tested the same day against the shared-source change. No login run. |
 
 These build artifacts are validation outputs, not release artifacts or runtime
 support claims. Every row remains Planned until the complete acceptance matrix
@@ -176,6 +179,8 @@ platform/
   forge-1.21.4/     #  } and adds only its version-divergent shims
   forge-1.21.5/     # /
   forge-1.21.8/     # /  (EventBus 7)
+  neoforge-1.20.2/ # first configuration-phase NeoForge target; recompiles the
+                   # 1.21.1 privileged source with era seams (NeoGradle 7)
   neoforge-1.21.1/ # shared modern-NeoForge source + 1.21.1 metadata
   neoforge-1.21.3/ # per-version metadata/build, recompiles the shared source
   neoforge-1.21.4/
@@ -237,7 +242,21 @@ target that includes it.
 The NeoForge 1.21.x adapters use the same source-sharing model: the hardened
 adapter implementation remains in `platform/neoforge-1.21.1/src/main`, and every
 later NeoForge module compiles that source against its own exact NeoForge and
-Minecraft versions. Each later module owns its `neoforge.mods.toml`, Gradle run
+Minecraft versions. Since 2026-07-16 that includes `neoforge-1.20.2`, the
+configuration-phase pivot: pointing it at the unmodified privileged source
+failed on exactly four files, so no separate 1.20.x privileged module exists.
+`NetIds` now uses `ResourceLocation.tryParse` (the only factory present across
+1.20.2–1.21.x; same finding as the Forge line) and the other three are
+module-local copies via the `modernGuiSources`-style compile-source exclusion:
+`TrueuuidClientOverlay` (RegisterGuiLayersEvent is 1.21+; 20.2 uses
+RegisterGuiOverlaysEvent), `mixin/server/ServerLoginMixin` (`onDisconnect`
+takes `Component` before 1.21), and `config/TrueuuidConfig` (FML 1.x registers
+configs on `ModLoadingContext`, not `ModContainer`). Toolchain era boundary:
+NeoForge 20.2 predates the moddev-bundle Gradle metadata ModDevGradle 2
+requires (20.4+ publish it), so `neoforge-1.20.2` alone builds with NeoGradle 7
+userdev; it also predates the `neoforge.mods.toml` rename, so it owns its
+`META-INF/mods.toml` (javafml `[1,)`, `mandatory=true`) instead of applying
+`neoforge-common/metadata.gradle`. Each later module owns its `neoforge.mods.toml`, Gradle run
 configuration, artifact name, and version range. This is source sharing only;
 no compiled classes or refmaps are reused between Minecraft versions. If a
 NeoForge API diverges, the affected source must move to that target module
