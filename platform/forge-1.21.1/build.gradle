@@ -25,7 +25,7 @@ def forgeVersion = '52.1.0'
 def forgeVersionRange = '[52.1.0,52.1.1)'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 
 base {
     archivesName = 'trueuuid'

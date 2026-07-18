@@ -16,7 +16,7 @@ def minecraftVersion = '1.21.3'
 def neoForgeVersion = '21.3.56'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 // Built against 1.21.3/NeoForge 21.3. 1.21.2 (protocol 768) is a wire-level
 // match, but NeoForge shipped only two early betas for it (21.2.0-beta /
 // 21.2.1-beta, checked 2026-07-16), so a two-sided login run on 1.21.2 would

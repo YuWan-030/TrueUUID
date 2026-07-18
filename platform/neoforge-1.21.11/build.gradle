@@ -16,7 +16,7 @@ def minecraftVersion = '1.21.11'
 def neoForgeVersion = '21.11.44'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 // Built against 1.21.11/NeoForge 21.11 — the final legacy-scheme Minecraft
 // release (the 26.x year-based line follows; see the roadmap doc). 1.21.11 is
 // protocol 774, shared with no other patch, so minecraftRange stays

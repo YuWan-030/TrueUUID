@@ -18,7 +18,7 @@ def minecraftVersion = '1.20.6'
 def neoForgeVersion = '20.6.139'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 // 20.6 already uses META-INF/neoforge.mods.toml, but its javafml language
 // version is 3 (verified against the 20.6.139 universal jar's own manifest,
 // 2026-07-16), so the shared template's default "[4,)" is overridden here.

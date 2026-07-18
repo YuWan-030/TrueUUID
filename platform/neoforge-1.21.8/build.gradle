@@ -16,7 +16,7 @@ def minecraftVersion = '1.21.8'
 def neoForgeVersion = '21.8.9'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 // Built against 1.21.8/NeoForge 21.8. Only 1.21.7 (protocol 772, NeoForge
 // 21.7 — beta-only line, latest 21.7.25-beta, checked 2026-07-16) is a
 // wire-level match for this build; 1.21.6 is protocol 771 and gets its own

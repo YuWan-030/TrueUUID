@@ -22,7 +22,7 @@ def minecraftVersion = '1.20.2'
 def neoForgeVersion = '20.2.93'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 
 // This era predates the neoforge.mods.toml rename: its metadata file is
 // META-INF/mods.toml with javafml "[1,)" (verified against the 20.2.93

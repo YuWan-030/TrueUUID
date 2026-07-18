@@ -16,7 +16,7 @@ def minecraftVersion = '1.21.10'
 def neoForgeVersion = '21.10.64'
 
 group = 'cn.alini'
-version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+version = providers.gradleProperty('mod_version').get()
 // Built against 1.21.10/NeoForge 21.10. 1.21.9 (protocol 773, NeoForge 21.9 —
 // beta-only line, latest 21.9.16-beta, checked 2026-07-16) is a wire-level
 // match; widen minecraftRange to "[1.21.9,1.21.11)" only after a two-sided
