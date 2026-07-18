@@ -1,105 +1,170 @@
-# Kickoff prompt: sync features across versions and loaders
+# Kickoff prompt: loader parity before full 1.20.1-1.21.11 coverage
 
-Paste the block below to start the parity work. It is deliberately scoped to one
-feature at a time — porting several at once across three loaders produces a diff
-nobody can review or bisect.
+Copy the block below into a fresh Codex session. It deliberately finishes the
+existing adapters before adding more Minecraft-version modules. Do not turn
+this into one unreviewable cross-loader rewrite.
 
 ---
 
 ```text
-Close the TrueUUID feature-parity gap between forge-1.20.1 (the complete,
-runtime-proven reference) and the newer adapters.
+TrueUUID needs one consistent, server-authoritative feature contract across
+Fabric, Forge, and NeoForge before its version matrix expands further.
 
-READ FIRST, in this order. Do not trust any summary over the code:
-  - docs/development/next-agent-handoff.md   (state, build env, and 8 traps)
-  - docs/architecture/target-matrix.md       ("Feature parity" table)
-  - platform/forge-common/README.md          (seam map)
+Start fresh from current origin/main. Create a short-lived
+feature/fabric-status-parity branch for the first reviewable phase. Do not use,
+merge, rewrite, or delete archive/* branches. Do not add new Minecraft versions
+in this phase and do not flip any release flags.
 
-BUILD ENV (non-negotiable): the default `java` is 25 and Gradle cannot run on it.
+READ FIRST, completely:
+  - AGENTS.md
+  - docs/architecture/target-matrix.md
+  - docs/development/adding-adapter.md
+  - docs/architecture/version-consolidation-roadmap.md
+  - docs/development/feature-sync-prompt.md
+  - platform/forge-common/README.md
+  - platform/fabric-common/src/main/java/cn/alini/trueuuid/fabric/login/FabricLoginTransaction.java
+  - platform/fabric-1.20.1/src/main/java/cn/alini/trueuuid/fabric/login/FabricLoginNetworking.java
+  - platform/fabric-common/src/main/java/cn/alini/trueuuid/fabric/config/FabricConfig.java
+  - platform/forge-common/src/main/java/cn/alini/trueuuid/server/ForgeAdapterRuntime.java
+  - platform/neoforge-1.21.1/src/main/java/cn/alini/trueuuid/server/AdapterRuntime.java
+
+Re-check live git state and current CI before trusting any handoff text:
+  git status --short --branch
+  git log --oneline -12
+  jq -r '.targets[] | [.id, .release] | @tsv' release/targets.json
+
+BUILD ENV:
   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-  ./gradlew build --continue     # 13 modules must stay green
+  export PATH="$JAVA_HOME/bin:$PATH"
 
-KNOW WHERE CODE LANDS — the three roots are NOT the same shape:
-  - platform/forge-common      -> source root; one edit hits all 5 Forge 1.21.x.
-  - platform/neoforge-1.21.1   -> PRIVILEGED source; 1.21.3/4/5/8 srcDir into it,
-                                  so one edit silently hits all 5 NeoForge targets.
-                                  (platform/neoforge-common is metadata only.)
-  - platform/common-assets     -> shared lang for both loaders. Any new
-                                  user-facing string goes here, never inline.
-  - platform/fabric-1.20.1     -> standalone. Do NOT create fabric-common: there
-                                  is only one Fabric module, so it would be pure
-                                  indirection. Create it when a 2nd one lands.
-  - platform/forge-1.20.1      -> independent island. Read it as the reference;
-                                  only change it when the task says so.
+Known live state at handoff time (2026-07-18; verify it):
+  - All 20 declared targets build in CI, but all remain release:false.
+  - NeoForge 1.21.11 completed one real Prism premium login with verified UUID,
+    signed skin, localized premium chat, premium HUD, and clean disconnect.
+  - Fabric 1.20.1 can verify Mojang and shows a client HUD, but sends no join
+    chat because it has no post-login authentication-source consumer.
+  - Fabric currently marks its HUD from client joinServer success before the
+    server hasJoined result. Forge/NeoForge also predict their HUD in the
+    client handshake, although their chat, audit, API state, and callbacks are
+    based on the server's final post-login source.
+  - Build success is not release approval. The target matrix is authoritative.
 
-WORK ONE ITEM AT A TIME, in this order. After each: build all 13 modules, then
-commit with a short imperative message (no co-author trailer).
+PHASE 1 — fix the Fabric result path first:
 
-  1. Fabric offline policy (SECURITY, do this first).
-     Fabric completes its offline fallback unconditionally, so a name already
-     proven premium can be taken by an unverified client. Port
-     OfflineFallbackPolicy + a persisted verified-name registry, and gate the
-     fallback on it, matching ForgeAdapterRuntime.canUseOfflineFallback. Fabric
-     has no config class at all, so the policy options need a home first.
+1. Introduce a bounded, expiring pending-login source in Fabric, keyed by the
+   final player UUID, matching ForgeAdapterRuntime's security properties:
+   maximum size, TTL, prune-on-read/write, cleanup on shutdown, and no static
+   connection retention.
 
-  2. Fabric strings.
-     Point fabric-1.20.1 at platform/common-assets, delete its duplicate two-key
-     lang copy, and convert its Text.literal("TrueUUID ...") disconnects to
-     trueuuid.disconnect.* keys. Its text agrees with the shared file today only
-     by luck. No wording decision needed - it is a strict subset with no conflicts.
+2. Record VERIFIED, OFFLINE_FALLBACK, and grace outcomes during login. Consume
+   exactly once from ServerPlayConnectionEvents.JOIN after vanilla has created
+   the player. Never derive the final source from the client's claim alone.
 
-  3. Skin-site / Yggdrasil on the 1.21 line.
-     auth.yggdrasil.apiRootWhitelist is INERT there and FAILS OPEN: the clients
-     always answer with an empty customEndpoint, so it silently falls back to
-     Mojang while the config implies otherwise. The wire protocol already carries
-     customEndpoint; only the client half is missing. Port the resolution from
-     forge-1.20.1's ClientHandshakeMixin (-javaagent:authlib-injector argument +
-     YggdrasilMinecraftSessionService.CHECK_URL reflection) into the 1.21 client
-     mixins. Keep the server-side allowlist, DNS pinning and no-redirect checks
-     exactly as they are. If it cannot be finished, make it fail CLOSED like
-     Fabric rather than leave it failing open.
+3. From that consumed server result, consistently perform:
+   - the existing stable English audit log vocabulary;
+   - localized chat using platform/common-assets keys;
+   - optional title/subtitle;
+   - live AccountStatus publication and callbacks once the Fabric addon API is
+     added;
+   - a server-confirmed client status update for the HUD.
 
-  4. AccountStatus API onto forge-1.20.1.
-     1.20.1 still exposes only isPremium(name)/getPremiumUuid(name). Port
-     api/AccountStatus + the getStatus/registerLoginCallback surface from
-     forge-common so every target has one API.
+4. Add Fabric config keys with the same names/defaults as Forge/NeoForge:
+   showJoinFeedback=true, showJoinTitle=false, showAccountOverlay=true, plus
+   overlayCorner/offsetX/offsetY/scale. Preserve existing JSON files: missing
+   keys receive defaults; malformed or oversized files keep secure defaults.
 
-  5. Remaining 1.20.1 features, one commit each, forge-common first (5 targets at
-     once), then neoforge-1.21.1, then Fabric:
-     configurable timeoutMs/allowOfflineOnTimeout (currently hardcoded 30s
-     server / 25s client), debug toggle, recent-IP grace, skin refresh after
-     join, admin commands, then offline->premium migration (largest; it needs the
-     confirm screen and transactional rollback - treat as its own project).
+5. Replace the current client-predicted HUD status with a server-authoritative
+   play-phase payload. Define the loader-neutral status value in shared plain
+   Java if useful, but keep Minecraft/Fabric networking in the adapter. Clear
+   status on disconnect/world change. Do not let a client joinServer success
+   display Premium when the server accepted offline fallback or denied login.
 
-DO NOT:
-  - unify forge-1.20.1's lang onto common-assets. It has ~34 extra keys and three
-    shared keys whose MEANING differs (its auth_denied conflates offline-denied
-    with verify-failure; the 1.21 line splits those into auth_denied and
-    bound_premium). That needs a human wording decision - surface it, don't guess.
-  - use remap = false on ordinary vanilla methods (only Forge-preserved login
-    methods), or trust Forge's *-sources.jar for API availability - javap the
-    forge-<mc>-<ver>_mapped_official_<mc>.jar.
-  - replace the badge's fill-drawn pixel art with a blit texture: blit and pose()
-    diverge three ways across 1.21.1/1.21.4/1.21.8.
-  - weaken the security boundary: the access token never leaves the client, and
-    the server keeps bounded hasJoined verification with the endpoint allowlist,
-    DNS pinning, TLS hostname verification, no redirects, and response limits.
-  - claim any target is supported because it builds. Only a real two-sided login
-    run (premium needs a real launcher; a dev runClient uses a dummy token and
-    exercises the offline path only) moves a target off Planned in
-    release/targets.json and target-matrix.md.
+6. Apply the same server-authoritative HUD rule to Forge and NeoForge in small,
+   separate commits after Fabric is proven. Their existing post-login source is
+   already authoritative; add only the status transport and client update.
 
-REPORT: what landed, what each target gained, what is still missing, and any
-decision you need from me. Update the "Feature parity" table in
-docs/architecture/target-matrix.md as things land.
+TESTS REQUIRED FOR PHASE 1:
+  - pending state is bounded, expires, consumes once, and clears on shutdown;
+  - verified/offline/grace outcomes map to the correct public status and
+    translation keys;
+  - showJoinFeedback=false suppresses chat without suppressing API/HUD state;
+  - malformed client data cannot manufacture Premium status;
+  - config compatibility/default tests;
+  - focused builds for every source consumer, then the root build;
+  - real Fabric 1.20.1 premium and offline runs with server audit + client chat
+    + HUD evidence.
+
+PHASE 2 — close existing feature parity before adding version modules:
+
+Use Forge 1.20.1 as the feature reference, but preserve the shared security
+boundary. Port in reviewable units:
+  - Fabric AccountStatus API and callbacks;
+  - Fabric allowlisted Yggdrasil/authlib-injector support (fail closed until
+    complete; never trust a client-reported endpoint directly);
+  - offline-to-verified migration and its admin commands to modern Forge,
+    NeoForge, and Fabric, including confirmation, backups, and rollback;
+  - any remaining config, feedback, skin-refresh, or API mismatch recorded in
+    target-matrix.md.
+
+Do not claim parity from matching method names. Add contract tests and real
+runtime evidence. Preserve endpoint allowlisting, public-address rejection,
+DNS pinning, TLS hostname verification, no redirects, response limits,
+timeouts, cancellation, and the rule that access tokens never leave clients.
+
+PHASE 3 — only after existing adapters pass the common contract, expand version
+coverage in separate branches/sessions:
+
+  Fabric: Minecraft 1.20.1 through 1.21.11.
+  Forge:  Minecraft 1.20.1 through 1.21.11.
+  NeoForge: Minecraft 1.20.2 through 1.21.11. Keep the existing 1.20.1
+            best-effort module release-disabled; it is outside the requested
+            public range and upstream recommends Forge for that patch.
+
+The exact Minecraft patches are:
+  1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6,
+  1.21, 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5,
+  1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11.
+
+Do not automatically create one module/JAR per patch. First verify current
+official loader availability and APIs. Use the existing protocol clusters only
+as candidates for one artifact range:
+  - 1.20.3 + 1.20.4
+  - 1.20.5 + 1.20.6
+  - 1.21 + 1.21.1
+  - 1.21.2 + 1.21.3
+  - 1.21.7 + 1.21.8
+  - 1.21.9 + 1.21.10
+
+A range may be widened only after the exact production JAR passes a real
+two-sided run on every claimed patch. Loader/API compatibility and matching
+wire protocol are both required. Single-protocol patches remain independent:
+1.20.1, 1.20.2, 1.21.4, 1.21.5, 1.21.6, and 1.21.11.
+
+Each new target/range must be added together to settings.gradle, the root build,
+release/targets.json (release:false), verify/self-test matrices, local dev-run
+registration, structural JAR verification, and target-matrix.md. Fabric release
+artifacts must be remapped build/libs JARs, never devlibs. Record exact loader,
+JDK, mappings, artifact path/hash, and runtime evidence.
+
+RELEASE GATE:
+  Keep every target release:false until its declared-JDK build, shared fixtures,
+  target tests, structural JAR checks, and full client/server acceptance matrix
+  pass: Mojang success, allowed Yggdrasil success where supported, rejected
+  endpoint, denial/missing token, malformed payload, timeout, disconnect,
+  offline fallback, known-premium denial, grace, skin/UUID correctness, and
+  migration confirmation/rollback where the feature exists.
+
+COMMITS AND HANDOFF:
+  - One behavior or target family per signed commit; no Co-Author trailer.
+  - Preserve user changes and archive history.
+  - Do not flip release flags or create tags/releases without explicit approval.
+  - Update target-matrix.md as evidence lands.
+  - Stop after the first reviewable phase and report changed files, tests,
+    runtime evidence, remaining parity gaps, and the next branch/session.
 ```
 
 ---
 
-## Why this order
-
-1 and 2 are Fabric correctness and cost little. 3 is the biggest user-visible
-gap and is actively misleading today, because the config advertises support that
-silently does not exist. 4 is small and removes an awkward asymmetry where the
-only runtime-proven target has the oldest API. 5 is the long tail, ordered
-cheapest-first, with migration last because it is a project in itself.
+The intended first deliverable is Fabric's authoritative feedback/status path,
+not eighteen new Fabric modules. Version expansion comes after the behavior
+being copied is trustworthy and consistent.
