@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[58,)"
+loaderVersion="[48,)"
 license="GNU LGPL 3.0"
 
 [[mods]]
@@ -21,15 +21,13 @@ versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 
-# Built against 1.21.8 mappings/Forge 58. Only 1.21.7 (protocol 772, Forge 57)
-# is a wire-level match for this build; 1.21.6 is protocol 771 and gets its own
-# module (forge-1.21.6). Widen this to "[1.21.7,1.21.9)" (and loaderVersion to
-# "[57,)") only after a two-sided login run passes on 1.21.7 — declared range
-# unchanged until then. See docs/architecture/version-consolidation-roadmap.md
-# and target-matrix.md.
+# Built against 1.20.2/Forge 48. 1.20.2 is protocol 764 and shares it with no
+# other patch (the first configuration-phase release), so this range has no
+# widen candidate — it stays a single-patch declaration permanently. See
+# docs/architecture/version-consolidation-roadmap.md.
 [[dependencies.trueuuid]]
 modId="minecraft"
 mandatory=true
-versionRange="[${minecraft_version},1.21.9)"
+versionRange="[${minecraft_version},1.20.3)"
 ordering="NONE"
 side="BOTH"

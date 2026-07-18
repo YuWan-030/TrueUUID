@@ -21,6 +21,11 @@ versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 
+# Built against 1.21.1/Forge 52. Bare 1.21 (protocol 767, Forge 51) is a
+# wire-level match; widen this to "[1.21,1.21.2)" (and loaderVersion to
+# "[51,)") only after a two-sided login run passes on 1.21 — declared range
+# unchanged until then. See docs/architecture/version-consolidation-roadmap.md
+# and target-matrix.md.
 [[dependencies.trueuuid]]
 modId="minecraft"
 mandatory=true

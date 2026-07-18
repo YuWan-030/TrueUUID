@@ -1,0 +1,154 @@
+buildscript {
+    repositories {
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+// Forge 48.1.0 is both latest and recommended for 1.20.2
+// (files.minecraftforge.net promotions, checked 2026-07-16).
+def forgeVersion = '48.1.0'
+def forgeVersionRange = '[48.1.0,48.1.1)'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').getOrElse('1.1.0')
+
+base {
+    archivesName = 'trueuuid'
+}
+
+// Version-independent adapter code (entrypoint, config, runtime, registry,
+// login flow, net ids, mixin plugin) lives once in platform/forge-common and
+// is compiled by every per-version Forge module against its own
+// Forge/mappings. Only the version-divergent shims (mixins, payloads, client
+// render, mods.toml) stay in this module's own src tree.
+def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+// The one forge-common file this module does not include: ForgeClientGuiMixin
+// targets Gui.render(GuiGraphics, DeltaTracker), and DeltaTracker only exists
+// from 1.21 (the sole compile failure when 1.20.2 consumed forge-common
+// unmodified, recorded 2026-07-16). Forge 48 still has the pre-1.21 overlay
+// API, so TrueuuidClientOverlay registers the badge via
+// RegisterGuiOverlaysEvent instead and this module's own trueuuid.mixins.json
+// omits the GUI mixin.
+sourceSets.main.java.exclude 'cn/alini/trueuuid/mixin/client/ForgeClientGuiMixin.java'
+// forge-common's resources are not consumed either: this module needs its own
+// trueuuid.mixins.json (no ForgeClientGuiMixin entry, JAVA_17 compatibility
+// for the Java 17 toolchain) and its own pack.mcmeta (1.20.2 pack_format 18).
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+minecraft {
+    mappings channel: 'official', version: '1.20.2'
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                trueuuid {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            workingDirectory project.file('run/server')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+            args '--nogui'
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, 'trueuuid.refmap.json'
+    config 'trueuuid.mixins.json'
+}
+
+// Userdev discovers a mod from one source-set output. Co-locate resources and
+// the plain-Java shared classes with the adapter output, so the discovery path
+// has the entrypoint, Mixins, and protocol classes in one module.
+sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs)
+    include '**/*.class'
+    from(layout.buildDirectory.dir('tmp/compileJava')) {
+        include 'trueuuid.refmap.json'
+    }
+    into(mainClassesDir)
+}
+tasks.named('classes') {
+    dependsOn mergeSharedProtocolClasses
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:1.20.2-${forgeVersion}"
+    // The release jar embeds shared/protocol below. Keeping it compile-only
+    // avoids a second Java module exporting the same package during userdev.
+    compileOnly project(':shared:protocol')
+    testImplementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    filesMatching('META-INF/mods.toml') {
+        expand minecraft_version: '1.20.2', forge_version_range: forgeVersionRange, mod_version: project.version
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-forge1.20.2.jar"
+    // Forge 48 production runs SRG names, so FG keeps the reobf pipeline
+    // alive here (the 1.21.x modules have none) and MixinGradle contributes
+    // build/tmp/compileJava/trueuuid.refmap.json to the jar itself. The
+    // mergeSharedProtocolClasses dev-run co-location copies the very same
+    // file into the classes dir, so the jar sees one identical entry twice.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        // Forge's Mixin bootstrap discovers production mod configs from this
+        // manifest attribute. The development run supplies it as an argument,
+        // which otherwise hides a missing production registration.
+        attributes('MixinConfigs': 'trueuuid.mixins.json')
+    }
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn tasks.named('classes')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
