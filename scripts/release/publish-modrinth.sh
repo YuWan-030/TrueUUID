@@ -11,6 +11,7 @@ version=$2
 changelog_file=$3
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid release version: $version" >&2; exit 64; }
 [[ -f "$changelog_file" ]] || { echo "missing changelog: $changelog_file" >&2; exit 66; }
+./scripts/release/validate-changelog.sh "$changelog_file"
 
 target=$(./scripts/release/validate-targets.sh --approved "$target_id")
 
@@ -46,12 +47,18 @@ case "$existing_status" in
     if ! jq -e \
       --arg project_id "$MODRINTH_PROJECT_ID" \
       --arg version_number "$version_number" \
+      --arg loader "$loader" \
+      --arg minecraft_version "$minecraft_version" \
       --arg sha512 "$jar_sha512" \
+      --rawfile changelog "$changelog_file" \
       '.project_id == $project_id and
        .version_number == $version_number and
+       .changelog == $changelog and
+       (.loaders | index($loader)) != null and
+       (.game_versions | index($minecraft_version)) != null and
        any(.files[]; .primary == true and .hashes.sha512 == $sha512)' \
       <<<"$existing_body" >/dev/null; then
-      echo "existing Modrinth version does not match the release artifact" >&2
+      echo "existing Modrinth version does not match the release artifact and changelog" >&2
       exit 73
     fi
     echo "Modrinth already has the identical ${target_id} artifact."
@@ -64,14 +71,13 @@ case "$existing_status" in
     ;;
 esac
 
-changelog=$(<"$changelog_file")
 metadata=$(jq -cn \
   --arg project_id "$MODRINTH_PROJECT_ID" \
   --arg target_id "$target_id" \
   --arg version "$version" \
   --arg loader "$loader" \
   --arg minecraft_version "$minecraft_version" \
-  --arg changelog "$changelog" \
+  --rawfile changelog "$changelog_file" \
   '{
     name: ("TrueUUID " + $version + " for " + $target_id),
     version_number: ($version + "+" + $target_id),

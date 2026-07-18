@@ -93,6 +93,7 @@ jobs:
           name: release-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/release/
           if-no-files-found: error
+          overwrite: true
           retention-days: 14
       - id: server
         name: Boot localhost development server
@@ -109,6 +110,7 @@ jobs:
           name: self-test-logs-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/logs/
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 7
 
   fabric:
@@ -154,6 +156,7 @@ jobs:
           name: release-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/release/
           if-no-files-found: error
+          overwrite: true
           retention-days: 14
       - id: server
         name: Boot localhost development server
@@ -170,6 +173,7 @@ jobs:
           name: self-test-logs-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/logs/
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 7
 
   neoforge:
@@ -215,6 +219,7 @@ jobs:
           name: release-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/release/
           if-no-files-found: error
+          overwrite: true
           retention-days: 14
       - id: server
         name: Boot localhost development server
@@ -231,4 +236,5 @@ jobs:
           name: self-test-logs-${{ matrix.target }}
           path: self-test-output/${{ matrix.target }}/logs/
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 7

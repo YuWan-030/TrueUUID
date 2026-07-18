@@ -1,23 +1,23 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed version tag with a draft GitHub Release
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
   metadata:
-    name: Validate version release
-    if: >-
-      github.repository == 'YuWan-030/TrueUUID' &&
-      github.event.release.draft == false &&
-      github.event.release.prerelease == false
+    name: Validate draft release
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -27,18 +27,19 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
       - id: release
         name: Validate tag, changelog, and approvals
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_ID: ${{ github.event.release.id }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == 'YuWan-030/TrueUUID' ]]
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
           [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
           version="${BASH_REMATCH[1]}"
           [[ "$(sed -n 's/^mod_version=//p' gradle.properties)" == "$version" ]]
@@ -53,18 +54,24 @@ jobs:
             '{include: [.targets[] | select(.release == true) | {target: .id}]}' \
             release/targets.json)
           jq -e '.include | length > 0' <<<"$approved" >/dev/null
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            --jq '.body // ""' > release-changelog.md
-          [[ -s release-changelog.md ]]
+          release_json=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,body)
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tagName == $tag and .isDraft == true and .isPrerelease == false and
+             (.body | length > 0)' <<<"$release_json" >/dev/null
+          jq -j '.body' <<<"$release_json" > release-changelog.md
+          ./scripts/release/validate-changelog.sh release-changelog.md
           echo "approved=$approved" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-      - name: Preserve the published GitHub changelog
+      - name: Freeze the draft GitHub changelog
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: published-changelog
+          name: frozen-changelog
           path: release-changelog.md
           if-no-files-found: error
+          overwrite: true
           retention-days: 14
 
   full-self-test:
@@ -137,11 +144,11 @@ jobs:
         with:
           name: release-${{ matrix.target }}
           path: tested-artifact
-      - name: Download the published GitHub changelog
+      - name: Download the frozen GitHub changelog
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: published-changelog
-          path: published-changelog
+          name: frozen-changelog
+          path: frozen-changelog
       - name: Verify artifact and publishing metadata
         env:
           TARGET_ID: ${{ matrix.target }}
@@ -161,7 +168,7 @@ jobs:
           [[ "$curseforge_project_id" =~ ^[1-9][0-9]*$ ]]
           mkdir -p "$(dirname "$expected")"
           cp "$tested_jar" "$expected"
-          [[ -s published-changelog/release-changelog.md ]]
+          ./scripts/release/validate-changelog.sh frozen-changelog/release-changelog.md
           {
             echo "RELEASE_JAR=$expected"
             echo "RELEASE_LOADER=$loader"
@@ -180,8 +187,27 @@ jobs:
           [[ -n "$MODRINTH_TOKEN" ]]
           [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]]
           ./scripts/release/publish-modrinth.sh \
-            "$TARGET_ID" "$VERSION" published-changelog/release-changelog.md
+            "$TARGET_ID" "$VERSION" frozen-changelog/release-changelog.md
+      - id: curseforge-preflight
+        name: Check for an existing CurseForge artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=$(./scripts/release/check-curseforge-artifact.sh \
+            "$CURSEFORGE_PROJECT_ID" "$RELEASE_JAR")
+          case "$state" in
+            missing) echo "upload=true" >> "$GITHUB_OUTPUT" ;;
+            identical)
+              echo "CurseForge already has the identical artifact."
+              echo "upload=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected CurseForge preflight result: $state" >&2
+              exit 69
+              ;;
+          esac
       - name: Publish to CurseForge
+        if: steps.curseforge-preflight.outputs.upload == 'true'
         uses: Kir-Antipov/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
         with:
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
@@ -190,7 +216,44 @@ jobs:
           name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.target }}
           version: ${{ needs.metadata.outputs.version }}+${{ matrix.target }}
           version-type: release
-          changelog-file: published-changelog/release-changelog.md
+          changelog-file: frozen-changelog/release-changelog.md
           loaders: ${{ env.RELEASE_LOADER }}
           game-versions: ${{ env.RELEASE_GAME_VERSION }}
+          retry-attempts: 1
           fail-mode: fail
+
+  publish-github:
+    name: Publish GitHub Release
+    needs: [metadata, publish-external]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download the frozen GitHub changelog
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: frozen-changelog
+          path: frozen-changelog
+      - name: Publish only after every external upload succeeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease,body)
+          jq -e '.isDraft == true and .isPrerelease == false' \
+            <<<"$release_json" >/dev/null
+          jq -j '.body' <<<"$release_json" > current-changelog.md
+          if ! cmp --silent frozen-changelog/release-changelog.md current-changelog.md; then
+            echo "The draft changelog changed while the release was running." >&2
+            exit 73
+          fi
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes-file frozen-changelog/release-changelog.md \
+            --draft=false \
+            --latest
