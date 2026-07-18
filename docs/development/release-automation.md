@@ -34,9 +34,9 @@ workflow requires all of these independent gates:
    `mod_version`, and its commit is contained in `main`.
 3. GitHub verifies the tag signature.
 4. At least one target has a reviewed `"release": true` approval.
-5. A non-creating permission probe verifies GitHub Release write access,
-   Modrinth `VERSION_CREATE`, the CurseForge upload token, and CurseForge
-   project upload access.
+5. An idempotent no-change draft update verifies GitHub Release write access;
+   non-creating permission probes verify Modrinth `VERSION_CREATE`, the
+   CurseForge upload token, and CurseForge project upload access.
 6. The full self-test passes for all 20 targets, including targets that are not
    approved for publication.
 
@@ -77,13 +77,14 @@ No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
 steps.
 
-Run the manual `Publish Access Check` workflow at any time to verify the
-current repository credentials without creating a tag or release. The Release
-workflow repeats the same checks immediately after validating its draft and
-before starting the 20-target self-test. Modrinth and CurseForge are probed
-with complete metadata but deliberately no file; both upload APIs must
-authorize the request and then reject it for the missing required file. The
-probe never creates a version or uploads an artifact.
+Run the manual `Publish Access Check` workflow at any time to verify Modrinth
+and CurseForge without creating a tag or release. The Release workflow repeats
+those checks immediately after validating its draft, and also PATCHes the
+draft with its existing body and flags to prove GitHub write access without a
+semantic change. All checks run before the 20-target self-test. Modrinth and
+CurseForge are probed with complete metadata but deliberately no file; both
+upload APIs must authorize the request and then reject it for the missing
+required file. The probe never creates a version or uploads an artifact.
 
 ## Full self-test coverage
 
