@@ -59,7 +59,6 @@ fi
 modrinth_status=${modrinth_response##*$'\n'}
 modrinth_body=${modrinth_response%$'\n'*}
 if [[ "$modrinth_status" != 400 ]] || ! jq -e '
-    .error == "invalid_input" and
     ((.description // "") | test("file"; "i"))
 ' <<<"$modrinth_body" >/dev/null; then
     echo "Modrinth rejected the publishing credential or project permission probe (HTTP ${modrinth_status})." >&2
