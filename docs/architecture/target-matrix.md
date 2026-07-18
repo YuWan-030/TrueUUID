@@ -394,8 +394,8 @@ minimal applicable commit with `-x`.
 ## Automation gate
 
 Lightweight continuous integration runs on pushes and pull requests. The
-on-demand and release-triggered Full Self-Test builds and boots every
-implemented target. Publishing is stricter:
+on-demand Full Self-Test and manually dispatched Release workflow both build
+and boot every implemented target. Publishing is stricter:
 [`release/targets.json`](../../release/targets.json) lists the exact target
 artifacts eligible for a signed version tag. A compiling Planned target must
 remain `"release": false`. The currently recorded acceptance evidence is

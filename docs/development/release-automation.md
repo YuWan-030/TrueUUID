@@ -79,7 +79,7 @@ steps.
 
 Run `Full Self-Test` from the Actions tab before publishing a release. Select
 the signed version tag as the workflow ref, or enter it in the optional `ref`
-input. The Release workflow repeats the same test at the published tag. For
+input. The Release workflow repeats the same test at the draft release tag. For
 each target, the workflow:
 
 1. Runs shared fixtures and the target's complete Gradle `build` task.
