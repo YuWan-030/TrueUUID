@@ -19,10 +19,12 @@ import java.util.UUID;
 public final class FabricAdapterRuntime {
     private static FabricVerifiedNameRegistry verifiedNames;
     private static RecentIpGrace ipGrace;
+    private static FabricPendingLoginStore pendingLogins;
 
     /** Records a TrueUUID session verification plus the same-IP reconnect grace seed. */
     public static synchronized void recordVerifiedProfile(VerifiedProfile profile, String clientIp) {
         if (profile == null) return;
+        pendingLogins().record(profile.uuid(), FabricAuthenticationSource.VERIFIED);
         registry().record(profile.name(), profile.uuid());
         grace().record(profile.name(), clientIp, new GraceCache.Entry(profile.uuid(), AuthSource.MOJANG, "Mojang"));
     }
@@ -32,6 +34,21 @@ public final class FabricAdapterRuntime {
         if (!FabricConfig.recentIpGraceEnabled()) return Optional.empty();
         return grace().consume(name, clientIp, Duration.ofSeconds(FabricConfig.recentIpGraceTtlSeconds()))
                 .map(GraceCache.Entry::uuid);
+    }
+
+    /** Records a grace acceptance until vanilla creates the player. */
+    public static synchronized void recordGraceLogin(UUID playerId) {
+        pendingLogins().record(playerId, FabricAuthenticationSource.GRACE);
+    }
+
+    /** Records an accepted offline profile until vanilla creates the player. */
+    public static synchronized void recordOfflineFallback(UUID playerId) {
+        pendingLogins().record(playerId, FabricAuthenticationSource.OFFLINE_FALLBACK);
+    }
+
+    /** Consumes a server-side login result exactly once after vanilla creates the player. */
+    public static synchronized FabricAuthenticationSource consumePendingLogin(UUID playerId) {
+        return pendingLogins == null ? null : pendingLogins.consume(playerId);
     }
 
     /** Starts the reconnect grace window when a player leaves. */
@@ -57,6 +74,8 @@ public final class FabricAdapterRuntime {
     }
 
     public static synchronized void shutdown() {
+        if (pendingLogins != null) pendingLogins.clear();
+        pendingLogins = null;
         if (verifiedNames != null) verifiedNames.close();
         verifiedNames = null;
         if (ipGrace != null) ipGrace.close();
@@ -71,6 +90,11 @@ public final class FabricAdapterRuntime {
     private static RecentIpGrace grace() {
         if (ipGrace == null) ipGrace = new RecentIpGrace();
         return ipGrace;
+    }
+
+    private static FabricPendingLoginStore pendingLogins() {
+        if (pendingLogins == null) pendingLogins = new FabricPendingLoginStore();
+        return pendingLogins;
     }
 
     private FabricAdapterRuntime() {}

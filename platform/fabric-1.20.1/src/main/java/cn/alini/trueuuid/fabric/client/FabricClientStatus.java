@@ -1,15 +1,14 @@
 package cn.alini.trueuuid.fabric.client;
 
+import cn.alini.trueuuid.fabric.config.FabricConfig;
+import cn.alini.trueuuid.fabric.login.FabricAuthenticationSource;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
 /**
- * Client-local badge mirroring the Forge/NeoForge default: a closed padlock
- * plus green Premium, or an open padlock plus red Offline, at bottom right.
- * Fabric-specific configuration is still pending, so this deliberately uses
- * the shared default position, scale, and margin rather than inventing a
- * divergent setting format.
+ * Server-confirmed account badge mirroring the Forge/NeoForge default: a
+ * closed padlock plus green Premium, or an open padlock plus red Offline.
  */
 public final class FabricClientStatus {
     private enum Status {
@@ -74,12 +73,13 @@ public final class FabricClientStatus {
     private static final int BODY_TOP = 5;
     private static final int BODY_BOTTOM = 16;
 
-    public static void markPremium() {
-        status = Status.PREMIUM;
+    /** The only writer for a non-empty badge is the authenticated server payload. */
+    public static void setServerStatus(FabricAuthenticationSource.ClientStatus serverStatus) {
+        status = serverStatus == FabricAuthenticationSource.ClientStatus.PREMIUM ? Status.PREMIUM : Status.OFFLINE;
     }
 
-    public static void markOffline() {
-        status = Status.OFFLINE;
+    public static void clear() {
+        status = Status.NONE;
     }
 
     public static synchronized void registerHud() {
@@ -88,16 +88,31 @@ public final class FabricClientStatus {
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
             Status current = status;
             MinecraftClient client = MinecraftClient.getInstance();
-            if (current == Status.NONE || client.player == null) return;
+            if (!FabricConfig.showAccountOverlay() || current == Status.NONE || client.player == null) return;
             Text label = Text.translatable(current.translationKey);
+            float scale = FabricConfig.overlayScale();
             int labelWidth = client.textRenderer.getWidth(label);
-            int x = drawContext.getScaledWindowWidth() - MARGIN - ICON_WIDTH - GAP - labelWidth;
-            int y = drawContext.getScaledWindowHeight() - MARGIN - ICON_HEIGHT;
+            float drawnWidth = (ICON_WIDTH + GAP + labelWidth) * scale;
+            float drawnHeight = ICON_HEIGHT * scale;
+            boolean right = FabricConfig.overlayCorner().endsWith("right");
+            boolean bottom = FabricConfig.overlayCorner().startsWith("bottom");
+            float x = (right ? drawContext.getScaledWindowWidth() - MARGIN - drawnWidth : MARGIN)
+                    + FabricConfig.overlayOffsetX();
+            float y = (bottom ? drawContext.getScaledWindowHeight() - MARGIN - drawnHeight : MARGIN)
+                    + FabricConfig.overlayOffsetY();
 
-            drawSprite(drawContext, x, y, current == Status.PREMIUM ? LOCK_CLOSED : LOCK_OPEN);
-            int bodyCentre = y + (BODY_TOP + BODY_BOTTOM) / 2;
-            int textY = bodyCentre - client.textRenderer.fontHeight / 2;
-            drawContext.drawTextWithShadow(client.textRenderer, label, x + ICON_WIDTH + GAP, textY, current.color);
+            drawContext.getMatrices().push();
+            try {
+                drawContext.getMatrices().scale(scale, scale, 1.0F);
+                int scaledX = Math.round(x / scale);
+                int scaledY = Math.round(y / scale);
+                drawSprite(drawContext, scaledX, scaledY, current == Status.PREMIUM ? LOCK_CLOSED : LOCK_OPEN);
+                int bodyCentre = scaledY + (BODY_TOP + BODY_BOTTOM) / 2;
+                int textY = bodyCentre - client.textRenderer.fontHeight / 2;
+                drawContext.drawTextWithShadow(client.textRenderer, label, scaledX + ICON_WIDTH + GAP, textY, current.color);
+            } finally {
+                drawContext.getMatrices().pop();
+            }
         });
     }
 

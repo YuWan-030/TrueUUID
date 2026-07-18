@@ -59,9 +59,9 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Offline fallback (join allowed) | yes | yes — runtime pending | yes | yes |
 | Offline **policy** (deny known-premium names) | yes | yes | yes | yes |
 | Verified-name registry (persisted) | yes | yes | yes | yes |
-| Join feedback (chat, opt-in title) | yes | **no** | yes | yes |
-| Account-status badge | yes | yes — position/scale hardcoded | yes | yes |
-| Config file | yes | yes — JSON, offline policy only | yes | yes |
+| Join feedback (chat, opt-in title) | yes | yes — consumed server result; runtime evidence pending | yes | yes |
+| Account-status badge | yes | yes — server-authoritative Fabric play payload; runtime evidence pending | yes | yes |
+| Config file | yes | yes — JSON, offline policy plus feedback/overlay settings | yes | yes |
 | Addon API (`AccountStatus`, callbacks) | yes | **no** | yes | yes |
 | Localized strings from `common-assets` | own copy | yes | yes | yes |
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
@@ -125,7 +125,7 @@ not a login or release claim.
 | Target | Source state | Build/tests | Recorded runtime | Main gap before Active |
 |---|---|---|---|---|
 | Forge 1.20.1 | Full reference feature set | passed; repaired artifact structurally verified (2026-07-18) | Previous Mojang login needs artifact re-validation; repaired production server boot passed | Premium login against the repaired JAR, then Yggdrasil, denial, timeout/grace, migration rollback |
-| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON config, shared strings, and default Forge/NeoForge-matching HUD; server audit lines added 2026-07-17 | passed (2026-07-17) | Partial two-sided run (2026-07-17): premium client joined with green badge, but the run predates the audit lines so server-side verification is unproven; rerun pending | Rerun capturing `session-verified premium login`, then the full Mojang matrix, then migration/admin commands, join feedback, and the addon API |
+| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON feedback/overlay config, shared strings, and a bounded server-owned result consumed at play join for audit/chat/title/HUD; addon API remains absent | focused tests and root build passed (2026-07-18) | Partial two-sided run (2026-07-17): premium client joined with green badge, but the run predates the server-owned result path; rerun pending | Real premium and offline runs capturing server audit, localized chat, and server-confirmed HUD; then the full Mojang matrix, migration/admin commands, and the addon API |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | Forge 1.20.2 | Same core via `forge-common` plus target seams (pre-1.21 overlay API, SRG-era reobf and refmap) | passed (2026-07-16) | none | Per-target login matrix and the shared 1.21 feature backlog |

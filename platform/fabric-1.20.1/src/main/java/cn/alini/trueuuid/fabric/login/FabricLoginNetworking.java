@@ -2,16 +2,26 @@ package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import cn.alini.trueuuid.fabric.client.FabricClientStatus;
+import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 
 import java.util.List;
@@ -20,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 /** Fabric login-phase registration and native packet conversion only. */
 public final class FabricLoginNetworking {
     public static final Identifier AUTH_CHANNEL = new Identifier(TrueuuidFabric.MOD_ID, "auth");
+    public static final Identifier STATUS_CHANNEL = new Identifier(TrueuuidFabric.MOD_ID, "account_status");
     private static boolean serverRegistered;
     private static boolean clientRegistered;
 
@@ -38,6 +49,9 @@ public final class FabricLoginNetworking {
         // re-fetch the skin of the replaced (verified) profile, matching 1.20.1.
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
+            FabricAuthenticationSource source = FabricAdapterRuntime.consumePendingLogin(player.getUuid());
+            if (source == null && server.isOnlineMode()) source = FabricAuthenticationSource.NATIVE_ONLINE_MODE;
+            if (source != null) publishJoinResult(player, source);
             server.execute(() -> {
                 PlayerRemoveS2CPacket remove = new PlayerRemoveS2CPacket(List.of(player.getUuid()));
                 PlayerListS2CPacket update = PlayerListS2CPacket.entryFromPlayer(List.of(player));
@@ -82,12 +96,8 @@ public final class FabricLoginNetworking {
                         return CompletableFuture.supplyAsync(() -> joinedMojangSession(query.nonce()))
                                 .orTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                                 .exceptionally(failure -> false)
-                                .thenApply(joined -> {
-                                    if (joined) FabricClientStatus.markPremium();
-                                    else FabricClientStatus.markOffline();
-                                    return FabricLoginPayloads.answer(
-                                            new AuthMessages.Answer(joined, "", false, !joined));
-                                });
+                                .thenApply(joined -> FabricLoginPayloads.answer(
+                                        new AuthMessages.Answer(joined, "", false, !joined)));
                     } catch (IllegalArgumentException malformed) {
                         TrueuuidFabric.LOGGER.warn("Rejected malformed TrueUUID Fabric login query: {}",
                                 malformed.getMessage());
@@ -96,6 +106,21 @@ public final class FabricLoginNetworking {
                 })) {
             throw new IllegalStateException("TrueUUID Fabric client login channel was already registered");
         }
+        if (!ClientPlayNetworking.registerGlobalReceiver(STATUS_CHANNEL,
+                (client, handler, buffer, responseSender) -> {
+                    FabricAuthenticationSource.ClientStatus status = FabricStatusPayloads.read(buffer);
+                    if (status == null) {
+                        TrueuuidFabric.LOGGER.warn("Rejected malformed TrueUUID Fabric account-status payload");
+                        return;
+                    }
+                    client.execute(() -> FabricClientStatus.setServerStatus(status));
+                })) {
+            throw new IllegalStateException("TrueUUID Fabric status channel was already registered");
+        }
+        // Do not carry a prior server's badge into a new world. The subsequent
+        // status packet can only be sent from that new server's join result.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FabricClientStatus.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> FabricClientStatus.clear());
     }
 
     private static boolean joinedMojangSession(String serverId) {
@@ -115,6 +140,34 @@ public final class FabricLoginNetworking {
             TrueuuidFabric.debug("TrueUUID joinServer failed: {}", failureCategory(failure));
             return false;
         }
+    }
+
+    /** Runs only from the consumed server result after vanilla has created the player. */
+    private static void publishJoinResult(ServerPlayerEntity player, FabricAuthenticationSource source) {
+        TrueuuidFabric.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel(),
+                player.getGameProfile().getName(), player.getUuid());
+
+        if (FabricConfig.showJoinFeedback()) {
+            player.sendMessage(Text.translatable(source.chatKey()).formatted(chatColor(source)), false);
+        }
+        if (FabricConfig.showJoinTitle()) {
+            player.networkHandler.sendPacket(new TitleFadeS2CPacket(10, 60, 20));
+            player.networkHandler.sendPacket(new TitleS2CPacket(Text.translatable(source.titleKey()).formatted(titleColor(source))));
+            player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.translatable(source.subtitleKey()).formatted(Formatting.GRAY)));
+        }
+        if (ServerPlayNetworking.canSend(player, STATUS_CHANNEL)) {
+            var payload = PacketByteBufs.create();
+            FabricStatusPayloads.write(payload, source.clientStatus());
+            ServerPlayNetworking.send(player, STATUS_CHANNEL, payload);
+        }
+    }
+
+    private static Formatting chatColor(FabricAuthenticationSource source) {
+        return source.clientStatus() == FabricAuthenticationSource.ClientStatus.PREMIUM ? Formatting.GREEN : Formatting.RED;
+    }
+
+    private static Formatting titleColor(FabricAuthenticationSource source) {
+        return chatColor(source);
     }
 
     /** Fixed, token-free failure categories, matching the other adapters' client diagnostics. */
