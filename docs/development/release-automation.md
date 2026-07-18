@@ -34,9 +34,11 @@ workflow requires all of these independent gates:
    `mod_version`, and its commit is contained in `main`.
 3. GitHub verifies the tag signature.
 4. At least one target has a reviewed `"release": true` approval.
-5. The full self-test passes for all 20 targets, including targets that are not
+5. A non-creating permission probe verifies GitHub Release write access,
+   Modrinth `VERSION_CREATE`, the CurseForge upload token, and CurseForge
+   project upload access.
+6. The full self-test passes for all 20 targets, including targets that are not
    approved for publication.
-6. The Modrinth project ID/token and CurseForge token are configured.
 
 After those gates pass, the workflow freezes the draft body, collects only
 approved JARs, verifies their per-target checksums, creates one aggregate
@@ -74,6 +76,14 @@ Configure these values in the upstream repository:
 No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
 steps.
+
+Run the manual `Publish Access Check` workflow at any time to verify the
+current repository credentials without creating a tag or release. The Release
+workflow repeats the same checks immediately after validating its draft and
+before starting the 20-target self-test. Modrinth and CurseForge are probed
+with complete metadata but deliberately no file; both upload APIs must
+authorize the request and then reject it for the missing required file. The
+probe never creates a version or uploads an artifact.
 
 ## Full self-test coverage
 
@@ -123,8 +133,9 @@ After the manual acceptance matrix passes for each target being approved:
    ```
 
 4. Create a draft GitHub Release for the existing `v1.2.0` tag. Copy
-   `docs/development/release-changelog-template.md` into its body, replace the
-   placeholders, and leave the Release as a draft.
+   `docs/development/release-changelog-1.2.0.md` into its body, verify that its
+   platform list matches the approved targets, and leave the Release as a
+   draft.
 5. Open Actions, select `Release`, choose `main`, enter `v1.2.0`, and run the
    workflow. Do not click GitHub's `Publish release` button yourself.
 6. Confirm that the workflow self-tested all 20 targets, attached only the

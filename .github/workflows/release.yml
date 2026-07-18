@@ -76,12 +76,46 @@ jobs:
 
   full-self-test:
     name: Full release self-test
-    needs: metadata
+    needs: [metadata, publishing-access]
     uses: ./.github/workflows/self-test.yml
     with:
       ref: ${{ needs.metadata.outputs.tag }}
     permissions:
       contents: read
+
+  publishing-access:
+    name: Validate publishing credentials
+    needs: metadata
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          persist-credentials: false
+      - name: Validate GitHub Release write access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions.push // false')" == true ]] || {
+            echo "GITHUB_TOKEN does not have the contents:write access required to attach and publish a Release." >&2
+            exit 77
+          }
+          echo "Verified GitHub Release write access."
+      - name: Validate Modrinth and CurseForge publishing access
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
+          ./scripts/release/validate-publishing-access.sh "$curseforge_project_id"
 
   attach:
     name: Attach approved artifacts
