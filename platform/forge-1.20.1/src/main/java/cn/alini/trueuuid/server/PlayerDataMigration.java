@@ -1,32 +1,30 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.MigrationExecutor;
 import cn.alini.trueuuid.protocol.MigrationPlanner;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * Forge 1.20.1 path-map over the shared {@link MigrationExecutor}. This is the
+ * only Minecraft-coupled part of migration: it discovers the world/mod file
+ * layout from {@link MinecraftServer#getWorldPath}; the transaction engine
+ * (preflight, backup/journal, atomic apply, rollback, cleanup) lives once in
+ * {@code shared:protocol}.
+ */
 public final class PlayerDataMigration {
     public record OfflineData(UUID offlineUuid, String summary) {}
     public record CleanupResult(UUID offlineUuid, String summary, int cleanedFiles, boolean cleanedGlobalRefs, Path backupDir) {}
 
-    private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-    private static final long MAX_TEXT_MIGRATION_BYTES = 64L * 1024L * 1024L;
-
     public static UUID offlineUuid(String name) {
-        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+        return MigrationExecutor.offlineUuid(name);
     }
 
     public static OfflineData findOfflineData(MinecraftServer server, String name) {
@@ -45,7 +43,7 @@ public final class PlayerDataMigration {
         if (Files.exists(ftbTeamsPlayer(server, offlineUuid))) found.add("FTB Teams");
         if (Files.exists(ftbQuestsPlayer(server, offlineUuid))) found.add("FTB Quests");
         if (Files.exists(customNpcsPlayer(server, offlineUuid))) found.add("CustomNPCs");
-        if (containsUuid(ftbRanksPlayers(server), offlineUuid)) found.add("FTB Ranks");
+        if (MigrationExecutor.containsUuid(ftbRanksPlayers(server), offlineUuid)) found.add("FTB Ranks");
         if (found.isEmpty()) return null;
         return new OfflineData(offlineUuid, String.join(", ", found));
     }
@@ -60,144 +58,10 @@ public final class PlayerDataMigration {
         if (data == null || verifiedUuid == null || data.offlineUuid().equals(verifiedUuid)) {
             return;
         }
-
-        List<FilePair> pairs = List.of(
-                new FilePair(playerData(server, data.offlineUuid()), playerData(server, verifiedUuid), false, "vanilla"),
-                new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, verifiedUuid), false, "vanilla"),
-                new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, verifiedUuid), false, "cosarmor"),
-                // Advancements and stats both use <uuid>.json. Keep their
-                // backup trees distinct so one cannot overwrite the other.
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, verifiedUuid), false, "vanilla/advancements"),
-                new FilePair(stats(server, data.offlineUuid()), stats(server, verifiedUuid), false, "vanilla"),
-                new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, verifiedUuid), false, "opac"),
-                new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, verifiedUuid), true, "opac"),
-                new FilePair(ftbChunksPlayer(server, data.offlineUuid()), ftbChunksPlayer(server, verifiedUuid), true, "ftbchunks"),
-                new FilePair(ftbEssentialsPlayer(server, data.offlineUuid()), ftbEssentialsPlayer(server, verifiedUuid), true, "ftbessentials"),
-                new FilePair(ftbTeamsPlayer(server, data.offlineUuid()), ftbTeamsPlayer(server, verifiedUuid), true, "ftbteams"),
-                new FilePair(ftbQuestsPlayer(server, data.offlineUuid()), ftbQuestsPlayer(server, verifiedUuid), true, "ftbquests"),
-                new FilePair(customNpcsPlayer(server, data.offlineUuid()), customNpcsPlayer(server, verifiedUuid), true, "customnpcs")
-        );
-
-        List<MigrationPlanner.Candidate> candidates = pairs.stream().map(pair -> new MigrationPlanner.Candidate(
-                pair.from(), pair.to(), pair.replaceUuidText() ? MigrationPlanner.Mode.UUID_TEXT_REWRITE : MigrationPlanner.Mode.BINARY_COPY,
-                pair.backupGroup())).toList();
-        MigrationPlanner.Plan plan = MigrationPlanner.preflight(candidates, Files::exists);
-        Path global = ftbRanksPlayers(server);
-        boolean updateGlobal = containsUuid(global, data.offlineUuid());
-        preflight(plan, updateGlobal ? global : null);
-
-        Path backupDir = backupDir(server, name, data.offlineUuid(), verifiedUuid);
-        Files.createDirectories(backupDir);
-        Path journal = backupDir.resolve("journal.log");
-        Files.writeString(journal, "PREPARED\n", StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-        List<AppliedTarget> applied = new ArrayList<>();
-        List<DeletedSource> sources = new ArrayList<>();
-        try {
-            for (MigrationPlanner.Operation operation : plan.operations()) {
-                Path sourceBackup = backupDir.resolve("offline").resolve(operation.group()).resolve(operation.source().getFileName());
-                backupFile(operation.source(), sourceBackup);
-                sources.add(new DeletedSource(operation.source(), sourceBackup));
-                Path targetBackup = null;
-                if (operation.targetExists()) {
-                    targetBackup = backupDir.resolve("verified-existing").resolve(operation.group()).resolve(operation.target().getFileName());
-                    backupFile(operation.target(), targetBackup);
-                }
-                appendJournal(journal, "APPLY " + operation.target());
-                writeTargetAtomically(operation, data.offlineUuid(), verifiedUuid);
-                applied.add(new AppliedTarget(operation.target(), targetBackup));
-            }
-            if (updateGlobal) {
-                Path globalBackup = backupDir.resolve("ftbranks").resolve("players.snbt");
-                backupFile(global, globalBackup);
-                appendJournal(journal, "APPLY " + global);
-                writeTextAtomically(global, replaceUuidText(Files.readString(global, StandardCharsets.UTF_8), data.offlineUuid(), verifiedUuid));
-                applied.add(new AppliedTarget(global, globalBackup));
-            }
-            for (DeletedSource source : sources) {
-                appendJournal(journal, "DELETE_SOURCE " + source.source());
-                Files.delete(source.source());
-            }
-            appendJournal(journal, "COMMITTED");
-        } catch (Throwable failure) {
-            IOException rollbackFailure = rollback(applied, sources, journal);
-            if (rollbackFailure != null) failure.addSuppressed(rollbackFailure);
-            if (failure instanceof IOException io) throw io;
-            throw new IOException("migration failed and was rolled back", failure);
-        }
-    }
-
-    private static void preflight(MigrationPlanner.Plan plan, Path global) throws IOException {
-        List<Path> files = new ArrayList<>();
-        for (MigrationPlanner.Operation operation : plan.operations()) {
-            files.add(operation.source());
-            if (!Files.isRegularFile(operation.source()) || !Files.isReadable(operation.source()) || Files.isSymbolicLink(operation.source()))
-                throw new IOException("migration source is not a readable regular file: " + operation.source());
-            if (operation.mode() == MigrationPlanner.Mode.UUID_TEXT_REWRITE && Files.size(operation.source()) > MAX_TEXT_MIGRATION_BYTES)
-                throw new IOException("migration text source is too large: " + operation.source());
-            if (Files.exists(operation.target()) && Files.isSymbolicLink(operation.target()))
-                throw new IOException("migration target cannot be a symbolic link: " + operation.target());
-        }
-        if (global != null && (!Files.isRegularFile(global) || !Files.isReadable(global)
-                || Files.isSymbolicLink(global) || Files.size(global) > MAX_TEXT_MIGRATION_BYTES)) {
-            throw new IOException("global migration file failed preflight: " + global);
-        }
-    }
-
-    private static void writeTargetAtomically(MigrationPlanner.Operation operation, UUID from, UUID to) throws IOException {
-        Files.createDirectories(operation.target().getParent());
-        if (operation.mode() == MigrationPlanner.Mode.UUID_TEXT_REWRITE) {
-            writeTextAtomically(operation.target(), replaceUuidText(Files.readString(operation.source(), StandardCharsets.UTF_8), from, to));
-        } else {
-            Path temp = Files.createTempFile(operation.target().getParent(), ".trueuuid-", ".tmp");
-            try {
-                Files.copy(operation.source(), temp, StandardCopyOption.REPLACE_EXISTING);
-                moveAtomically(temp, operation.target());
-            } finally { Files.deleteIfExists(temp); }
-        }
-    }
-
-    private static void writeTextAtomically(Path target, String text) throws IOException {
-        Files.createDirectories(target.getParent());
-        Path temp = Files.createTempFile(target.getParent(), ".trueuuid-", ".tmp");
-        try {
-            Files.writeString(temp, text, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
-            moveAtomically(temp, target);
-        } finally { Files.deleteIfExists(temp); }
-    }
-
-    private static void moveAtomically(Path from, Path to) throws IOException {
-        try { Files.move(from, to, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE); }
-        catch (AtomicMoveNotSupportedException ignored) { Files.move(from, to, StandardCopyOption.REPLACE_EXISTING); }
-    }
-
-    private static IOException rollback(List<AppliedTarget> applied, List<DeletedSource> sources, Path journal) {
-        IOException failure = null;
-        for (int i = applied.size() - 1; i >= 0; i--) {
-            AppliedTarget target = applied.get(i);
-            try {
-                if (target.backup() == null) Files.deleteIfExists(target.target());
-                else Files.copy(target.backup(), target.target(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException ex) {
-                if (failure == null) failure = ex; else failure.addSuppressed(ex);
-            }
-        }
-        for (DeletedSource source : sources) {
-            if (Files.exists(source.source())) continue;
-            try {
-                Files.createDirectories(source.source().getParent());
-                Files.copy(source.backup(), source.source(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException ex) {
-                if (failure == null) failure = ex; else failure.addSuppressed(ex);
-            }
-        }
-        try { appendJournal(journal, failure == null ? "ROLLED_BACK" : "ROLLBACK_FAILED"); }
-        catch (IOException ex) { if (failure == null) failure = ex; else failure.addSuppressed(ex); }
-        return failure;
-    }
-
-    private static void appendJournal(Path journal, String line) throws IOException {
-        Files.writeString(journal, line + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        UUID offline = data.offlineUuid();
+        MigrationPlanner.Plan plan = MigrationPlanner.preflight(migrateCandidates(server, offline, verifiedUuid), Files::exists);
+        Path backupDir = MigrationExecutor.upgradeBackupDir(worldRoot(server), name, offline, verifiedUuid);
+        MigrationExecutor.execute(plan, backupDir, offline, verifiedUuid, ftbRanksPlayers(server));
     }
 
     public static CleanupResult cleanupOfflineData(MinecraftServer server, String name) throws IOException {
@@ -205,83 +69,58 @@ public final class PlayerDataMigration {
         if (data == null) {
             return null;
         }
+        UUID offline = data.offlineUuid();
+        Path backupDir = MigrationExecutor.cleanupBackupDir(worldRoot(server), name, offline);
+        MigrationExecutor.CleanupOutcome outcome = MigrationExecutor.cleanup(
+                cleanupFiles(server, offline), backupDir, offline, ftbRanksPlayers(server));
+        return new CleanupResult(offline, data.summary(), outcome.cleanedFiles(), outcome.cleanedGlobalRefs(), backupDir);
+    }
 
-        List<FilePair> files = List.of(
-                new FilePair(playerData(server, data.offlineUuid()), playerData(server, data.offlineUuid()), false, "vanilla"),
-                new FilePair(playerDataOld(server, data.offlineUuid()), playerDataOld(server, data.offlineUuid()), false, "vanilla"),
-                new FilePair(cosmeticArmor(server, data.offlineUuid()), cosmeticArmor(server, data.offlineUuid()), false, "cosarmor"),
-                new FilePair(advancements(server, data.offlineUuid()), advancements(server, data.offlineUuid()), false, "vanilla/advancements"),
-                new FilePair(stats(server, data.offlineUuid()), stats(server, data.offlineUuid()), false, "vanilla"),
-                new FilePair(opacPlayerClaims(server, data.offlineUuid()), opacPlayerClaims(server, data.offlineUuid()), false, "opac"),
-                new FilePair(opacPlayerConfig(server, data.offlineUuid()), opacPlayerConfig(server, data.offlineUuid()), true, "opac"),
-                new FilePair(ftbChunksPlayer(server, data.offlineUuid()), ftbChunksPlayer(server, data.offlineUuid()), true, "ftbchunks"),
-                new FilePair(ftbEssentialsPlayer(server, data.offlineUuid()), ftbEssentialsPlayer(server, data.offlineUuid()), true, "ftbessentials"),
-                new FilePair(ftbTeamsPlayer(server, data.offlineUuid()), ftbTeamsPlayer(server, data.offlineUuid()), true, "ftbteams"),
-                new FilePair(ftbQuestsPlayer(server, data.offlineUuid()), ftbQuestsPlayer(server, data.offlineUuid()), true, "ftbquests"),
-                new FilePair(customNpcsPlayer(server, data.offlineUuid()), customNpcsPlayer(server, data.offlineUuid()), true, "customnpcs")
+    // ---- Path-map: world/mod file layout keyed by UUID ----
+
+    private static List<MigrationPlanner.Candidate> migrateCandidates(MinecraftServer server, UUID from, UUID to) {
+        return List.of(
+                candidate(playerData(server, from), playerData(server, to), false, "vanilla"),
+                candidate(playerDataOld(server, from), playerDataOld(server, to), false, "vanilla"),
+                candidate(cosmeticArmor(server, from), cosmeticArmor(server, to), false, "cosarmor"),
+                // Advancements and stats both use <uuid>.json. Keep their backup
+                // trees distinct so one cannot overwrite the other.
+                candidate(advancements(server, from), advancements(server, to), false, "vanilla/advancements"),
+                candidate(stats(server, from), stats(server, to), false, "vanilla"),
+                candidate(opacPlayerClaims(server, from), opacPlayerClaims(server, to), false, "opac"),
+                candidate(opacPlayerConfig(server, from), opacPlayerConfig(server, to), true, "opac"),
+                candidate(ftbChunksPlayer(server, from), ftbChunksPlayer(server, to), true, "ftbchunks"),
+                candidate(ftbEssentialsPlayer(server, from), ftbEssentialsPlayer(server, to), true, "ftbessentials"),
+                candidate(ftbTeamsPlayer(server, from), ftbTeamsPlayer(server, to), true, "ftbteams"),
+                candidate(ftbQuestsPlayer(server, from), ftbQuestsPlayer(server, to), true, "ftbquests"),
+                candidate(customNpcsPlayer(server, from), customNpcsPlayer(server, to), true, "customnpcs")
         );
+    }
 
-        Path backupDir = cleanupBackupDir(server, name, data.offlineUuid());
-        Files.createDirectories(backupDir);
-
-        int cleaned = 0;
-        for (FilePair file : files) {
-            if (!Files.exists(file.from())) continue;
-            Path backup = backupDir.resolve(file.backupGroup()).resolve(file.from().getFileName());
-            Files.createDirectories(backup.getParent());
-            Files.move(file.from(), backup, StandardCopyOption.REPLACE_EXISTING);
-            cleaned++;
-        }
-
-        boolean cleanedGlobalRefs = removeUuidLinesFromGlobalTextFile(
-                ftbRanksPlayers(server),
-                data.offlineUuid(),
-                backupDir.resolve("ftbranks").resolve("players.snbt")
+    private static List<MigrationExecutor.GroupedPath> cleanupFiles(MinecraftServer server, UUID offline) {
+        return List.of(
+                new MigrationExecutor.GroupedPath(playerData(server, offline), "vanilla"),
+                new MigrationExecutor.GroupedPath(playerDataOld(server, offline), "vanilla"),
+                new MigrationExecutor.GroupedPath(cosmeticArmor(server, offline), "cosarmor"),
+                new MigrationExecutor.GroupedPath(advancements(server, offline), "vanilla/advancements"),
+                new MigrationExecutor.GroupedPath(stats(server, offline), "vanilla"),
+                new MigrationExecutor.GroupedPath(opacPlayerClaims(server, offline), "opac"),
+                new MigrationExecutor.GroupedPath(opacPlayerConfig(server, offline), "opac"),
+                new MigrationExecutor.GroupedPath(ftbChunksPlayer(server, offline), "ftbchunks"),
+                new MigrationExecutor.GroupedPath(ftbEssentialsPlayer(server, offline), "ftbessentials"),
+                new MigrationExecutor.GroupedPath(ftbTeamsPlayer(server, offline), "ftbteams"),
+                new MigrationExecutor.GroupedPath(ftbQuestsPlayer(server, offline), "ftbquests"),
+                new MigrationExecutor.GroupedPath(customNpcsPlayer(server, offline), "customnpcs")
         );
-
-        return new CleanupResult(data.offlineUuid(), data.summary(), cleaned, cleanedGlobalRefs, backupDir);
     }
 
-    private static void replaceGlobalTextFile(Path file, UUID from, UUID to, Path backup) throws IOException {
-        if (!containsUuid(file, from)) return;
-        if (Files.size(file) > MAX_TEXT_MIGRATION_BYTES) throw new IOException("global migration file is too large: " + file);
-        backupFile(file, backup);
-        String text = Files.readString(file, StandardCharsets.UTF_8);
-        Files.writeString(file, replaceUuidText(text, from, to), StandardCharsets.UTF_8);
+    private static MigrationPlanner.Candidate candidate(Path from, Path to, boolean text, String group) {
+        return new MigrationPlanner.Candidate(from, to,
+                text ? MigrationPlanner.Mode.UUID_TEXT_REWRITE : MigrationPlanner.Mode.BINARY_COPY, group);
     }
 
-    private static void backupFile(Path source, Path backup) throws IOException {
-        Files.createDirectories(backup.getParent());
-        Files.copy(source, backup, StandardCopyOption.REPLACE_EXISTING);
-    }
-
-    private static boolean removeUuidLinesFromGlobalTextFile(Path file, UUID uuid, Path backup) throws IOException {
-        if (!containsUuid(file, uuid)) return false;
-        if (Files.size(file) > MAX_TEXT_MIGRATION_BYTES) throw new IOException("global cleanup file is too large: " + file);
-        backupFile(file, backup);
-        String hyphen = uuid.toString();
-        String compact = hyphen.replace("-", "");
-        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        List<String> kept = new ArrayList<>();
-        for (String line : lines) {
-            if (!line.contains(hyphen) && !line.contains(compact)) {
-                kept.add(line);
-            }
-        }
-        Files.write(file, kept, StandardCharsets.UTF_8);
-        return true;
-    }
-
-    private static boolean containsUuid(Path file, UUID uuid) {
-        if (!Files.exists(file) || uuid == null) return false;
-        try {
-            if (Files.size(file) > MAX_TEXT_MIGRATION_BYTES) return false;
-            String text = Files.readString(file, StandardCharsets.UTF_8);
-            String hyphen = uuid.toString();
-            return text.contains(hyphen) || text.contains(hyphen.replace("-", ""));
-        } catch (IOException ignored) {
-            return false;
-        }
+    private static Path worldRoot(MinecraftServer server) {
+        return server.getWorldPath(LevelResource.ROOT);
     }
 
     private static Path playerData(MinecraftServer server, UUID uuid) {
@@ -343,36 +182,6 @@ public final class PlayerDataMigration {
     private static Path ftbRanksPlayers(MinecraftServer server) {
         return server.getWorldPath(LevelResource.ROOT).resolve("serverconfig").resolve("ftbranks").resolve("players.snbt");
     }
-
-    private static String replaceUuidText(String text, UUID from, UUID to) {
-        String fromHyphen = from.toString();
-        String toHyphen = to.toString();
-        return text
-                .replace(fromHyphen, toHyphen)
-                .replace(fromHyphen.replace("-", ""), toHyphen.replace("-", ""));
-    }
-
-    private static Path backupDir(MinecraftServer server, String name, UUID offlineUuid, UUID verifiedUuid) {
-        String safeName = name == null ? "unknown" : name.replaceAll("[^A-Za-z0-9_.-]", "_").toLowerCase(Locale.ROOT);
-        String stamp = LocalDateTime.now().format(BACKUP_TIME);
-        return server.getWorldPath(LevelResource.ROOT)
-                .resolve("trueuuid-backups")
-                .resolve("offline-upgrades")
-                .resolve(stamp + "-" + safeName + "-" + offlineUuid + "-to-" + verifiedUuid);
-    }
-
-    private static Path cleanupBackupDir(MinecraftServer server, String name, UUID offlineUuid) {
-        String safeName = name == null ? "unknown" : name.replaceAll("[^A-Za-z0-9_.-]", "_").toLowerCase(Locale.ROOT);
-        String stamp = LocalDateTime.now().format(BACKUP_TIME);
-        return server.getWorldPath(LevelResource.ROOT)
-                .resolve("trueuuid-backups")
-                .resolve("offline-cleanups")
-                .resolve(stamp + "-" + safeName + "-" + offlineUuid);
-    }
-
-    private record FilePair(Path from, Path to, boolean replaceUuidText, String backupGroup) {}
-    private record AppliedTarget(Path target, Path backup) {}
-    private record DeletedSource(Path source, Path backup) {}
 
     private PlayerDataMigration() {}
 }
