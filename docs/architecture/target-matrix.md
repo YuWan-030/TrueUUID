@@ -66,7 +66,7 @@ client to keep its offline UUID is not the same as deciding *whether* it may.
 | Join feedback (chat, opt-in title) | yes | yes — consumed server result; runtime evidence pending | yes | yes |
 | Account-status badge | yes | yes — server-authoritative Fabric play payload; runtime evidence pending | yes | yes |
 | Config file | yes | yes — JSON, offline policy plus feedback/overlay settings | yes | yes |
-| Addon API (`AccountStatus`, callbacks) | yes | **no** | yes | yes |
+| Addon API (`AccountStatus`, callbacks) | yes | yes — runtime pending | yes | yes |
 | Localized strings from `common-assets` | own copy | yes | yes | yes |
 | Yggdrasil / skin-site accounts | yes | **no** — refuses the login | yes — runtime pending | yes — runtime pending |
 | Offline to premium data migration | yes | **no** | **no** | **no** |
@@ -109,6 +109,18 @@ Traps behind that table:
   nullable `UUID`, while the 1.21 line returns `Optional<UUID>`; the same
   method name cannot carry both signatures, so changing it would break
   released 1.20.1 addons.
+- **Fabric joined the unified addon API on 2026-07-18 (build evidence).**
+  Fabric ships `cn.alini.trueuuid.api.TrueuuidApi` with the same
+  `getStatus`/`isPremium`/`isOffline`/`isKnownPremiumName`/`getPremiumUuid`/
+  `registerLoginCallback` surface (Fabric being new, `getPremiumUuid` returns
+  `Optional<UUID>` like the 1.21 line, with no released nullable signature to
+  preserve). Status is published from the server-owned `FabricAuthenticationSource`
+  at play join before feedback and cleared on disconnect; no client packet can
+  manufacture it. The three byte-identical `AccountStatus` copies were collapsed
+  into one definition in `shared:protocol`, and a generic loader-neutral
+  `AccountStatusStore<P>` (unit-tested there) now backs the Forge, NeoForge,
+  forge-1.20.1, and Fabric trackers. Runtime confirmation of the Fabric API is
+  still pending.
 
 - **The admin commands are fronts for the migration machinery.** 1.20.1's
   `cleanupuuid` and `migrateuuid` both call `MigrationCoordinator` /
@@ -129,7 +141,7 @@ not a login or release claim.
 | Target | Source state | Build/tests | Recorded runtime | Main gap before Active |
 |---|---|---|---|---|
 | Forge 1.20.1 | Full reference feature set | passed; repaired artifact structurally verified (2026-07-18) | Previous Mojang login needs artifact re-validation; repaired production server boot passed | Premium login against the repaired JAR, then Yggdrasil, denial, timeout/grace, migration rollback |
-| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON feedback/overlay config, shared strings, and a bounded server-owned result consumed at play join for audit/chat/title/HUD; addon API remains absent | focused tests and root build passed (2026-07-18) | Partial two-sided run (2026-07-17): premium client joined with green badge, but the run predates the server-owned result path; rerun pending | Real premium and offline runs capturing server audit, localized chat, and server-confirmed HUD; then the full Mojang matrix, migration/admin commands, and the addon API |
+| Fabric 1.20.1 | Mojang verification, policy-gated offline fallback with persisted registry, JSON feedback/overlay config, shared strings, a bounded server-owned result consumed at play join for audit/chat/title/HUD, and the public addon API (`TrueuuidApi` + `AccountStatus` + login callbacks, over the shared `AccountStatusStore`) added 2026-07-18 | focused tests and root build passed (2026-07-18) | Partial two-sided run (2026-07-17): premium client joined with green badge, but the run predates the server-owned result path; rerun pending | Real premium and offline runs capturing server audit, localized chat, server-confirmed HUD, and addon-API status/callbacks; then the full Mojang matrix and migration/admin commands |
 | Forge 1.21.1 | Login-verification core | passed | One premium login | Full matrix and Forge 1.20.1 feature backlog |
 | Forge 1.21.3 / 1.21.4 / 1.21.5 / 1.21.8 | Same core via `forge-common` plus target seams | passed | none | Per-target login matrix and the shared 1.21 feature backlog |
 | Forge 1.21.6 | Same core plus the source-only `modern-matrix` seam; Forge 56 excludes the unavailable overlay event | passed (2026-07-18) | Server boot only | Client/login matrix and the shared 1.21 feature backlog |
@@ -168,6 +180,7 @@ required before a release claim.
 
 | Date | Target | Loader/JDK | Artifact | Result |
 |---|---|---|---|---|
+| 2026-07-18 | Shared-parity slice 1 (all 23 targets) | Forge, Fabric, NeoForge / declared JDKs (Gradle launched on JDK 21) | `trueuuid-1.2.0-<target>.jar` | Cross-loader account-status foundation plus the Fabric addon API. `AccountStatus` moved to `shared:protocol` (three byte-identical Forge/NeoForge/forge-1.20.1 copies removed → one definition); new generic `AccountStatusStore<P>` (loader-neutral, 6-case contract test) now backs the Forge `ForgeAdapterRuntime`, NeoForge `AdapterRuntime`, forge-1.20.1 `AccountStatusTracker`, and the new Fabric `FabricAccountStatusTracker`. Fabric gained `cn.alini.trueuuid.api.TrueuuidApi` + `FabricAuthenticationSource.publicStatus()`, published at play join before feedback and cleared on disconnect/stop. `:shared:protocol:test` and `:platform:fabric-1.20.1:test` passed; the root build passed (229 actionable tasks) and the release-JAR verifier passed all 23 artifacts. `cn/alini/trueuuid/api/{AccountStatus,AccountStatusStore,TrueuuidApi}.class` verified present in the Forge, NeoForge, and Fabric jars (binary compatibility preserved). Build evidence only; no Fabric login run for the API yet. |
 | 2026-07-18 | Forge 1.21.6 | Forge 56.0.9 / OpenJDK 21.0.11 | `platform/forge-1.21.6/build/libs/trueuuid-1.2.0-forge1.21.6.jar` (SHA-256 `74af0d16467a14407092635c41a41f3593b8d18b91932e4939308fd343b2bf1b`) | Shared protocol fixtures, focused build/tests, mixin refmap generation, and the release-JAR verifier passed. The 1.21.8 consumer of the extracted `modern-matrix` root rebuilt and its release JAR re-verified; the 21-target root build passed (205 actionable tasks). Forge 56 compile artifacts confirmed that `AddGuiOverlayLayersEvent` is absent, so only that source is excluded and the badge uses the shared GUI mixin. A bounded development server smoke loaded the adapter and reached `Done (5.253s)!`; no client/login run. |
 | 2026-07-18 | All 20 targets | Forge, Fabric, and NeoForge / declared Java toolchains | `trueuuid-1.2.0-<target>.jar` | Root `build` passed (195 tasks). The release-JAR verifier passed every artifact. Forge 1.20.1, Forge 1.20.2, and NeoForge 1.20.1 each additionally passed the SRG-era probe with 1 SRG method reference and 3 SRG shadow-field references. This is build evidence only, not login or release approval. |
 | 2026-07-18 | Forge 1.20.1 | Forge 47.4.10 / Java 17.0.12 | `platform/forge-1.20.1/build/libs/trueuuid-1.2.0-forge1.20.1.jar` | Plain incremental `:platform:forge-1.20.1:build` regenerated deliberately removed Mixin outputs. The final `build/libs` JAR contains `trueuuid.refmap.json`, declares `MixinConfigs: trueuuid.mixins.json`, is byte-identical to `build/reobfJar/output.jar`, and the structural release probe found 1 SRG method reference plus 3 SRG shadow-field references in `ServerLoginMixin`. Focused tests passed. |
