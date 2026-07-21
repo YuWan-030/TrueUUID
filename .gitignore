@@ -146,3 +146,8 @@ secrets/
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
+
+# TrueUUID local premium-client test store — auth tokens/refresh tokens.
+# Default location is ~/.local/share/trueuuid-testclient (outside the repo);
+# this guards against an in-repo TRUEUUID_TEST_HOME ever being committed.
+trueuuid-testclient/
