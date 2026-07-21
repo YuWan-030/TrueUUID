@@ -1,184 +1,165 @@
 # Next-agent prompt: modular cross-loader feature parity
 
-Copy the block below into a fresh Codex session. It is grounded in the live
-tree at signed `main` commit `5cb9493` (2026-07-18). Re-check that state before
-editing because this handoff is guidance, not evidence.
+Copy the block below into a fresh session. It is grounded in the live tree at
+branch `feature/shared-parity-foundation`, HEAD `e7deb0c` (2026-07-18), **8
+commits ahead of `main`, not pushed or merged**. Re-check that state before
+editing — this handoff is guidance, not evidence.
 
 ---
 
 ```text
-Continue TrueUUID from current origin/main. The goal is feature parity across
-the existing Fabric, Forge, and NeoForge families without cloning implementations
-into every Minecraft-version module.
+Continue TrueUUID on branch feature/shared-parity-foundation (or rebase it onto
+current main first). The goal is feature parity AND full 1.20.1-1.21.11 version
+coverage across Fabric, Forge, and NeoForge, without cloning implementations
+into every module.
 
-Create a short-lived feature/shared-parity-foundation branch. Do not use or
-modify archive/* branches. Do not add more target modules, flip release flags,
-publish artifacts, or claim runtime support in this phase.
+Do not use or modify archive/* branches. Do not flip release flags, publish
+artifacts, tag, or claim runtime support. One architectural move or parity slice
+per signed commit; no Co-Authored-By trailer.
 
 READ FIRST, completely:
   - AGENTS.md
-  - docs/architecture/target-matrix.md
+  - docs/architecture/target-matrix.md   (authoritative support truth)
   - docs/development/adding-adapter.md
   - docs/architecture/version-consolidation-roadmap.md
+  - docs/development/full-legacy-loader-coverage-handoff.md
   - platform/forge-common/README.md
-  - docs/development/forge-1.20x-runtime-handoff.md
-  - shared/protocol/src/main/java/cn/alini/trueuuid/protocol/*
-  - platform/forge-1.20.1/src/main/java/cn/alini/trueuuid/server/MigrationCoordinator.java
-  - platform/forge-1.20.1/src/main/java/cn/alini/trueuuid/server/PlayerDataMigration.java
-  - platform/forge-common/src/main/java/cn/alini/trueuuid/server/ForgeAdapterRuntime.java
-  - platform/neoforge-1.21.1/src/main/java/cn/alini/trueuuid/server/AdapterRuntime.java
-  - platform/fabric-common/src/main/java/cn/alini/trueuuid/fabric/login/FabricAdapterRuntime.java
-  - platform/fabric-1.20.1/src/main/java/cn/alini/trueuuid/fabric/login/FabricLoginNetworking.java
+  - shared/protocol/src/main/java/cn/alini/trueuuid/protocol/*   (esp. MigrationExecutor, MigrationPlanner, MigrationTransaction, AuthMessages, AuthWireCodec, LoginStateMachine, AccountStatus, AccountStatusStore)
+  - platform/forge-1.20.1/src/main/java/cn/alini/trueuuid/server/{PlayerDataMigration,MigrationCoordinator,ServerLoginController}.java  (the reference migration + admin implementation)
+  - platform/fabric-common/src/main/java/cn/alini/trueuuid/{api/TrueuuidApi,fabric/login/FabricAccountStatusTracker,fabric/login/FabricLoginTransaction}.java
 
 VERIFY THE LIVE BASELINE:
-  git status --short --branch
-  git log --show-signature --oneline -5
-  jq -r '.targets[] | [.id, .release] | @tsv' release/targets.json
+  git log --oneline main..HEAD          # expect the 8 commits below at HEAD e7deb0c
+  ./scripts/release/validate-targets.sh # 24 in-tree targets; forge-1.21.11 island excluded
+  jq -r '.targets[] | [.id, (.release|tostring)] | @tsv' release/targets.json  # all release:false
 
-At this handoff, origin/main is expected to contain signed commits c0c5f69 and
-5cb9493. There are 23 declared targets and every release flag is false. The root
-build and all 23 structural JAR checks passed, but that is build evidence only.
-Do not repeat stale claims from older docs or prompts.
+DONE THIS SESSION (do not redo; verify in git):
+  f3ec75b  Shared AccountStatus + generic AccountStatusStore<P> in shared:protocol
+           (3 byte-identical copies removed; unit-tested store).
+  5fbb1db  Fabric addon API: cn.alini.trueuuid.api.TrueuuidApi + FabricAccountStatusTracker
+           + FabricAuthenticationSource.publicStatus(); published at play-join before
+           feedback, cleared on disconnect/stop. No client can manufacture PREMIUM.
+  25b8d7f  Forge/NeoForge/forge-1.20.1 runtimes now use the shared AccountStatusStore.
+  15148ef  target-matrix.md: Fabric addon API recorded.
+  3e23ff4  Dev tooling: scripts/test-premium-client.sh (portablemc real-premium client
+           for any target) and scripts/clean-dev.sh.
+  e6e5a48  Forge 1.21.10 in-tree target (record-era seams; forge-common byte-identical).
+  7ba7054  Migration transaction ENGINE extracted to shared:protocol as MigrationExecutor
+           (preflight/symlink/size guards, backup+journal, atomic apply, rollback, cleanup;
+           9-case test). forge-1.20.1 PlayerDataMigration is now a thin path-map onto it.
+  e7deb0c  Forge 1.21.11 as a standalone ForgeGradle-7 / Gradle-9.5 build island
+           (platform/forge-1.21.11, own wrapper). Completes Forge coverage.
 
-CURRENT FEATURE STATE — VERIFY IN CODE:
-  - Fabric 1.20.1 already has the bounded server-owned pending-login result,
-    play-join consumption, localized audit/chat/title, and server-authoritative
-    HUD payload. Its premium/offline runtime rerun is still pending.
-  - Modern Forge targets share platform/forge-common plus narrow API-era source
-    roots. Forge 1.20.1 is a separate legacy protocol/reference island.
-  - NeoForge 1.20.2-1.21.11 recompile the 1.21.1 implementation plus narrow
-    version seams. NeoForge 1.20.1 recompiles the Forge 1.20.1 island.
-  - Fabric lacks the public AccountStatus/callback API and Yggdrasil support.
-  - Fabric, modern Forge, and modern NeoForge lack offline-to-verified migration
-    and the cleanupuuid/migrateuuid commands.
-  - Modern Forge/NeoForge Yggdrasil code exists but has no recorded real
-    skin-site login acceptance.
-  - AccountStatus, ClientAuthDiagnostics, ClientYggdrasilEndpoint, and
-    OfflineFallbackPolicy contain byte-identical Forge/NeoForge copies.
-    Do not preserve those copies merely because their packages currently match.
-  - shared/protocol already contains generic policy, bounded-store, registry,
-    session-verification, login-state, and migration-planning code. Some of that
-    is server-core behavior rather than wire protocol; do not add another copy.
+CURRENT COVERAGE (1.20.1-1.21.11):
+  - Forge:    COMPLETE (11 in-tree + the 1.21.11 island). Only 1.20.5 and 1.21.2
+              are impossible (upstream Forge ships no loader).
+  - NeoForge: COMPLETE (1.20.1-1.21.11).
+  - Fabric:   1.20.1 ONLY. Needs the full 1.20.2-1.21.11 fan-out.
+
+CURRENT FEATURE STATE (verify in code):
+  - Addon API (AccountStatus/callbacks): present on all three loaders now.
+  - Migration ENGINE: shared (MigrationExecutor). WIRED only into forge-1.20.1.
+  - Migration + admin commands (cleanupuuid/migrateuuid): still ONLY forge-1.20.1.
+    The modern Forge line has NO command class at all yet.
+  - The migration-confirmation PROTOCOL is already shared and compiled into every
+    loader (AuthMessages.Query.migrationAvailable/offlineUuid/summary,
+    Answer.migrationConfirmed, AuthWireCodec, LoginStateMachine.beginMigration +
+    migration timeout). The modern line simply never acts on it.
+  - Yggdrasil: Fabric fails closed (missing); modern Forge/NeoForge have code with
+    no recorded skin-site login.
+  - Nearly every target has NO real login run. That is the release gate, not the build.
 
 ARCHITECTURE RULES:
-  1. One behavioral implementation per loader family/API era. A target module
-     should contain version metadata and only unavoidable Minecraft/loader seams.
-  2. Shared modules expose plain Java values and interfaces only. Minecraft
-     profiles, players, packets, text, paths discovered from MinecraftServer,
-     lifecycle callbacks, commands, and server-thread scheduling stay in adapters.
-  3. Do not build one giant PlatformAdapter interface or add loader/version
-     conditionals to shared code. Extract small contracts around stable semantics.
-  4. Do not lower modern shared Java levels for a legacy target. Keep any future
-     Java 8 target isolated.
-  5. Preserve every security invariant: bounded decoding/state, endpoint
-     allowlisting, public-address rejection, DNS pinning, TLS hostname checks,
-     no redirects, response/time limits, cancellation, and client-only tokens.
+  1. One behavioral implementation per loader family/API era. A module holds
+     version metadata + only unavoidable Minecraft/loader seams.
+  2. Shared modules expose plain Java values/interfaces only (MigrationExecutor
+     takes Path, not MinecraftServer). Minecraft profiles/players/packets/paths/
+     commands/server-thread scheduling stay in adapters.
+  3. Extract small contracts around stable semantics; no giant PlatformAdapter,
+     no loader/version conditionals in shared code.
+  4. Do not lower shared Java levels for a legacy target.
+  5. Preserve every security invariant: token stays on the client; server owns
+     the final result; bounded decode/state, endpoint allowlist, public-address
+     rejection, DNS pinning, TLS hostname checks, no redirects, response/time
+     limits, cancellation, known-name offline protection, transactional rollback.
 
-FIRST REVIEWABLE PHASE — SHARED PARITY FOUNDATION:
+REMAINING WORK, IN THIS ORDER (each its own reviewable, signed commit/series):
 
-Audit the shared/protocol contents and the exact Forge/NeoForge/Fabric copies.
-Create truthful plain-Java boundaries instead of turning protocol into a catch-all:
-  - shared/protocol: wire messages, codecs, and protocol versioning;
-  - shared/core, if warranted: cross-side values and pure helpers such as the
-    endpoint discovery/normalization and fixed diagnostic classification;
-  - shared/server-core: auth/endpoint policy, safe verification, bounded runtime
-    stores, verified-name logic, login state, and migration planning/execution.
+1. Migration + admin -> modern Forge (forge-common). The engine exists; add:
+   - a path-map like forge-1.20.1's (LevelResource paths are the same) delegating
+     to MigrationExecutor;
+   - MigrationCoordinator (single-thread IO executor implementing MigrationTransaction)
+     and MigrationLockRegistry (already ExpiringBoundedStore-based) — copy from
+     forge-1.20.1, they are loader-family-generic;
+   - a NEW Brigadier command class (cleanupuuid/migrateuuid, and mojang status/reload)
+     registered via RegisterCommandsEvent through the EventBus 6/7 @SubscribeEvent
+     seam (see forge-common .../TrueuuidForgeEvents in legacy-matrix vs modern-matrix);
+   - login-flow wiring that sets migrationAvailable / consumes migrationConfirmed
+     (the delicate part; the protocol already carries the fields).
+   Tests: collision preflight, symlink refusal, size bounds, partial-failure rollback,
+   confirmation timeout/cancel, successful migration (engine tests already cover the
+   filesystem core; add adapter-mapping + command tests).
 
-Do not create an empty or one-class module merely to match those names. Move
-existing classes rather than wrapping or duplicating them. Dependencies must
-point inward (server-core may depend on core/protocol; protocol must not depend
-on server-core). If a class genuinely belongs in protocol, document why and
-leave it there.
+2. Migration + admin -> NeoForge (neoforge-1.21.1 source), same shape.
 
-Make every existing platform consumer compile against that boundary. Remove
-only copies whose semantics are genuinely identical. Keep thin loader-facing
-facades where public binary/package compatibility requires them. Add contract
-tests once in the shared module and small adapter-mapping tests per loader
-family; do not clone the same test into every version module.
+3. Migration + admin -> Fabric (fabric-common): Yarn WorldSavePath path-map, Fabric
+   command registration, wire into FabricLoginTransaction (already carries the
+   AuthMessages fields).
 
-As the first parity slice, add Fabric's addon API using the same public concepts
-as Forge/NeoForge:
-  - AccountStatus and UUID/name queries;
-  - status publication from the already-consumed server result;
-  - callbacks on the server thread before later join logic needs the status;
-  - cleanup on disconnect/shutdown;
-  - no client claim can manufacture Premium state.
+4. Fabric Yggdrasil/authlib-injector: reuse the shared EndpointPolicy + SafeSessionVerifier;
+   fail closed until the full allowlisted path is complete; add rejected-host/private-
+   address/redirect/oversize/timeout tests + a real allowed skin-site run.
 
-Keep Minecraft's ServerPlayerEntity overload and Fabric lifecycle hookup in the
-Fabric adapter. Put only loader-neutral status values/store semantics in shared
-code. Preserve the released Forge 1.20.1 nullable getPremiumUuid signature;
-modern APIs use Optional and must not silently break addon compatibility.
+5. Fabric version fan-out 1.20.2-1.21.11 (each recompiles fabric-common against its
+   Yarn/Loom/API; HudRenderCallback + Identifier-constructor seams per era). Only after
+   Fabric 1.20.1 has a recorded premium AND offline run.
 
-Stop and hand off after this foundation plus Fabric API is independently
-reviewable, tested, and signed. Do not combine migration and Yggdrasil into the
-same commit series.
+6. forge-1.21.11 island release-pipeline integration (NOT done): a manifest entry with
+   an external-build marker, a CI job that uses the island's own gradlew, and the
+   structural verifier against its jar. validate-targets.sh already skips islands
+   (they own a settings.gradle); CI/self-test/verify matrices are manifest-driven and
+   currently only cover the 24 in-tree targets.
 
-NEXT PARITY SLICES, IN THIS ORDER:
+7. Runtime acceptance: per-target premium + offline login via scripts/test-premium-client.sh
+   (portablemc; token stored 600 outside the repo; Direct Connect 127.0.0.1). Record each
+   real result in target-matrix.md. Do not mark a whole family proven from one anchor.
 
-1. Fabric Yggdrasil/authlib-injector support:
-   - reuse the shared endpoint policy and safe session verifier;
-   - extract the identical loader-neutral Forge/NeoForge endpoint discovery
-     helpers instead of making a third copy;
-   - keep authlib/Minecraft client reflection and Fabric networking in a small
-     Fabric seam;
-   - fail closed until the full allowlisted endpoint path is complete;
-   - add rejected-host/private-address/redirect/oversize/timeout tests and a
-     real allowed skin-site client/server run.
+KEY LEARNINGS (this session):
+  - Forge 1.21.11 / Forge 61 need ForgeGradle [7.0.3,8) on Gradle 9.5; FG 6.0.54 on
+    Gradle 8.14 dies on Forge 61's userdev (duplicate entry mcp/client/Start.class).
+    Hence the standalone island model (own wrapper, srcDir the shared source).
+  - Minecraft 1.21+ uses official mappings => NO Mixin refmap is needed. Omit the
+    SpongePowered mixin annotation processor AND MixinGradle (Gradle-9-incompatible);
+    Mixin resolves targets by official name at load. This is how the island's mixins
+    build. See platform/forge-1.21.11/build.gradle.
+  - The forge-1.21.11 identifier-era rename is net.minecraft.resources.ResourceLocation
+    -> net.minecraft.resources.Identifier in exactly ForgeNetIds, ForgeAuthPayload,
+    ForgeClientQueryDecodeMixin, TrueuuidClientOverlay (matches NeoForge 1.21.11).
 
-2. Migration and admin parity:
-   - use Forge 1.20.1 behavior as the reference, but extract the filesystem
-     transaction engine from PlayerDataMigration into plain server-core;
-   - reuse the existing MigrationPlanner instead of inventing another planner;
-   - model candidate paths, backup/journal operations, UUID text rewrites,
-     commit, and rollback without Minecraft types;
-   - keep world-path discovery, mod-specific path mapping, command registration,
-     player disconnect/reconnect, confirmation packets/UI, and server-thread
-     handoff in each loader family adapter;
-   - port one vertical migration contract to modern Forge, NeoForge, and Fabric,
-     then add cleanupuuid/migrateuuid as thin fronts;
-   - test collision preflight, symlink refusal, size bounds, partial failure,
-     rollback restoration, confirmation timeout/cancel, and successful migration.
-
-3. Reconcile remaining parity deliberately:
-   - skin refresh and any config/API differences recorded in target-matrix.md;
-   - common-assets wording versus Forge 1.20.1's extra/different keys;
-   - runtime acceptance for behavior already implemented.
-
-VALIDATION FOR EVERY SHARED CHANGE:
-  - run shared contract tests;
-  - run focused tests for at least one consumer of every affected loader family
-    and every affected API era;
-  - run the root build and structural release-JAR verification before handoff;
-  - use each target's declared JDK; Gradle's toolchain cannot repair an
-    incompatible launcher JDK;
-  - run git diff --check;
-  - record exact commands and distinguish build, server boot, and real login.
-
-RUNTIME PRIORITY WHILE FEATURE WORK CONTINUES:
-  - Forge 1.20.4 and 1.20.6: execute the exact release-JAR client/server matrix
-    from docs/development/forge-1.20x-runtime-handoff.md.
-  - Fabric 1.20.1: rerun premium and offline acceptance against the current
-    server-owned result path, capturing audit, localized chat, and HUD.
-  - NeoForge 1.21.11: finish denial, malformed payload, timeout, fallback/grace,
-    Yggdrasil, and migration/parity gates after those features exist.
-
-Do not mark a whole source family runtime-proven from one anchor. Shared tests
-can prove shared semantics; each shipped target/range still needs its exact JAR
-boot/login acceptance before release:true.
+VALIDATION FOR EVERY CHANGE:
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+  ./gradlew :shared:protocol:test <one consumer per affected family/era>:build
+  ./gradlew build                 # 24 in-tree targets (island builds separately)
+  ./scripts/release/validate-targets.sh
+  (cd platform/forge-1.21.11 && ./gradlew build)   # only when touching the island/shared source
+  git diff --check
+  Confirm platform/forge-common stays byte-identical when adding version targets.
+  Distinguish build vs server boot vs real login in every report.
 
 COMMITS AND HANDOFF:
-  - one architectural move or parity slice per signed commit;
-  - no Co-Authored-By trailer;
+  - one move/slice per signed commit; no Co-Authored-By trailer;
   - preserve user changes and archive history;
   - update target-matrix.md only with evidence actually obtained;
-  - leave all release flags false and create no tag/release without approval;
+  - leave all release flags false; create no tag/release;
   - report changed boundaries, removed duplicates, tests, runtime evidence,
     remaining gaps, and the exact next session.
 ```
 
 ---
 
-The intended first deliverable is a clean shared server-core boundary plus the
-missing Fabric addon API. Yggdrasil and migration follow as separate vertical
-slices; version expansion resumes only after the copied behavior is consistent
-and runtime-testable.
+The remaining spine is: **migration + admin across the modern Forge, NeoForge,
+and Fabric adapters** (the engine is already shared), then **Fabric Yggdrasil**,
+then the **Fabric version fan-out**, plus the **island's release-pipeline
+integration** and per-target **runtime logins**. Coverage is done for Forge and
+NeoForge; Fabric coverage and cross-loader migration are the biggest remaining
+pieces.
