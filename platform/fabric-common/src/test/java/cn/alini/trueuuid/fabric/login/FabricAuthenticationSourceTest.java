@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.fabric.login;
 
+import cn.alini.trueuuid.api.AccountStatus;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,6 +18,14 @@ class FabricAuthenticationSourceTest {
         assertEquals(FabricAuthenticationSource.ClientStatus.PREMIUM, FabricAuthenticationSource.VERIFIED.clientStatus());
         assertEquals(FabricAuthenticationSource.ClientStatus.PREMIUM, FabricAuthenticationSource.GRACE.clientStatus());
         assertEquals(FabricAuthenticationSource.ClientStatus.OFFLINE, FabricAuthenticationSource.OFFLINE_FALLBACK.clientStatus());
+    }
+
+    @Test
+    void mapsToTheSharedAddonApiStatus() {
+        assertEquals(AccountStatus.PREMIUM_VERIFIED, FabricAuthenticationSource.VERIFIED.publicStatus());
+        assertEquals(AccountStatus.PREMIUM_VERIFIED, FabricAuthenticationSource.GRACE.publicStatus());
+        assertEquals(AccountStatus.ONLINE_MODE, FabricAuthenticationSource.NATIVE_ONLINE_MODE.publicStatus());
+        assertEquals(AccountStatus.OFFLINE_FALLBACK, FabricAuthenticationSource.OFFLINE_FALLBACK.publicStatus());
     }
 
     @Test

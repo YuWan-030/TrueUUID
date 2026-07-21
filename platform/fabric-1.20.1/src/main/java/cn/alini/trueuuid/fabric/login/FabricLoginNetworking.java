@@ -62,10 +62,13 @@ public final class FabricLoginNetworking {
                 }
             });
         });
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                FabricAdapterRuntime.activateGraceAfterLogout(handler.player.getGameProfile().getName(), handler.player.getIp()));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            FabricAccountStatusTracker.clear(handler.player.getUuid());
+            FabricAdapterRuntime.activateGraceAfterLogout(handler.player.getGameProfile().getName(), handler.player.getIp());
+        });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             FabricSessionCheck.close();
+            FabricAccountStatusTracker.clearAll();
             FabricAdapterRuntime.shutdown();
         });
 
@@ -144,6 +147,11 @@ public final class FabricLoginNetworking {
 
     /** Runs only from the consumed server result after vanilla has created the player. */
     private static void publishJoinResult(ServerPlayerEntity player, FabricAuthenticationSource source) {
+        // Publish status for the addon API and notify callbacks first, so any
+        // conditional join logic (separate spawn, permissions) sees the status
+        // regardless of the join-feedback config below, matching ForgeAdapterRuntime.
+        FabricAccountStatusTracker.publish(player, source.publicStatus());
+
         TrueuuidFabric.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel(),
                 player.getGameProfile().getName(), player.getUuid());
 
