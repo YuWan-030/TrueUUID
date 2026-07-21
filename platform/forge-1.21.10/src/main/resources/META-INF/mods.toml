@@ -1,0 +1,34 @@
+modLoader="javafml"
+loaderVersion="[60,)"
+license="GNU LGPL 3.0"
+
+[[mods]]
+modId="trueuuid"
+version="${mod_version}"
+displayName="TrueUUID"
+displayURL="https://github.com/YuWan-030/TrueUUID"
+logoFile="trueuuid-banner.png"
+authors="YuWan-030, wish131400, F1xGOD"
+description='''A Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.'''
+
+[[mixins]]
+config="trueuuid.mixins.json"
+
+[[dependencies.trueuuid]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+# Built against 1.21.10 mappings/Forge 60, with the 1.21.9+ record-era seams
+# (GameProfile record, Minecraft.services(), level().getServer()). Protocol 773
+# pairs 1.21.10 with 1.21.9, but Forge shipped only a beta 1.21.9 line, so this
+# stays single-patch until a 1.21.9 login run on a stable loader. See
+# docs/architecture/version-consolidation-roadmap.md and target-matrix.md.
+[[dependencies.trueuuid]]
+modId="minecraft"
+mandatory=true
+versionRange="[${minecraft_version},1.21.11)"
+ordering="NONE"
+side="BOTH"

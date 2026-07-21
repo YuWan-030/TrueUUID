@@ -113,6 +113,17 @@
       "release": false
     },
     {
+      "id": "forge-1.21.10",
+      "build_task": ":platform:forge-1.21.10:build",
+      "artifact": "platform/forge-1.21.10/build/libs/trueuuid-%VERSION%-forge1.21.10.jar",
+      "loader": "forge",
+      "game_version": "1.21.10",
+      "java": 21,
+      "metadata": "META-INF/mods.toml",
+      "srg_probe": null,
+      "release": false
+    },
+    {
       "id": "fabric-1.20.1",
       "build_task": ":platform:fabric-1.20.1:build",
       "artifact": "platform/fabric-1.20.1/build/libs/trueuuid-%VERSION%-fabric1.20.1.jar",
