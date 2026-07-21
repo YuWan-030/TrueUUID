@@ -44,7 +44,11 @@ jq -e '
 ' "$targets_file" >/dev/null || { echo "invalid release target manifest" >&2; exit 65; }
 
 manifest_targets=$(jq -r '.targets[].id' "$targets_file" | sort)
+# Standalone build islands (their own settings.gradle + wrapper, e.g. the
+# ForgeGradle 7 / Gradle 9.5 forge-1.21.11 target) are not part of the root
+# Gradle 8.14 build or its manifest-driven CI; exclude them from this check.
 module_targets=$(find platform -mindepth 2 -maxdepth 2 -name build.gradle -printf '%h\n' |
+    while read -r dir; do [[ -f "$dir/settings.gradle" ]] || printf '%s\n' "$dir"; done |
     sed 's|^platform/||' | sort)
 if [[ "$manifest_targets" != "$module_targets" ]]; then
     echo "release target manifest must list every platform module exactly once" >&2

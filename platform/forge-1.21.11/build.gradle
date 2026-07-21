@@ -1,0 +1,79 @@
+// forge-1.21.11 build ISLAND. Minecraft 1.21.11 / Forge 61 require ForgeGradle
+// 7 on Gradle 9.5, which is incompatible with the multi-loader Gradle 8.14 build
+// in the repo root. This is therefore a SEPARATE Gradle build (its own wrapper,
+// not in the root settings.gradle) that source-shares platform/forge-common and
+// shared/protocol exactly like the in-tree modules. Build it with this dir's own
+// wrapper: `cd platform/forge-1.21.11 && ./gradlew build` (JDK 21).
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[7.0.3,8)'
+}
+
+def minecraftVersion = '1.21.11'
+def forgeVersion = '61.1.9'
+group = 'cn.alini'
+version = '1.2.0'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+def forgeCommon = "${rootDir}/../forge-common/src/main"
+def modernMatrix = "${rootDir}/../forge-common/src/modern-matrix"
+def shared = "${rootDir}/../../shared/protocol/src/main/java"
+
+// Record era (1.21.9+): GameProfile record, Minecraft.services(), level().getServer().
+def recordEraSources = [
+        'cn/alini/trueuuid/server/ForgeAdapterRuntime.java',
+        'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin.java',
+        'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin.java'
+]
+// Identifier era (1.21.11): ResourceLocation renamed to net.minecraft.resources.Identifier.
+def identifierEraSources = [
+        'cn/alini/trueuuid/net/ForgeNetIds.java',
+        'cn/alini/trueuuid/net/ForgeAuthPayload.java',
+        'cn/alini/trueuuid/mixin/client/ForgeClientQueryDecodeMixin.java',
+        'cn/alini/trueuuid/TrueuuidClientOverlay.java'
+]
+
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${modernMatrix}/java"
+sourceSets.main.java.srcDir shared
+sourceSets.main.java.srcDir 'src/main/java'
+sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+sourceSets.main.resources.srcDir "${rootDir}/../common-assets/src/main/resources"
+
+// Compile the shared roots minus the era seams, plus the module-local copies,
+// mirroring the in-tree forge-1.21.10 module. forge-common stays byte-identical.
+tasks.named('compileJava', JavaCompile).configure {
+    source = files(
+            fileTree("${forgeCommon}/java") { exclude recordEraSources + identifierEraSources },
+            fileTree("${modernMatrix}/java") { exclude recordEraSources + identifierEraSources },
+            fileTree(shared),
+            fileTree('src/main/java'))
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraftVersion
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}")
+    // No SpongePowered Mixin annotation processor: Minecraft 1.21+ uses
+    // standardized (official) mappings, so no refmap is generated or needed
+    // (Mixin resolves targets by their official names at load time). MixinGradle
+    // is likewise omitted — it is incompatible with Gradle 9.
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-forge1.21.11.jar"
+    manifest { attributes('MixinConfigs': 'trueuuid.mixins.json') }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

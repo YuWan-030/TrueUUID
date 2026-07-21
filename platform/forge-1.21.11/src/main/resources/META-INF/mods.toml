@@ -1,0 +1,33 @@
+modLoader="javafml"
+loaderVersion="[61,)"
+license="GNU LGPL 3.0"
+
+[[mods]]
+modId="trueuuid"
+version="1.2.0"
+displayName="TrueUUID"
+displayURL="https://github.com/YuWan-030/TrueUUID"
+logoFile="trueuuid-banner.png"
+authors="YuWan-030, wish131400, F1xGOD"
+description='''A Minecraft authentication mod for offline-mode servers. It securely verifies premium accounts during login while keeping each player's access token on their own client.'''
+
+[[mixins]]
+config="trueuuid.mixins.json"
+
+[[dependencies.trueuuid]]
+modId="forge"
+mandatory=true
+versionRange="[61,)"
+ordering="NONE"
+side="BOTH"
+
+# Built against 1.21.11 mappings/Forge 61 (ForgeGradle 7, Gradle 9.5), with the
+# 1.21.9+ record-era seams and the 1.21.11 ResourceLocation->Identifier rename.
+# Protocol 774 is unique to 1.21.11 (the final legacy-scheme release): single
+# patch permanently. See docs/architecture/target-matrix.md.
+[[dependencies.trueuuid]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.21.11,1.21.12)"
+ordering="NONE"
+side="BOTH"
