@@ -2,6 +2,7 @@ package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.api.AccountStatus;
+import cn.alini.trueuuid.api.AccountStatusStore;
 import cn.alini.trueuuid.protocol.AuthSource;
 import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
 import cn.alini.trueuuid.protocol.EndpointPolicy;
@@ -33,8 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 
 /** Forge-owned runtime facade for the shared safe session verifier. */
@@ -43,10 +42,12 @@ public final class ForgeAdapterRuntime {
     private static final int MAX_PENDING_VERIFICATIONS = 4096;
     private static final long PENDING_VERIFICATION_TTL_MILLIS = Duration.ofMinutes(5).toMillis();
     private static final Map<UUID, PendingLogin> pendingLogins = new LinkedHashMap<>();
-    // Live per-session status for the public API. Concurrent because addons may
-    // query it off the server thread; entries live from login to logout.
-    private static final Map<UUID, AccountStatus> liveStatus = new ConcurrentHashMap<>();
-    private static final List<BiConsumer<ServerPlayer, AccountStatus>> loginCallbacks = new CopyOnWriteArrayList<>();
+    // Live per-session status plus addon callbacks for the public API, shared
+    // with every loader through AccountStatusStore. Concurrent because addons
+    // may query it off the server thread; entries live from login to logout.
+    private static final AccountStatusStore<ServerPlayer> statusStore = new AccountStatusStore<>(
+            (player, failure) -> Trueuuid.LOGGER.warn("TrueUUID login callback threw for player={}",
+                    player.getUUID(), failure));
     private static BoundedRequestCoordinator requests;
     private static SessionVerifier verifier;
     private static ForgeVerifiedNameRegistry verifiedNames;
@@ -72,7 +73,7 @@ public final class ForgeAdapterRuntime {
         requests = null;
         verifier = null;
         pendingLogins.clear();
-        liveStatus.clear();
+        statusStore.clearAll();
         if (verifiedNames != null) verifiedNames.close();
         verifiedNames = null;
         if (ipGrace != null) ipGrace.close();
@@ -145,14 +146,7 @@ public final class ForgeAdapterRuntime {
         // Publish status for the addon API and notify callbacks first, so any
         // conditional join logic (separate spawn, permissions) sees the status
         // regardless of the join-feedback config below.
-        liveStatus.put(player.getUUID(), source.publicStatus);
-        for (BiConsumer<ServerPlayer, AccountStatus> callback : loginCallbacks) {
-            try {
-                callback.accept(player, source.publicStatus);
-            } catch (RuntimeException failure) {
-                Trueuuid.LOGGER.warn("TrueUUID login callback threw for player={}", player.getUUID(), failure);
-            }
-        }
+        statusStore.publish(player, player.getUUID(), source.publicStatus);
 
         Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel,
                 player.getGameProfile().getName(), player.getUUID());
@@ -172,7 +166,7 @@ public final class ForgeAdapterRuntime {
     /** Drops a player's live status when they leave. Wired through the seam. */
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            liveStatus.remove(player.getUUID());
+            statusStore.clear(player.getUUID());
             activateGraceAfterLogout(player.getGameProfile().getName(), player.getIpAddress());
         }
     }
@@ -205,7 +199,7 @@ public final class ForgeAdapterRuntime {
 
     /** Live authentication status for an online player id. */
     public static AccountStatus statusOf(UUID playerId) {
-        return playerId == null ? AccountStatus.UNKNOWN : liveStatus.getOrDefault(playerId, AccountStatus.UNKNOWN);
+        return statusStore.statusOf(playerId);
     }
 
     /** True if this name has ever completed a verified premium/Yggdrasil login. */
@@ -220,7 +214,7 @@ public final class ForgeAdapterRuntime {
 
     /** Registers an addon login callback (invoked on the server thread at join). */
     public static void registerLoginCallback(BiConsumer<ServerPlayer, AccountStatus> callback) {
-        if (callback != null) loginCallbacks.add(callback);
+        statusStore.register(callback);
     }
 
     private static synchronized AuthenticationSource consumePendingLogin(UUID uuid) {
