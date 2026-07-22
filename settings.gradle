@@ -24,6 +24,7 @@ rootProject.name = 'TrueUUID'
 // Every compiling adapter is included here and in release/targets.json. Runtime
 // acceptance controls its release flag; it does not remove the adapter from CI.
 include 'shared:protocol'
+include 'shared:presentation'
 include 'platform:forge-1.20.1'
 include 'platform:fabric-1.20.1'
 include 'platform:fabric-1.20.2'

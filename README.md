@@ -260,6 +260,9 @@ For local client/server development runs, see
 
 TrueUUID is licensed under the GNU LGPL 3.0.
 
+The original TrueUUID lock badge textures are Copyright (C) 2026 F1xGOD and
+are distributed with the project under the same GNU LGPL 3.0 license.
+
 Maintained by [@YuWan-030](https://github.com/YuWan-030),
 [@wish131400](https://github.com/wish131400), and
 [@F1xGOD](https://github.com/F1xGOD).

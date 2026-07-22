@@ -16,14 +16,14 @@ public final class ForgeLoginFlow {
     private String nonce;
     private CompletableFuture<Optional<VerifiedProfile>> verification;
 
-    public byte[] start(int transactionId, String nonce, long now) {
+    public synchronized byte[] start(int transactionId, String nonce, long now) {
         this.nonce = nonce;
         return AuthWireCodec.encodeQuery(state.beginAuthentication(transactionId, nonce, now));
     }
 
-    public CompletableFuture<Optional<VerifiedProfile>> accept(int transactionId, byte[] answerWire,
-                                                                  String name, String clientIp,
-                                                                  SessionVerifier verifier) {
+    public synchronized CompletableFuture<Optional<VerifiedProfile>> accept(int transactionId, byte[] answerWire,
+                                                                             String name, String clientIp,
+                                                                             SessionVerifier verifier) {
         AuthMessages.Answer answer = AuthWireCodec.decodeAnswer(answerWire);
         return switch (state.acceptAnswer(transactionId, answer)) {
             case VERIFY -> {
@@ -34,23 +34,23 @@ public final class ForgeLoginFlow {
         };
     }
 
-    public byte[] migrationQuery(int transactionId, MigrationTransaction.Offer offer, long now) {
+    public synchronized byte[] migrationQuery(int transactionId, MigrationTransaction.Offer offer, long now) {
         return AuthWireCodec.encodeQuery(state.beginMigration(transactionId, offer, now));
     }
 
-    public boolean acceptMigration(int transactionId, byte[] answerWire) {
+    public synchronized boolean acceptMigration(int transactionId, byte[] answerWire) {
         AuthMessages.Answer answer = AuthWireCodec.decodeAnswer(answerWire);
         return state.acceptAnswer(transactionId, answer) == LoginStateMachine.AnswerResult.MIGRATE;
     }
 
-    public boolean timedOut(long now, long timeoutMillis) {
+    public synchronized boolean timedOut(long now, long timeoutMillis) {
         return state.timeoutAt(now, timeoutMillis, timeoutMillis) != LoginStateMachine.TimeoutResult.NONE;
     }
 
-    public boolean active() { return state.isActive(); }
-    public LoginStateMachine.Phase phase() { return state.phase(); }
+    public synchronized boolean active() { return state.isActive(); }
+    public synchronized LoginStateMachine.Phase phase() { return state.phase(); }
 
-    public void close() {
+    public synchronized void close() {
         if (verification != null) verification.cancel(true);
         verification = null;
         nonce = null;

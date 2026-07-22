@@ -82,6 +82,8 @@ while IFS=$'\t' read -r target_id standalone; do
     fi
 done < <(jq -r '.targets[] | [.id, (.standalone // false)] | @tsv' "$targets_file")
 
+python3 scripts/ci/validate-source-sharing.py
+
 if [[ $# -eq 0 ]]; then
     exit 0
 fi

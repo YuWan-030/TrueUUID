@@ -13,6 +13,11 @@
     "server.ForgeServerAnswerDecodeMixin",
     "server.ForgeServerLoginMixin"
   ],
+  "client": [
+    "client.ForgeClientDisconnectMixin",
+    "client.ForgeClientStatusMixin",
+    "client.ForgePauseScreenMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

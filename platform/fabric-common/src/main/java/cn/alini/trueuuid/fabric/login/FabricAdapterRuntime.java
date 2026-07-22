@@ -2,9 +2,14 @@ package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.protocol.AuthSource;
+import cn.alini.trueuuid.protocol.ExpiringBoundedStore;
 import cn.alini.trueuuid.protocol.GraceCache;
+import cn.alini.trueuuid.protocol.MigrationLockRegistry;
+import cn.alini.trueuuid.protocol.OfflineFallbackPolicy;
+import cn.alini.trueuuid.protocol.PersistentVerifiedNameStore;
 import cn.alini.trueuuid.protocol.RecentIpGrace;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -17,18 +22,22 @@ import java.util.UUID;
  * protected identically on every loader.
  */
 public final class FabricAdapterRuntime {
-    private static FabricVerifiedNameRegistry verifiedNames;
+    private static PersistentVerifiedNameStore verifiedNames;
     private static RecentIpGrace ipGrace;
-    private static FabricPendingLoginStore pendingLogins;
+    private static ExpiringBoundedStore<UUID, FabricAuthenticationSource> pendingLogins;
     private static MigrationCoordinator migrations;
     private static MigrationLockRegistry migrationLocks;
 
     /** Records a TrueUUID session verification plus the same-IP reconnect grace seed. */
-    public static synchronized void recordVerifiedProfile(VerifiedProfile profile, String clientIp) {
+    public static synchronized void recordVerifiedProfile(VerifiedProfile profile, String clientIp, String endpoint) {
         if (profile == null) return;
-        pendingLogins().record(profile.uuid(), FabricAuthenticationSource.VERIFIED);
+        boolean yggdrasil = endpoint != null && !endpoint.isBlank();
+        pendingLogins().put(profile.uuid(), yggdrasil
+                ? FabricAuthenticationSource.YGGDRASIL : FabricAuthenticationSource.VERIFIED);
         registry().record(profile.name(), profile.uuid());
-        grace().record(profile.name(), clientIp, new GraceCache.Entry(profile.uuid(), AuthSource.MOJANG, "Mojang"));
+        grace().record(profile.name(), clientIp, new GraceCache.Entry(profile.uuid(),
+                yggdrasil ? AuthSource.YGGDRASIL : AuthSource.MOJANG,
+                yggdrasil ? "Yggdrasil" : "Mojang"));
     }
 
     /** Accepts a same-IP reconnect within the grace window, consuming the entry. */
@@ -40,17 +49,17 @@ public final class FabricAdapterRuntime {
 
     /** Records a grace acceptance until vanilla creates the player. */
     public static synchronized void recordGraceLogin(UUID playerId) {
-        pendingLogins().record(playerId, FabricAuthenticationSource.GRACE);
+        if (playerId != null) pendingLogins().put(playerId, FabricAuthenticationSource.GRACE);
     }
 
     /** Records an accepted offline profile until vanilla creates the player. */
     public static synchronized void recordOfflineFallback(UUID playerId) {
-        pendingLogins().record(playerId, FabricAuthenticationSource.OFFLINE_FALLBACK);
+        if (playerId != null) pendingLogins().put(playerId, FabricAuthenticationSource.OFFLINE_FALLBACK);
     }
 
     /** Consumes a server-side login result exactly once after vanilla creates the player. */
     public static synchronized FabricAuthenticationSource consumePendingLogin(UUID playerId) {
-        return pendingLogins == null ? null : pendingLogins.consume(playerId);
+        return pendingLogins == null ? null : pendingLogins.remove(playerId).orElse(null);
     }
 
     /** Starts the reconnect grace window when a player leaves. */
@@ -109,8 +118,11 @@ public final class FabricAdapterRuntime {
         migrationLocks = null;
     }
 
-    private static FabricVerifiedNameRegistry registry() {
-        if (verifiedNames == null) verifiedNames = new FabricVerifiedNameRegistry();
+    private static PersistentVerifiedNameStore registry() {
+        if (verifiedNames == null) {
+            verifiedNames = new PersistentVerifiedNameStore(
+                    FabricLoader.getInstance().getConfigDir().resolve("trueuuid-registry.json"));
+        }
         return verifiedNames;
     }
 
@@ -119,8 +131,9 @@ public final class FabricAdapterRuntime {
         return ipGrace;
     }
 
-    private static FabricPendingLoginStore pendingLogins() {
-        if (pendingLogins == null) pendingLogins = new FabricPendingLoginStore();
+    private static ExpiringBoundedStore<UUID, FabricAuthenticationSource> pendingLogins() {
+        if (pendingLogins == null) pendingLogins =
+                new ExpiringBoundedStore<>(4096, Duration.ofMinutes(5));
         return pendingLogins;
     }
 

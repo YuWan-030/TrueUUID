@@ -24,8 +24,11 @@ version = repositoryVersion
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 def forgeCommon = "${rootDir}/../forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/../forgelike-common/src/main"
 def modernMatrix = "${rootDir}/../forge-common/src/modern-matrix"
+def recordMatrix = "${rootDir}/../forge-common/src/record-matrix"
 def shared = "${rootDir}/../../shared/protocol/src/main/java"
+def sharedPresentation = "${rootDir}/../../shared/presentation/src/main/java"
 def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
 def acceptanceHooksEnabled = providers.gradleProperty('trueuuidAcceptanceHooks')
         .map { it.toBoolean() }
@@ -34,7 +37,7 @@ def acceptanceHooks = "${rootDir}/../../shared/protocol/src/${acceptanceHooksEna
 
 // Record era (1.21.9+): GameProfile record, Minecraft.services(), level().getServer().
 def recordEraSources = [
-        'cn/alini/trueuuid/server/ForgeAdapterRuntime.java',
+        'cn/alini/trueuuid/server/ForgeGameProfiles.java',
         'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin.java',
         'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin.java'
 ]
@@ -47,8 +50,11 @@ def identifierEraSources = [
 ]
 
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${modernMatrix}/java"
+sourceSets.main.java.srcDir "${recordMatrix}/java"
 sourceSets.main.java.srcDir shared
+sourceSets.main.java.srcDir sharedPresentation
 sourceSets.main.java.srcDir acceptanceHooks
 sourceSets.main.java.srcDir 'src/main/java'
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
@@ -59,13 +65,17 @@ sourceSets.main.resources.srcDir "${rootDir}/../common-assets/src/main/resources
 // the mods.toml declaration and its @Mod entry point are discovered together.
 sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
 
-// Compile the shared roots minus the era seams, plus the module-local copies,
+// Compile the shared roots minus the era seams, plus named shared-era roots and
+// the 1.21.11-only identifier copies,
 // mirroring the in-tree forge-1.21.10 module. forge-common stays byte-identical.
 tasks.named('compileJava', JavaCompile).configure {
     source = files(
             fileTree("${forgeCommon}/java") { exclude recordEraSources + identifierEraSources },
+            fileTree("${forgeLikeCommon}/java"),
             fileTree("${modernMatrix}/java") { exclude recordEraSources + identifierEraSources },
+            fileTree("${recordMatrix}/java"),
             fileTree(shared),
+            fileTree(sharedPresentation),
             fileTree(acceptanceHooks),
             fileTree('src/main/java'))
 }

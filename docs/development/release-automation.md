@@ -54,6 +54,13 @@ resolves the authenticated draft through the releases list by its stored
 `tag_name`, then uses the immutable release ID for asset uploads and final
 publication.
 
+GitHub also omits draft releases from that authenticated list when the API
+identity has only `contents: read`. Consequently, only the `metadata` job has
+`contents: write`; its checkout still uses `persist-credentials: false`, and
+later operations remain bound to the resolved immutable release ID. Workflow
+validation pins this narrow permission so a future global/read-only change
+cannot silently break draft discovery again.
+
 1. The GitHub Release is still a draft, is not a prerelease, and its body is
    byte-for-byte identical to the checked-in English-first bilingual changelog
    for that version.

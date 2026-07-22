@@ -191,7 +191,7 @@ abstract class ServerLoginMixin {
                             return;
                         }
                         authenticatedProfile = trueuuid$profile(verified);
-                        AdapterRuntime.recordVerifiedProfile(verified, ip);
+                        AdapterRuntime.recordVerifiedProfile(verified, ip, answer.message().customEndpoint());
                         trueuuid$finishLogin(authenticatedProfile);
                     } finally {
                         if (trueuuid$attempt.phase() != LoginStateMachine.Phase.AWAITING_MIGRATION) trueuuid$clear();
@@ -280,7 +280,8 @@ abstract class ServerLoginMixin {
                             return;
                         }
                         authenticatedProfile = trueuuid$profile(verified);
-                        AdapterRuntime.recordVerifiedProfile(verified, trueuuid$pendingIp == null ? ip : trueuuid$pendingIp);
+                        AdapterRuntime.recordVerifiedProfile(verified,
+                                trueuuid$pendingIp == null ? ip : trueuuid$pendingIp, trueuuid$pendingEndpoint);
                         cn.alini.trueuuid.Trueuuid.acceptance("result=migration_complete player={} uuid={}",
                                 migrationName, verified.uuid());
                         trueuuid$finishLogin(authenticatedProfile);

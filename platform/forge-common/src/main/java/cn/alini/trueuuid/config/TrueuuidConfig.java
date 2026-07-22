@@ -16,6 +16,7 @@ public final class TrueuuidConfig {
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> YGGDRASIL_HOSTS;
     private static final ForgeConfigSpec.BooleanValue SHOW_JOIN_FEEDBACK;
     private static final ForgeConfigSpec.BooleanValue SHOW_JOIN_TITLE;
+    private static final ForgeConfigSpec.BooleanValue SHOW_OPERATOR_NOTIFICATIONS;
     private static final ForgeConfigSpec.BooleanValue SHOW_ACCOUNT_OVERLAY;
     private static final ForgeConfigSpec.ConfigValue<String> OVERLAY_CORNER;
     private static final ForgeConfigSpec.IntValue OVERLAY_OFFSET_X;
@@ -43,6 +44,8 @@ public final class TrueuuidConfig {
                 .define("showJoinFeedback", true);
         SHOW_JOIN_TITLE = builder.comment("Also show a full-screen title/subtitle on join. Off by default: the persistent account-status overlay already reports this less intrusively.")
                 .define("showJoinTitle", false);
+        SHOW_OPERATOR_NOTIFICATIONS = builder.comment("Notify only permission-level-2 operators about completed logins. Off by default; the structured console audit is always emitted.")
+                .define("showOperatorNotifications", false);
         SHOW_ACCOUNT_OVERLAY = builder.comment("Show the client account-status overlay after a TrueUUID login handshake.")
                 .define("showAccountOverlay", true);
         OVERLAY_CORNER = builder.comment(
@@ -85,6 +88,7 @@ public final class TrueuuidConfig {
     @SuppressWarnings("unchecked") public static List<String> yggdrasilHosts() { return (List<String>) YGGDRASIL_HOSTS.get(); }
     public static boolean showJoinFeedback() { return SHOW_JOIN_FEEDBACK.get(); }
     public static boolean showJoinTitle() { return SHOW_JOIN_TITLE.get(); }
+    public static boolean showOperatorNotifications() { return SHOW_OPERATOR_NOTIFICATIONS.get(); }
     public static boolean showAccountOverlay() { return SHOW_ACCOUNT_OVERLAY.get(); }
     public static String overlayCorner() { return OVERLAY_CORNER.get(); }
     public static int overlayOffsetX() { return OVERLAY_OFFSET_X.get(); }
@@ -103,6 +107,7 @@ public final class TrueuuidConfig {
             setBoolean(config, "auth.allowOfflineOnTimeout", ALLOW_OFFLINE_ON_TIMEOUT);
             setBoolean(config, "auth.showJoinFeedback", SHOW_JOIN_FEEDBACK);
             setBoolean(config, "auth.showJoinTitle", SHOW_JOIN_TITLE);
+            setBoolean(config, "auth.showOperatorNotifications", SHOW_OPERATOR_NOTIFICATIONS);
             setBoolean(config, "auth.showAccountOverlay", SHOW_ACCOUNT_OVERLAY);
             setBoolean(config, "auth.allowOfflineOnFailure", ALLOW_OFFLINE_ON_FAILURE);
             setBoolean(config, "auth.knownPremiumDenyOffline", KNOWN_PREMIUM_DENY_OFFLINE);

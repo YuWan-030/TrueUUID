@@ -5,9 +5,8 @@ import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
-import cn.alini.trueuuid.client.ClientAccountStatus;
-import cn.alini.trueuuid.client.ClientAuthDiagnostics;
-import cn.alini.trueuuid.client.ClientYggdrasilEndpoint;
+import cn.alini.trueuuid.protocol.ClientAuthDiagnostics;
+import cn.alini.trueuuid.protocol.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.Trueuuid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -58,7 +57,6 @@ abstract class ForgeClientHandshakeMixin {
         if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken)) {
             Trueuuid.debug("TrueUUID client session token is absent or is a development placeholder");
             Trueuuid.acceptance("phase=client_missing_session_token");
-            ClientAccountStatus.markOffline();
             trueuuid$reply(connection, packet.transactionId(), false, "", false, true);
             callback.cancel();
             return;
@@ -86,8 +84,6 @@ abstract class ForgeClientHandshakeMixin {
                 .orTimeout(25, TimeUnit.SECONDS)
                 .exceptionally(error -> false)
                 .thenAccept(joined -> {
-                    if (joined) ClientAccountStatus.markPremium();
-                    else ClientAccountStatus.markOffline();
                     if (joined && query.message().migrationAvailable()) {
                         trueuuid$confirmOfflinePlayerDataUpgrade(minecraft, query.message().offlineUuid(),
                                 query.message().summary(), hasJoinedUrl, loginConnection, packet.transactionId());

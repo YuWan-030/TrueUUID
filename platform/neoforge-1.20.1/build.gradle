@@ -29,6 +29,7 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
+def generatedMixinDir = layout.buildDirectory.dir('tmp/compileJava')
 def adapterRoot = "${rootDir}/platform/forge-1.20.1/src"
 // 1.20.1-47.1.106 is the last NeoForge 1.20.1 build under the legacy
 // net.neoforged:forge coordinate (maven.neoforged.net, checked 2026-07-17;
@@ -47,6 +48,7 @@ java {
 }
 
 sourceSets.main.java.srcDir "${adapterRoot}/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
 sourceSets.main.resources.srcDir "${adapterRoot}/main/resources"
 sourceSets.main.resources.srcDir "${adapterRoot}/generated/resources"
 sourceSets.test.java.srcDir "${adapterRoot}/test/java"
@@ -125,6 +127,20 @@ tasks.named('jar', Jar).configure {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+// MixinGradle writes these files beside compileJava's temporary state but does
+// not declare them as task outputs. Its annotation processor is also not
+// incremental, so a partial recompile can omit the refmap even though Gradle
+// reports a successful build. Make the generated artifacts explicit and use a
+// complete compile whenever the task is invalidated, keeping warm release
+// builds deterministic just like the Forge 1.20.1 source island they reuse.
+tasks.named('compileJava', JavaCompile).configure {
+    options.incremental = false
+    outputs.files(
+            generatedMixinDir.map { it.file('trueuuid.refmap.json') },
+            generatedMixinDir.map { it.file('compileJava-refmap.json') },
+            generatedMixinDir.map { it.file('compileJava-mappings.tsrg') })
 }
 
 tasks.named('test') {

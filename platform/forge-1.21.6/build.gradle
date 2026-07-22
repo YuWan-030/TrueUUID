@@ -37,10 +37,12 @@ base {
 // Recompile the stable modern adapter plus the 1.21.6+ matrix/EventBus seam
 // against this target's mappings. No bytecode is shared between artifacts.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
 def loginMatrix = "${rootDir}/platform/forge-common/src/login-matrix"
 def modernMatrix = "${rootDir}/platform/forge-common/src/modern-matrix"
 def modernMatrixTest = "${rootDir}/platform/forge-common/src/modern-matrix-test"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${loginMatrix}/java"
 sourceSets.main.java.srcDir "${modernMatrix}/java"
 // Forge 56 has the 2D matrix stack but no AddGuiOverlayLayersEvent yet. Its

@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.server;
 
 import cn.alini.trueuuid.protocol.BoundedRequestCoordinator;
+import cn.alini.trueuuid.protocol.MigrationLockRegistry;
 
 public final class TrueuuidRuntime {
     private static volatile boolean INIT = false;

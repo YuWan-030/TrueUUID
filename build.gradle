@@ -19,8 +19,32 @@ subprojects {
     }
 }
 
+// Every platform compiles the same loader-neutral presentation model into its
+// own adapter output. This is intentionally a shared source root rather than a
+// project dependency: ForgeGradle and NeoGradle isolate development mods from
+// ordinary dependency classpaths, while production JARs must contain these
+// classes. Compiling the source root in place keeps development runs, runtime
+// acceptance, and the published JAR identical without per-loader wiring.
+// Adapters keep only Minecraft drawing, packets, screens and permissions.
+configure(subprojects.findAll { it.path.startsWith(':platform:') }) {
+    plugins.withId('java') {
+        def sharedPresentationSources = project(':shared:presentation').file('src/main/java')
+        sourceSets.main.java.srcDir(sharedPresentationSources)
+        // A handful of record/GUI-era adapters replace compileJava's source
+        // collection to exclude obsolete Minecraft seams. Add the shared root
+        // after each project has finished configuring so those narrow source
+        // filters cannot accidentally discard the loader-neutral model.
+        afterEvaluate {
+            tasks.named('compileJava', JavaCompile).configure {
+                source(sharedPresentationSources)
+            }
+        }
+    }
+}
+
 tasks.named('build') {
     dependsOn ':shared:protocol:build',
+            ':shared:presentation:build',
             ':platform:forge-1.20.1:build',
             ':platform:forge-1.20.2:build',
             ':platform:forge-1.20.4:build',

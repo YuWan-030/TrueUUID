@@ -6,7 +6,10 @@
   "compatibilityLevel": "JAVA_17",
   "client": [
     "client.ClientboundCustomQueryMixin",
-    "client.ClientHandshakeMixin"
+    "client.ClientDisconnectMixin",
+    "client.ClientHandshakeMixin",
+    "client.ClientStatusMixin",
+    "client.PauseScreenMixin"
   ],
   "mixins": [
     "server.ServerLoginMixin"

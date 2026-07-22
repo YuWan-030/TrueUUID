@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-/** Shared safe hasJoined verifier; response parsing is supplied by the Java-only adapter. */
+/** Shared safe hasJoined verifier with a replaceable response parser for focused tests. */
 public final class SafeSessionVerifier implements SessionVerifier {
     public static final URI MOJANG_HAS_JOINED = URI.create("https://sessionserver.mojang.com/session/minecraft/hasJoined");
     private static final int MAX_HAS_JOINED_ATTEMPTS = 4;

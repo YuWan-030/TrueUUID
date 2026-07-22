@@ -21,6 +21,11 @@ repositories {
 }
 
 dependencies {
+    // Minecraft ships Gson on every supported loader. Keep it compile-only so
+    // shared/protocol remains loader-neutral and platform JARs do not embed a
+    // second Gson copy.
+    compileOnly 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

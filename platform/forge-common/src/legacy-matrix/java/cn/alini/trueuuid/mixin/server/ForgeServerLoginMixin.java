@@ -156,7 +156,7 @@ abstract class ForgeServerLoginMixin {
                             return;
                         }
                         authenticatedProfile = trueuuid$toNativeProfile(verified);
-                        ForgeAdapterRuntime.recordVerifiedProfile(verified, ip);
+                        ForgeAdapterRuntime.recordVerifiedProfile(verified, ip, answer.message().customEndpoint());
                         Trueuuid.acceptance("result=premium_ready player={} uuid={}", verified.name(), verified.uuid());
                         trueuuid$completeNativeLogin(authenticatedProfile);
                     } finally {
@@ -259,7 +259,8 @@ abstract class ForgeServerLoginMixin {
                             return;
                         }
                         authenticatedProfile = trueuuid$toNativeProfile(verified);
-                        ForgeAdapterRuntime.recordVerifiedProfile(verified, trueuuid$pendingIp == null ? ip : trueuuid$pendingIp);
+                        ForgeAdapterRuntime.recordVerifiedProfile(verified,
+                                trueuuid$pendingIp == null ? ip : trueuuid$pendingIp, trueuuid$pendingEndpoint);
                         Trueuuid.acceptance("result=migration_complete player={} uuid={}", migrationName, verified.uuid());
                         trueuuid$completeNativeLogin(authenticatedProfile);
                     } finally {

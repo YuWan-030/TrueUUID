@@ -1,5 +1,7 @@
 package cn.alini.trueuuid.server;
 
+import cn.alini.trueuuid.protocol.OfflineFallbackPolicy;
+
 import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;

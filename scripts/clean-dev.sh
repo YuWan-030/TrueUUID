@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Reclaim disk from local development: Gradle build outputs, dev-server run
-# dirs, and the portablemc premium-client downloads. Everything it removes is
+# dirs/caches, and the portablemc premium-client downloads. Everything it removes is
 # regenerable (rebuilt by Gradle, re-downloaded by portablemc). Source is never
 # touched, and your cached login is KEPT unless you pass --logout.
 #
 #   scripts/clean-dev.sh              # build + client caches (keeps login), asks first
-#   scripts/clean-dev.sh --build      # only repo build/run outputs
+#   scripts/clean-dev.sh --build      # only repo build/run/Gradle outputs
 #   scripts/clean-dev.sh --client     # only portablemc downloads (keeps login)
 #   scripts/clean-dev.sh --dry-run    # show what would be freed, delete nothing
 #   scripts/clean-dev.sh --all --logout -y   # everything incl. token, no prompt
@@ -30,15 +30,23 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# Collect existing paths to remove, per scope. Only ever named build/run/.gradle
-# dirs in the repo and the regenerable caches under the test home.
+# Collect existing paths to remove, per scope. Only ever named
+# build/run/runs/.gradle dirs in the repo and the regenerable caches under the
+# test home.
 targets=()
 add() { [[ -e "$1" ]] && targets+=("$1"); return 0; }
 
 if [[ "$scope" == "build" || "$scope" == "all" ]]; then
     add "$root/build"
     add "$root/.gradle"
-    for d in "$root"/platform/*/build "$root"/platform/*/run "$root"/shared/*/build; do add "$d"; done
+    for d in \
+        "$root"/platform/*/build \
+        "$root"/platform/*/run \
+        "$root"/platform/*/runs \
+        "$root"/platform/*/.gradle \
+        "$root"/shared/*/build; do
+        add "$d"
+    done
 fi
 if [[ "$scope" == "client" || "$scope" == "all" ]]; then
     # Everything portablemc can re-download, but keep the auth db by default.

@@ -41,11 +41,28 @@ entries=$(jar tf "$artifact")
 for required in \
     "$entry_class" \
     cn/alini/trueuuid/protocol/AuthWireCodec.class \
+    cn/alini/trueuuid/protocol/HasJoinedProfileParser.class \
+    cn/alini/trueuuid/protocol/PersistentVerifiedNameStore.class \
+    cn/alini/trueuuid/presentation/ClientStatusState.class \
+    cn/alini/trueuuid/presentation/BadgeArtwork.class \
     assets/trueuuid/lang/en_us.json \
     "$mixins" \
     "$metadata"; do
     grep -Fxq "$required" <<<"$entries" || { echo "missing JAR entry: $required" >&2; exit 65; }
 done
+
+mixin_json=$(unzip -p "$artifact" "$mixins")
+jq -e '.client | type == "array" and any(.[]; endswith("PauseScreenMixin"))' \
+    <<<"$mixin_json" >/dev/null || {
+    echo "pause-screen badge mixin is not client-scoped in $artifact" >&2
+    exit 65
+}
+if [[ "$loader" == forge || "$loader" == neoforge ]]; then
+    jq -e '.client | any(.[]; endswith("ClientStatusMixin"))' <<<"$mixin_json" >/dev/null || {
+        echo "server-confirmed status mixin is not client-scoped in $artifact" >&2
+        exit 65
+    }
+fi
 
 case "$loader" in
     fabric)

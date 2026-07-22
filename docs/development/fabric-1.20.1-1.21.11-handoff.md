@@ -20,15 +20,20 @@ named `legacy-1.20`, `session-profile`, `session-uuid`, `play-buffers`, and
 transition or the 1.20.2 session API transition back into runtime version
 checks.
 
-The latest exact-target Fabric evidence is split across the 1.20 run at
-`build/runtime-acceptance/20260722T042021Z/summary.tsv`, Fabric 1.21.1 at
-`20260722T043906Z/summary.tsv`, and the final seven 1.21 targets at
-`20260722T051512Z/summary.tsv`. The runtime harness is
-the only owner of `-PtrueuuidAcceptanceHooks=true`; it snapshots the
-instrumented JAR under the ignored run directory and removes it from the normal
-module output. Production builds use the release implementation, and
+The latest exact-target Fabric evidence is the twelve-target Fabric portion of
+`build/runtime-acceptance/20260722T114302Z/summary.tsv`. All 48 Fabric
+target/scenario pairs were rebuilt and passed fresh against the consolidated
+shared-runtime worktree. The later singleplayer/Premium-(LAN) presentation
+follow-up does not change Fabric login networking and passed shared policy
+tests, Fabric 1.20.1/1.21.11 probes, the full build, and release-JAR checks.
+The runtime harness is the only owner of
+`-PtrueuuidAcceptanceHooks=true`; it snapshots the instrumented JAR under the
+ignored run directory and removes it from the normal module output. Production
+builds use the release implementation, and
 `scripts/ci/verify-release-jar.sh` rejects instrumented JARs and packaged
-development scripts.
+development scripts. The generated evidence and Minecraft downloads are
+regenerable and may be removed with `scripts/clean-dev.sh` after their verdict
+has been recorded.
 
 The 1.21.11 target pins Loader 0.19.3, Yarn `1.21.11+build.6`, Fabric API
 `0.141.5+1.21.11`, Loom 1.13.6, and Java 21. It introduced narrow named roots

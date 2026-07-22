@@ -6,8 +6,36 @@ wide metadata range is not a support claim.
 
 ## Current verdict
 
-On 2026-07-22, all 36 targets in `release/targets.json` completed the
-same installed-JAR client/server core acceptance set:
+The 2026-07-22 HUD/join-audit consolidation worktree changes account-status
+transport, rendering, pause-screen hooks, notification routing, shared login
+utilities, and shared JAR contents. Its shared and adapter tests pass, all 35
+root-project targets plus the standalone Forge 1.21.11 build island complete,
+and all 36 production JARs pass structural, metadata, shared-class, Mixin, and
+filename verification. The source-sharing validator also finds no exact Java
+copies or version-module donor trees across the 165 platform Java sources.
+
+The final installed-JAR matrix for the consolidated multiplayer login runtime
+accepted all 144 target/scenario pairs. It recorded 140 fresh `PASS` results in
+`build/runtime-acceptance/20260722T114302Z/summary.tsv` and four
+`REUSED_PASS` results for Forge 1.21.6 from the immediately preceding focused
+run in `20260722T114109Z`; the resumed rows point to that exact artifact and
+evidence directory. No failed or incomplete result was reused.
+
+The subsequent private-singleplayer/Premium-(LAN) presentation fix changes no
+wire protocol, authentication decision, migration, or dedicated-server path.
+Its shared transition/policy tests, representative old/new loader probes, full
+36-target aggregate build, and all 36 release-JAR checks pass. The installed
+matrix was not repeated after this local integrated-world-only change.
+
+No visual assertion has yet confirmed the three-second fade, user-supplied
+Singleplayer lock artwork, configured corners/scales/offsets, or pause-menu
+placement on every GUI era. Operator-only delivery and non-operator exclusion
+are covered by plain routing tests and full-target compilation but still
+require installed-server runtime observation.
+
+On 2026-07-22, all 36 targets in `release/targets.json` completed the same
+installed-JAR client/server core acceptance set against the consolidated
+shared-runtime worktree:
 
 - verified Mojang premium join;
 - policy-approved offline fallback;
@@ -16,14 +44,10 @@ same installed-JAR client/server core acceptance set:
 
 The harness rebuilt and snapshotted each target artifact, created a unique
 fresh world, booted one matching server per target, and reused that server only
-for the four dependency-ordered scenarios. The four Fabric 1.20 targets passed
-in `build/runtime-acceptance/20260722T042021Z/summary.tsv`, Fabric 1.21.1 passed
-in `20260722T043906Z/summary.tsv`, and the remaining seven Fabric 1.21 targets
-passed together in `20260722T051512Z/summary.tsv`. The latter run followed a
-real 1.21.10 negotiation failure and verifies the authlib 7 immutable-profile
-fix. Standalone Forge 1.21.11 passed in `20260722T062636Z` after its Gradle 9.5
-build/run integration was completed. Across the current manifest there are 144
-accepted target/scenario pairs.
+for the four dependency-ordered scenarios. The final summary is
+`build/runtime-acceptance/20260722T114302Z/summary.tsv`; each target directory
+contains its tested JAR, SHA-256, server log, and per-scenario client evidence.
+Across the current manifest there are 144 accepted target/scenario pairs.
 
 This proves the four core paths for the exact targets below. It does **not**
 prove every loader on every Minecraft patch from 1.20.1 through 1.21.11:
@@ -110,6 +134,9 @@ latest evidence set.
 | Persisted known-name denial | yes | yes | yes | core runtime accepted |
 | Confirmed data migration | yes | yes | yes | core runtime accepted |
 | Localized join feedback and HUD | yes | yes | yes | join observed; visual/API details not asserted on every target |
+| Three-second fading badge and pause-menu lock badge | implemented | implemented | implemented | shared fake-clock tests and full-target build; visual runtime pending |
+| Singleplayer and Premium (LAN) chat/HUD/pause transitions | implemented | implemented | implemented | shared transition/policy tests and full-target build; visual runtime pending |
+| Structured login audit and operator-only notification | implemented | implemented | implemented | routing unit tests and full-target build; operator runtime pending |
 | Addon account-status API/callbacks | yes | yes | yes | build and unit tests |
 | Allowlisted Yggdrasil/skin-site verification | yes | yes | yes | build and unit tests; runtime pending |
 | Migration rejection/timeout/rollback | yes | yes | yes | shared/adapter unit tests; runtime pending |
@@ -118,21 +145,33 @@ latest evidence set.
 | Recent-IP reconnect grace | yes | yes | yes | unit-tested; runtime pending |
 | Skin refresh after join | yes | yes | yes | build-tested; runtime pending |
 
-The login protocol and filesystem migration engine remain plain Java under
-`shared/protocol`. Minecraft profiles, packets, commands, world paths, loader
-lifecycle, and server-thread scheduling stay in the platform adapters. Forge
-targets recompile `platform/forge-common` with narrow SRG/official,
-event-bus, GUI, record, and identifier-era seams. NeoForge targets recompile
-the 1.21 adapter baseline with equally narrow version seams. Fabric targets
+The login protocol, bounded pending-result storage, fallback policy, migration
+locks, persistent verified-name store, `hasJoined` response parser, endpoint
+discovery, safe diagnostics, and filesystem migration engine remain plain Java
+under `shared/protocol`; loader-neutral status timing, artwork, layout,
+presentation values, and notification routing live in
+`shared/presentation`. Minecraft profiles, packets, commands, world paths,
+loader lifecycle, and server-thread scheduling stay in platform adapters. Forge
+targets recompile `platform/forge-common` with narrow SRG/official, event-bus,
+GUI, record, and identifier-era seams. NeoForge targets recompile the canonical
+`platform/neoforge-common` core with equally narrow named era roots. Minecraft
+seams shared by both live in `platform/forgelike-common`. Fabric targets
 recompile `platform/fabric-common` against their pinned Yarn/Fabric APIs, with
 small source roots for session joining, typed payloads, authlib records,
 permissions, identifiers, and HUD matrix transitions.
 
-The current Fabric artifact evidence is below. These hashes identify the
-acceptance-instrumented snapshots stored only inside the ignored run directory;
-the harness removes each snapshot source from the module's normal `build/libs`
-path. Normal builds compile the release hook implementation, and release-JAR
-verification rejects the acceptance environment names or packaged scripts.
+`scripts/ci/validate-source-sharing.py` rejects exact Java source copies,
+including tests, and version-module source donors before target or release
+validation can pass.
+
+The table below is retained as historical, pre-consolidation Fabric evidence;
+it is not the release approval for the current worktree. Current hashes and
+acceptance snapshots for every loader live under
+`build/runtime-acceptance/20260722T114302Z/<target>/artifact/` (with the exact
+Forge 1.21.6 focused artifact under `20260722T114109Z`). The harness removes
+each snapshot source from the module's normal `build/libs` path. Normal builds
+compile the release hook implementation, and release-JAR verification rejects
+acceptance environment names or packaged scripts.
 
 | Target | Release JAR SHA-256 | Acceptance snapshot SHA-256 | Core evidence |
 |---|---|---|---|
@@ -149,7 +188,8 @@ verification rejects the acceptance environment names or packaged scripts.
 | `fabric-1.21.10` | `c21086988860d6e93d70155e2b209b01774f93eb2e2b4b933832e08e4ee642fb` | `98104ecf0c42ae6190a9d558c695ddaade9c4e266f0b18cf4cb2ed19f0eceae2` | `20260722T051512Z` |
 | `fabric-1.21.11` | `9c42bf4110ae925f368195b96ef4036001691059d31a43bdd41678aadeafd69d` | `28df1be7233f366402bd49b2ffccc7c607ae2b6d980d6c05237a261f6bd78feb` | `20260722T051512Z` |
 
-Forge 1.21.11 is the standalone build-island artifact. Its production JAR is
+For historical comparison, the earlier Forge 1.21.11 standalone build-island
+production JAR was
 `4050bac906bc260837f85ee3b9579a41482eedf81abd80179e15559cf634284d` and
 its acceptance snapshot is
 `e2650bf2c3d4a8b7eac2d8dbc0b5afe208054d151e60f8885f3bc863a06b4870`;

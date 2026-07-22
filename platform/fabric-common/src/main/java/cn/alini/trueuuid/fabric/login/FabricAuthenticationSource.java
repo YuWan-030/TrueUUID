@@ -1,6 +1,7 @@
 package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.api.AccountStatus;
+import cn.alini.trueuuid.presentation.AuthenticationPresentation;
 
 /**
  * The server-owned outcome of a Fabric login.  This deliberately carries no
@@ -9,37 +10,28 @@ import cn.alini.trueuuid.api.AccountStatus;
  * of a connection or player object.
  */
 public enum FabricAuthenticationSource {
-    VERIFIED("session-verified premium login", "trueuuid.chat.premium", "trueuuid.title.premium",
-            "trueuuid.subtitle.premium", ClientStatus.PREMIUM, AccountStatus.PREMIUM_VERIFIED),
-    GRACE("recent same-IP grace login", "trueuuid.chat.premium", "trueuuid.title.premium",
-            "trueuuid.subtitle.premium", ClientStatus.PREMIUM, AccountStatus.PREMIUM_VERIFIED),
-    OFFLINE_FALLBACK("offline fallback login", "trueuuid.chat.offline_fallback", "trueuuid.title.offline",
-            "trueuuid.subtitle.offline", ClientStatus.OFFLINE, AccountStatus.OFFLINE_FALLBACK),
-    NATIVE_ONLINE_MODE("native online-mode premium login", "trueuuid.chat.online_mode", "trueuuid.title.premium",
-            "trueuuid.subtitle.online_mode", ClientStatus.PREMIUM, AccountStatus.ONLINE_MODE);
+    VERIFIED(AuthenticationPresentation.MOJANG, AccountStatus.PREMIUM_VERIFIED),
+    YGGDRASIL(AuthenticationPresentation.YGGDRASIL, AccountStatus.PREMIUM_VERIFIED),
+    GRACE(AuthenticationPresentation.GRACE, AccountStatus.PREMIUM_VERIFIED),
+    OFFLINE_FALLBACK(AuthenticationPresentation.OFFLINE_FALLBACK, AccountStatus.OFFLINE_FALLBACK),
+    NATIVE_ONLINE_MODE(AuthenticationPresentation.NATIVE_ONLINE_MODE, AccountStatus.ONLINE_MODE);
 
-    private final String auditLabel;
-    private final String chatKey;
-    private final String titleKey;
-    private final String subtitleKey;
-    private final ClientStatus clientStatus;
+    private final AuthenticationPresentation presentation;
     private final AccountStatus publicStatus;
 
-    FabricAuthenticationSource(String auditLabel, String chatKey, String titleKey, String subtitleKey,
-                               ClientStatus clientStatus, AccountStatus publicStatus) {
-        this.auditLabel = auditLabel;
-        this.chatKey = chatKey;
-        this.titleKey = titleKey;
-        this.subtitleKey = subtitleKey;
-        this.clientStatus = clientStatus;
+    FabricAuthenticationSource(AuthenticationPresentation presentation, AccountStatus publicStatus) {
+        this.presentation = presentation;
         this.publicStatus = publicStatus;
     }
 
-    public String auditLabel() { return auditLabel; }
-    public String chatKey() { return chatKey; }
-    public String titleKey() { return titleKey; }
-    public String subtitleKey() { return subtitleKey; }
-    public ClientStatus clientStatus() { return clientStatus; }
+    public String auditLabel() { return presentation.authenticationSource(); }
+    public String chatKey() { return presentation.chatTranslationKey(); }
+    public String titleKey() { return presentation.titleTranslationKey(); }
+    public String subtitleKey() { return presentation.subtitleTranslationKey(); }
+    public AuthenticationPresentation presentation() { return presentation; }
+    public ClientStatus clientStatus() {
+        return presentation.clientStatus().isPremium() ? ClientStatus.PREMIUM : ClientStatus.OFFLINE;
+    }
 
     /** The public addon-API status an addon sees for this login outcome. */
     public AccountStatus publicStatus() { return publicStatus; }

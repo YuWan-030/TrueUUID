@@ -48,6 +48,21 @@ for draft_api_contract in \
     }
 done
 
+metadata_job=$(awk '
+    /^  metadata:/ { in_metadata = 1 }
+    in_metadata && /^  [a-zA-Z0-9_-]+:/ && !/^  metadata:/ { exit }
+    in_metadata { print }
+' .github/workflows/release.yml)
+grep -Fq '    permissions:' <<<"$metadata_job" &&
+grep -Fq '      contents: write' <<<"$metadata_job" || {
+    echo "release metadata job must have contents: write so its token can list draft releases" >&2
+    exit 65
+}
+grep -Fq '          persist-credentials: false' <<<"$metadata_job" || {
+    echo "release metadata checkout must keep Git credentials disabled" >&2
+    exit 65
+}
+
 grep -Fq 'The draft body must exactly match' .github/workflows/release.yml || {
     echo "release.yml must reject a draft body that differs from the checked-in changelog" >&2
     exit 65

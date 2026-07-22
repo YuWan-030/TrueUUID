@@ -69,6 +69,11 @@ public final class ExpiringBoundedStore<K, V> implements AutoCloseable {
         return entries.size();
     }
 
+    public synchronized void clear() {
+        ensureOpen();
+        entries.clear();
+    }
+
     @Override public synchronized void close() {
         entries.clear();
         closed = true;

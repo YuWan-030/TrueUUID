@@ -1,5 +1,7 @@
 package cn.alini.trueuuid.fabric.login;
 
+import cn.alini.trueuuid.protocol.OfflineFallbackPolicy;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

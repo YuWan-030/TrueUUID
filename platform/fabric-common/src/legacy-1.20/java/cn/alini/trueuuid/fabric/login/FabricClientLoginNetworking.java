@@ -1,7 +1,7 @@
 package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
-import cn.alini.trueuuid.fabric.client.ClientYggdrasilEndpoint;
+import cn.alini.trueuuid.protocol.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.fabric.client.FabricClientStatus;
 import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.protocol.AuthMessages;

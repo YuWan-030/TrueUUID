@@ -206,7 +206,7 @@ public final class FabricLoginTransaction {
                     requestMigrationConfirmation(server, handler, verified, lookup.offlineData(), ip, endpoint);
                     return;
                 }
-                FabricAdapterRuntime.recordVerifiedProfile(verified, ip);
+                FabricAdapterRuntime.recordVerifiedProfile(verified, ip, endpoint);
                 ((FabricLoginStateAccess) handler).trueuuid$setProfile(FabricVerifiedProfiles.create(verified));
                 TrueuuidFabric.acceptance("result=premium_ready player={} uuid={}", verified.name(), verified.uuid());
                 state.reset();
@@ -261,7 +261,8 @@ public final class FabricLoginTransaction {
                                 return;
                             }
                             ((FabricLoginStateAccess) handler).trueuuid$setProfile(FabricVerifiedProfiles.create(verified));
-                            FabricAdapterRuntime.recordVerifiedProfile(verified, pendingIp == null ? clientIp(handler) : pendingIp);
+                            FabricAdapterRuntime.recordVerifiedProfile(verified,
+                                    pendingIp == null ? clientIp(handler) : pendingIp, pendingEndpoint);
                             TrueuuidFabric.acceptance("result=migration_complete player={} uuid={}", migrationName, verified.uuid());
                             state.reset();
                             completion.complete(null);

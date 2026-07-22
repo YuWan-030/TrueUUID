@@ -6,6 +6,9 @@
   "mixins": [
     "server.ServerLoginNetworkHandlerMixin"
   ],
+  "client": [
+    "client.PauseScreenMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

@@ -18,18 +18,26 @@ SPEC.loader.exec_module(matrix)
 
 
 class RuntimeMatrixHelpersTest(unittest.TestCase):
-    def test_record_era_neoforge_runtime_emits_completed_join_results(self) -> None:
+    def test_neoforge_uses_canonical_common_runtime_with_completed_join_results(self) -> None:
+        shared_runtime = (
+            matrix.ROOT
+            / "platform/neoforge-common/src/main/java/"
+            "cn/alini/trueuuid/server/AdapterRuntime.java"
+        )
+        contents = shared_runtime.read_text(encoding="utf-8")
+        self.assertIn('Trueuuid.acceptance("result={}', contents)
+        self.assertIn('"premium_join"', contents)
+        self.assertIn('"offline_fallback"', contents)
         for version in ("1.21.10", "1.21.11"):
-            source = (
+            local_copy = (
                 matrix.ROOT
                 / f"platform/neoforge-{version}/src/main/java/"
                 "cn/alini/trueuuid/server/AdapterRuntime.java"
             )
-            contents = source.read_text(encoding="utf-8")
             with self.subTest(version=version):
-                self.assertIn('Trueuuid.acceptance("result={}', contents)
-                self.assertIn('"premium_join"', contents)
-                self.assertIn('"offline_fallback"', contents)
+                self.assertFalse(local_copy.exists())
+                build = (matrix.ROOT / f"platform/neoforge-{version}/build.gradle").read_text(encoding="utf-8")
+                self.assertIn('def adapterMain = "${rootDir}/platform/neoforge-common/src/main"', build)
 
     def test_busy_preferred_port_selects_the_next_free_port(self) -> None:
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,12 +54,9 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
         self.assertGreater(selected, occupied)
 
     def test_neoforge_server_mixins_expose_every_terminal_matrix_result(self) -> None:
-        sources = sorted(
-            matrix.ROOT.glob(
-                "platform/neoforge-*/src/main/java/"
-                "cn/alini/trueuuid/mixin/server/ServerLoginMixin.java"
-            )
-        )
+        sources = sorted(matrix.ROOT.glob(
+            "platform/neoforge-*/src/*/java/cn/alini/trueuuid/mixin/server/ServerLoginMixin.java"
+        ))
         self.assertTrue(sources)
         required = {
             "result=known_deny",

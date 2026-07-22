@@ -2,6 +2,10 @@ package cn.alini.trueuuid.client;
 
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import cn.alini.trueuuid.presentation.BadgeArtwork;
+import cn.alini.trueuuid.presentation.BadgeLayout;
+import cn.alini.trueuuid.presentation.ClientStatusState;
+import cn.alini.trueuuid.presentation.ConfirmedAccountStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -11,185 +15,78 @@ import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/**
- * Client-local account badge: a closed padlock + green "Premium", or an open
- * padlock + red "Offline".
- *
- * <p>1.20.1 is an independent adapter, so this mirrors the modern Forge line's
- * {@code platform/forge-common} badge deliberately — same sprite, colours, config
- * and layout — so every supported target looks identical. Keep the two in step
- * when either changes. The padlock is painted with {@code fill} rather than a blit
- * texture to match that shared implementation.
- */
+/** Forge 1.20.1 drawing seam over the shared presentation state and artwork. */
 @Mod.EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientAccountStatus {
-    private static volatile Status status = Status.NONE;
+    private static final ClientStatusState STATE = new ClientStatusState();
 
-    // Sprites generated from the source PNGs. Palette: 1-4 shackle, 5/6/8/9 body,
-    // 7 body highlight, g/G green check, r/R red cross. ' ' is transparent.
-    // Both frames share one 11x16 grid: the open shackle sits a pixel higher, and
-    // a shared grid keeps the bodies aligned so the badge does not jump.
-    private static final String[] LOCK_CLOSED = {
-        "           ",
-        "   11111   ",
-        "  1233331  ",
-        " 121111431 ",
-        " 121   431 ",
-        "55555555556",
-        "57777777786",
-        "57999999g56",
-        "5799999gG56",
-        "57g999gG956",
-        "57Gg9gG9956",
-        "579GgG99956",
-        "5799G999956",
-        "57999999956",
-        "68555555556",
-        "66666666666",
-    };
-    private static final String[] LOCK_OPEN = {
-        "   11111   ",
-        "  1233331  ",
-        " 121111431 ",
-        " 121   431 ",
-        " 121       ",
-        "55555555556",
-        "57777777786",
-        "579R999R956",
-        "57RrR9RrR56",
-        "579RrRrR956",
-        "5799RrR9956",
-        "579RrRrR956",
-        "57RrR9RrR56",
-        "579R999R956",
-        "68555555556",
-        "66666666666",
-    };
-
-    private static final int ICON_W = 11;
-    private static final int ICON_H = 16;
-    private static final int GAP = 3;
-    private static final int MARGIN = 4;
-    /**
-     * Rows spanned by the padlock body, the shackle sitting above it. The label is
-     * centred on the body rather than on the whole sprite: the sprite's midpoint
-     * lands inside the shackle, which makes the text visibly ride high.
-     */
-    private static final int BODY_TOP = 5;
-    private static final int BODY_BOTTOM = 16;
-    /**
-     * Label scale relative to the padlock. The art is {@link #ICON_H}px tall while
-     * Minecraft's font is 8px, so the lock reads larger than its label. Fix that by
-     * redrawing the source PNGs at roughly the font's height and regenerating the
-     * sprite below -- do not resample here: the art has one-pixel shackle lines and
-     * a one-pixel mark, so nearest-neighbour shreds them and a smooth filter blends
-     * the green/red mark into the yellow body.
-     */
-    private static final float TEXT_SCALE = 1.0F;
-
-    public static void markPremium() { status = Status.PREMIUM; }
-    public static void markOffline() { status = Status.OFFLINE; }
+    public static void markPremium() { STATE.receive(ConfirmedAccountStatus.PREMIUM); }
+    public static void markOffline() { STATE.receive(ConfirmedAccountStatus.OFFLINE); }
+    public static void setServerStatus(int wireId) {
+        if (Minecraft.getInstance().getSingleplayerServer() != null) return;
+        ConfirmedAccountStatus status = ConfirmedAccountStatus.fromWireId(wireId);
+        if (status != null) STATE.receive(status);
+    }
+    public static void clear() { STATE.clear(); }
 
     @SubscribeEvent
     public static void registerOverlay(RegisterGuiOverlaysEvent event) {
         event.registerAboveAll("account_status", ClientAccountStatus::render);
     }
 
+    public static void renderPauseStatus(GuiGraphics graphics) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || !TrueuuidConfig.showAccountOverlay()) return;
+        reconcileIntegratedWorld(minecraft);
+        STATE.persistentStatus().ifPresent(status -> renderBadge(graphics, status, 1.0F,
+                minecraft.getWindow().getGuiScaledWidth(), minecraft.getWindow().getGuiScaledHeight()));
+    }
+
     private static void render(ForgeGui gui, GuiGraphics graphics, float partialTick, int width, int height) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!TrueuuidConfig.showAccountOverlay() || minecraft.player == null || status == Status.NONE) return;
+        if (minecraft.player == null) return;
+        reconcileIntegratedWorld(minecraft);
+        var notice = STATE.transientNotice();
+        if (!TrueuuidConfig.showAccountOverlay() || minecraft.options.hideGui || minecraft.screen != null
+                || notice.isEmpty()) return;
+        renderBadge(graphics, notice.get().status(), notice.get().alpha(), width, height);
+    }
 
-        Component text = Component.translatable(status.translationKey);
-        float lockScale = TrueuuidConfig.overlayScale();
-        float textScale = lockScale * TEXT_SCALE;
+    private static void reconcileIntegratedWorld(Minecraft minecraft) {
+        var server = minecraft.getSingleplayerServer();
+        var transition = STATE.reconcileIntegratedWorld(server != null, server != null && server.isPublished());
+        if (transition.chatTranslationKey() != null && TrueuuidConfig.showJoinFeedback()) {
+            minecraft.player.displayClientMessage(Component.translatable(transition.chatTranslationKey()), false);
+        }
+    }
 
-        // Lay the badge out in screen pixels, since the padlock and the label are
-        // drawn at different scales.
-        float lockWidth = ICON_W * lockScale;
-        float gapWidth = GAP * lockScale;
-        float textWidth = minecraft.font.width(text) * textScale;
-        float drawnWidth = lockWidth + gapWidth + textWidth;
-        float drawnHeight = ICON_H * lockScale;
-
+    private static void renderBadge(GuiGraphics graphics, ConfirmedAccountStatus status, float alpha,
+                                    int width, int height) {
+        Minecraft minecraft = Minecraft.getInstance();
+        Component text = Component.translatable(status.overlayTranslationKey());
         boolean right = TrueuuidConfig.overlayCorner().endsWith("right");
         boolean bottom = TrueuuidConfig.overlayCorner().startsWith("bottom");
-        float screenX = (right ? width - MARGIN - drawnWidth : MARGIN) + TrueuuidConfig.overlayOffsetX();
-        float screenY = (bottom ? height - MARGIN - drawnHeight : MARGIN) + TrueuuidConfig.overlayOffsetY();
+        BadgeLayout layout = BadgeLayout.calculate(width, height, minecraft.font.width(text),
+                minecraft.font.lineHeight, TrueuuidConfig.overlayScale(), right, bottom,
+                TrueuuidConfig.overlayOffsetX(), TrueuuidConfig.overlayOffsetY());
 
-        // Each element is drawn inside its own scale and positioned by converting
-        // the screen anchor back into that scale's units.
         graphics.pose().pushPose();
         try {
-            graphics.pose().scale(lockScale, lockScale, 1.0F);
-            drawSprite(graphics, Math.round(screenX / lockScale), Math.round(screenY / lockScale),
-                    status == Status.PREMIUM ? LOCK_CLOSED : LOCK_OPEN);
-        } finally {
-            graphics.pose().popPose();
-        }
-
-        float bodyCentre = screenY + (BODY_TOP + BODY_BOTTOM) / 2.0F * lockScale;
-        float textTop = bodyCentre - minecraft.font.lineHeight * textScale / 2.0F;
-        graphics.pose().pushPose();
-        try {
-            graphics.pose().scale(textScale, textScale, 1.0F);
-            graphics.drawString(minecraft.font, text,
-                    Math.round((screenX + lockWidth + gapWidth) / textScale),
-                    Math.round(textTop / textScale),
-                    0xFF000000 | status.color, true);
+            graphics.pose().scale(layout.scale(), layout.scale(), 1.0F);
+            drawSprite(graphics, layout, status, alpha);
+            int color = (Math.round(alpha * 255.0F) << 24) | status.rgb();
+            graphics.drawString(minecraft.font, text, layout.textX(), layout.textY(), color, true);
         } finally {
             graphics.pose().popPose();
         }
     }
 
-    /** Paints one pixel-art sprite, coalescing each row into horizontal runs. */
-    private static void drawSprite(GuiGraphics graphics, int x, int y, String[] rows) {
-        for (int row = 0; row < rows.length; row++) {
-            String line = rows[row];
-            int column = 0;
-            while (column < line.length()) {
-                char pixel = line.charAt(column);
-                if (pixel == ' ') {
-                    column++;
-                    continue;
-                }
-                int run = 1;
-                while (column + run < line.length() && line.charAt(column + run) == pixel) run++;
-                graphics.fill(x + column, y + row, x + column + run, y + row + 1, colorOf(pixel));
-                column += run;
-            }
-        }
-    }
-
-    private static int colorOf(char pixel) {
-        return switch (pixel) {
-            case '1' -> 0xFF575C71;
-            case '2' -> 0xFFC9CBD8;
-            case '3' -> 0xFFACB0C1;
-            case '4' -> 0xFF3F4656;
-            case '5' -> 0xFFB26411;
-            case '6' -> 0xFF752702;
-            case '7' -> 0xFFFDF55F;
-            case '8' -> 0xFFDC9613;
-            case '9' -> 0xFFE9B114;
-            case 'g' -> 0xFF4AB85C;
-            case 'G' -> 0xFF259B4A;
-            case 'r' -> 0xFFEE3934;
-            case 'R' -> 0xFFBD2E2E;
-            default -> 0;
-        };
-    }
-
-    private enum Status {
-        NONE("", 0),
-        PREMIUM("trueuuid.overlay.premium", 0x259B4A),
-        OFFLINE("trueuuid.overlay.offline", 0xBD2E2E);
-
-        private final String translationKey;
-        private final int color;
-
-        Status(String translationKey, int color) {
-            this.translationKey = translationKey;
-            this.color = color;
+    private static void drawSprite(GuiGraphics graphics, BadgeLayout layout,
+                                   ConfirmedAccountStatus status, float alpha) {
+        for (BadgeArtwork.PixelRun run : BadgeArtwork.runsFor(status)) {
+            graphics.fill(layout.x() + run.x(), layout.y() + run.y(),
+                    layout.x() + run.x() + run.length(), layout.y() + run.y() + 1,
+                    BadgeArtwork.argb(run.paletteKey(), alpha));
         }
     }
 

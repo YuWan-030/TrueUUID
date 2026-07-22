@@ -38,33 +38,38 @@ base {
 // Minecraft 1.21.9+ made authlib's GameProfile a record, moved the client
 // session service to Minecraft.services(), and removed ServerPlayer.getServer();
 // the files carrying those call sites are excluded from the shared roots and
-// supplied as record-era copies under src/main/java. See forge-common/README.md.
+// supplied by forge-common/record-matrix. See forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
 def modernMatrix = "${rootDir}/platform/forge-common/src/modern-matrix"
+def recordMatrix = "${rootDir}/platform/forge-common/src/record-matrix"
 def modernMatrixTest = "${rootDir}/platform/forge-common/src/modern-matrix-test"
 // Files the record era (1.21.9+) diverges on; excluded from the shared roots
-// and supplied as module-local copies under src/main/java. Pinned by
-// diagnostic compile.
+// and supplied by the shared record-era root. Pinned by diagnostic compile.
 def recordEraSources = [
         'cn/alini/trueuuid/TrueuuidClientOverlay.java',
-        'cn/alini/trueuuid/server/ForgeAdapterRuntime.java',
+        'cn/alini/trueuuid/server/ForgeGameProfiles.java',
         'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin.java',
         'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin.java'
 ]
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${modernMatrix}/java"
+sourceSets.main.java.srcDir "${recordMatrix}/java"
 sourceSets.main.java.srcDir 'src/main/java'
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 sourceSets.test.java.srcDir "${modernMatrixTest}/java"
 
-// Compile the shared roots minus the era seams, plus the module-local copies,
+// Compile the shared roots minus the era seams, plus the named era roots,
 // mirroring the NeoForge record/identifier-era modules. forge-common stays
 // byte-identical; all divergence lives here.
 tasks.named('compileJava', JavaCompile).configure {
     source = files(
             fileTree("${forgeCommon}/java") { exclude recordEraSources },
+            fileTree("${forgeLikeCommon}/java"),
             fileTree("${modernMatrix}/java") { exclude recordEraSources },
+            fileTree("${recordMatrix}/java"),
             fileTree('src/main/java'))
 }
 

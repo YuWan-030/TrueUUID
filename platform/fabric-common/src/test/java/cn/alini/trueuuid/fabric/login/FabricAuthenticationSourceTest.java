@@ -9,14 +9,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class FabricAuthenticationSourceTest {
     @Test
     void mapsVerifiedGraceAndFallbackToTheSharedPublicVocabulary() {
-        assertEquals("session-verified premium login", FabricAuthenticationSource.VERIFIED.auditLabel());
-        assertEquals("recent same-IP grace login", FabricAuthenticationSource.GRACE.auditLabel());
-        assertEquals("offline fallback login", FabricAuthenticationSource.OFFLINE_FALLBACK.auditLabel());
+        assertEquals("mojang", FabricAuthenticationSource.VERIFIED.auditLabel());
+        assertEquals("yggdrasil", FabricAuthenticationSource.YGGDRASIL.auditLabel());
+        assertEquals("recent_ip_grace", FabricAuthenticationSource.GRACE.auditLabel());
+        assertEquals("offline_fallback", FabricAuthenticationSource.OFFLINE_FALLBACK.auditLabel());
         assertEquals("trueuuid.chat.premium", FabricAuthenticationSource.VERIFIED.chatKey());
         assertEquals("trueuuid.chat.premium", FabricAuthenticationSource.GRACE.chatKey());
+        assertEquals("trueuuid.chat.skin_site", FabricAuthenticationSource.YGGDRASIL.chatKey());
         assertEquals("trueuuid.chat.offline_fallback", FabricAuthenticationSource.OFFLINE_FALLBACK.chatKey());
         assertEquals(FabricAuthenticationSource.ClientStatus.PREMIUM, FabricAuthenticationSource.VERIFIED.clientStatus());
         assertEquals(FabricAuthenticationSource.ClientStatus.PREMIUM, FabricAuthenticationSource.GRACE.clientStatus());
+        assertEquals(FabricAuthenticationSource.ClientStatus.PREMIUM, FabricAuthenticationSource.YGGDRASIL.clientStatus());
         assertEquals(FabricAuthenticationSource.ClientStatus.OFFLINE, FabricAuthenticationSource.OFFLINE_FALLBACK.clientStatus());
     }
 

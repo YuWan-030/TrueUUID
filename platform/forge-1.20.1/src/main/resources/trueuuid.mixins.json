@@ -8,7 +8,9 @@
     "server.ServerLoginMixin"
   ],
   "client": [
-    "client.ClientHandshakeMixin"
+    "client.ClientHandshakeMixin",
+    "client.ClientStatusMixin",
+    "client.PauseScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

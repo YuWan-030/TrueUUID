@@ -37,10 +37,12 @@ base {
 // platform/forge-common and are recompiled here against 1.21.8 mappings.
 // Only target metadata remains module-local. See platform/forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
 def loginMatrix = "${rootDir}/platform/forge-common/src/login-matrix"
 def modernMatrix = "${rootDir}/platform/forge-common/src/modern-matrix"
 def modernMatrixTest = "${rootDir}/platform/forge-common/src/modern-matrix-test"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${loginMatrix}/java"
 sourceSets.main.java.srcDir "${modernMatrix}/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"

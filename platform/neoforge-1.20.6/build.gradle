@@ -10,8 +10,8 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
-def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
-def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def adapterMain = "${rootDir}/platform/neoforge-common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-common/src/test"
 def minecraftVersion = '1.20.6'
 // NeoForge 20.6.139 is the latest stable of the 20.6 line
 // (maven.neoforged.net, checked 2026-07-16).
@@ -50,6 +50,8 @@ def preModernSources = [
         'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java'
 ]
 sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
 sourceSets.test.java.srcDir "${adapterTests}/java"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
@@ -85,15 +87,15 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 
-tasks.named('processResources', ProcessResources).configure {
-    from("${adapterMain}/resources") { include 'trueuuid.mixins.json', 'trueuuid-banner.png' }
-}
-
 // Same mechanism as neoforge-1.21.8's modernGuiSources: compile the shared
 // tree minus the era seams, plus this module's local replacements (which live
 // at the same relative paths, so a plain source-set exclude would drop both).
 tasks.named('compileJava', JavaCompile).configure {
-    source = files(fileTree("${adapterMain}/java") { exclude preModernSources }, fileTree('src/main/java'))
+    source = files(fileTree("${adapterMain}/java") { exclude preModernSources },
+            fileTree("${rootDir}/platform/forgelike-common/src/main/java"),
+            fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java"),
+            fileTree("${rootDir}/platform/neoforge-common/src/login-20.4-20.6/java"),
+            fileTree('src/main/java'))
 }
 
 tasks.named('jar', Jar).configure {

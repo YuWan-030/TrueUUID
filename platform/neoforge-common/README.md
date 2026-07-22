@@ -1,14 +1,19 @@
-# NeoForge shared metadata
+# neoforge-common — canonical NeoForge adapter sources
+
+This directory owns the NeoForge implementation. Every NeoForge target recompiles
+`src/main/java` against its pinned Minecraft/NeoForge APIs and adds only the named
+API-era roots it needs. A target directory may contain a Java file only when that
+file genuinely compiles for that target alone.
+
+The current era roots separate the legacy overlay/config/login APIs, the 1.21.6+
+2D HUD stack and overlay registration, the 1.21.9+ authlib record API, and the
+1.21.11 identifier API. `platform/forgelike-common` contains the small Minecraft
+seams that compile unchanged for both modern Forge and NeoForge.
 
 `src/main/resources/META-INF/neoforge.mods.toml` is the only NeoForge mod-list
-template. It owns the displayed version, description, authors, URL, logo and
-mixin declaration for every NeoForge target.
+template. Individual target builds supply compatibility ranges through
+`ext.neoforgeMetadata`; `metadata.gradle` expands canonical project metadata.
 
-Each `platform/neoforge-<minecraft-version>/build.gradle` supplies only its
-NeoForge and Minecraft compatibility ranges through `ext.neoforgeMetadata`,
-then applies `metadata.gradle`. `processResources` expands the template from
-the canonical root `gradle.properties` values, so never add a per-target TOML.
-
-The banner remains the existing shared `branding/trueuuid-banner.png` symlink
-from the 1.21.1 adapter resources; later targets explicitly package it while
-they reuse that adapter's resources.
+Run `python3 scripts/ci/validate-source-sharing.py` after adding an era seam. It
+rejects exact Java source copies, including tests, and any return to
+version-module source donors.

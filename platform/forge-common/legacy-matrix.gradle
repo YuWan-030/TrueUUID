@@ -17,10 +17,14 @@ base {
 }
 
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
 def legacyMatrix = "${rootDir}/platform/forge-common/src/legacy-matrix"
+def preRecordMatrix = "${rootDir}/platform/forge-common/src/pre-record-matrix"
 def runtimeNames = target.get('officialRuntimeNames') == true ? 'official-runtime' : 'srg-runtime'
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${legacyMatrix}/java"
+sourceSets.main.java.srcDir "${preRecordMatrix}/java"
 sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/${runtimeNames}/java"
 sourceSets.main.java.exclude 'cn/alini/trueuuid/mixin/client/ForgeClientGuiMixin.java'
 if (target.layeredHud) {

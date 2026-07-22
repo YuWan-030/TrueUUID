@@ -68,6 +68,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # Draft releases are deliberately omitted from the releases API for
+    # read-only identities. This job only reads and freezes draft metadata, but
+    # its job token must have push-equivalent contents access to see the draft.
+    permissions:
+      contents: write
     outputs:
       approved: ${{ steps.release.outputs.approved }}
       release_id: ${{ steps.release.outputs.release_id }}

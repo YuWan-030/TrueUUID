@@ -10,8 +10,8 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
-def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
-def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def adapterMain = "${rootDir}/platform/neoforge-common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-common/src/test"
 def minecraftVersion = '1.21.5'
 def neoForgeVersion = '21.5.74'
 
@@ -27,6 +27,8 @@ base { archivesName = 'trueuuid' }
 repositories { mavenCentral() }
 
 sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
 sourceSets.test.java.srcDir "${adapterTests}/java"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
@@ -60,10 +62,6 @@ dependencies {
     implementation project(':shared:protocol')
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-}
-
-tasks.named('processResources', ProcessResources).configure {
-    from("${adapterMain}/resources") { include 'trueuuid.mixins.json', 'trueuuid-banner.png' }
 }
 
 tasks.named('jar', Jar).configure {

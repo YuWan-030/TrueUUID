@@ -76,3 +76,9 @@ JAR checks, and client/server bootstrap markers to the full self-test path.
 Enable it in
 `release/targets.json` only after every gate above passes. Then update the
 target matrix and release it with a signed repository version tag.
+
+Before compiling a new target, run `python3 scripts/ci/validate-source-sharing.py`.
+If an existing file compiles unchanged, consume its common or named era root;
+never copy it into the new target directory. New loaders should pass their
+config directory to `PersistentVerifiedNameStore` and use
+`HasJoinedProfileParser`; they must not recreate either implementation.

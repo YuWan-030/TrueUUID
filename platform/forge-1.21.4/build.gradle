@@ -38,9 +38,17 @@ base {
 // Only the version-divergent shims (mixins, payloads, client render, mods.toml)
 // live in this module's own src tree. See platform/forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
 def loginMatrix = "${rootDir}/platform/forge-common/src/login-matrix"
+def preRecordMatrix = "${rootDir}/platform/forge-common/src/pre-record-matrix"
+def forge52To55 = "${rootDir}/platform/forge-common/src/forge52-55"
+def forge52To55Tests = "${rootDir}/platform/forge-common/src/forge52-55-test"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
 sourceSets.main.java.srcDir "${loginMatrix}/java"
+sourceSets.main.java.srcDir "${preRecordMatrix}/java"
+sourceSets.main.java.srcDir "${forge52To55}/java"
+sourceSets.test.java.srcDir "${forge52To55Tests}/java"
 sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"

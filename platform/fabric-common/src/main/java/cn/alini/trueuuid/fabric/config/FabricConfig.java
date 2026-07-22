@@ -37,6 +37,7 @@ public final class FabricConfig {
     private static final int DEFAULT_RECENT_IP_GRACE_TTL_SECONDS = 10;
     private static final boolean DEFAULT_SHOW_JOIN_FEEDBACK = true;
     private static final boolean DEFAULT_SHOW_JOIN_TITLE = false;
+    private static final boolean DEFAULT_SHOW_OPERATOR_NOTIFICATIONS = false;
     private static final boolean DEFAULT_SHOW_ACCOUNT_OVERLAY = true;
     private static final String DEFAULT_OVERLAY_CORNER = "bottom_right";
     private static final int DEFAULT_OVERLAY_OFFSET_X = 0;
@@ -54,6 +55,7 @@ public final class FabricConfig {
     private static volatile int recentIpGraceTtlSeconds = DEFAULT_RECENT_IP_GRACE_TTL_SECONDS;
     private static volatile boolean showJoinFeedback = DEFAULT_SHOW_JOIN_FEEDBACK;
     private static volatile boolean showJoinTitle = DEFAULT_SHOW_JOIN_TITLE;
+    private static volatile boolean showOperatorNotifications = DEFAULT_SHOW_OPERATOR_NOTIFICATIONS;
     private static volatile boolean showAccountOverlay = DEFAULT_SHOW_ACCOUNT_OVERLAY;
     private static volatile String overlayCorner = DEFAULT_OVERLAY_CORNER;
     private static volatile int overlayOffsetX = DEFAULT_OVERLAY_OFFSET_X;
@@ -91,6 +93,7 @@ public final class FabricConfig {
                 recentIpGraceTtlSeconds = (int) readBoundedLong(grace, "ttlSeconds", recentIpGraceTtlSeconds, 1L, 60L);
                 showJoinFeedback = readBoolean(auth, "showJoinFeedback", showJoinFeedback);
                 showJoinTitle = readBoolean(auth, "showJoinTitle", showJoinTitle);
+                showOperatorNotifications = readBoolean(auth, "showOperatorNotifications", showOperatorNotifications);
                 showAccountOverlay = readBoolean(auth, "showAccountOverlay", showAccountOverlay);
                 overlayCorner = readOverlayCorner(auth, "overlayCorner", overlayCorner);
                 overlayOffsetX = (int) readBoundedLong(auth, "overlayOffsetX", overlayOffsetX, -4096L, 4096L);
@@ -134,6 +137,9 @@ public final class FabricConfig {
 
     /** Also show the server-confirmed title/subtitle; disabled by default. */
     public static boolean showJoinTitle() { return showJoinTitle; }
+
+    /** Notify permission-level-2 operators about completed logins; off by default. */
+    public static boolean showOperatorNotifications() { return showOperatorNotifications; }
 
     /** Client preference for showing the server-confirmed account badge. */
     public static boolean showAccountOverlay() { return showAccountOverlay; }
@@ -205,6 +211,7 @@ public final class FabricConfig {
         auth.add("recentIpGrace", grace);
         auth.addProperty("showJoinFeedback", showJoinFeedback);
         auth.addProperty("showJoinTitle", showJoinTitle);
+        auth.addProperty("showOperatorNotifications", showOperatorNotifications);
         auth.addProperty("showAccountOverlay", showAccountOverlay);
         auth.addProperty("overlayCorner", overlayCorner);
         auth.addProperty("overlayOffsetX", overlayOffsetX);
@@ -231,6 +238,7 @@ public final class FabricConfig {
         recentIpGraceTtlSeconds = DEFAULT_RECENT_IP_GRACE_TTL_SECONDS;
         showJoinFeedback = DEFAULT_SHOW_JOIN_FEEDBACK;
         showJoinTitle = DEFAULT_SHOW_JOIN_TITLE;
+        showOperatorNotifications = DEFAULT_SHOW_OPERATOR_NOTIFICATIONS;
         showAccountOverlay = DEFAULT_SHOW_ACCOUNT_OVERLAY;
         overlayCorner = DEFAULT_OVERLAY_CORNER;
         overlayOffsetX = DEFAULT_OVERLAY_OFFSET_X;

@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -39,6 +40,8 @@ public class SkinRefreshHandler {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         var server = sp.getServer();
         if (server == null) return;
+        boolean privateSingleplayer = cn.alini.trueuuid.presentation.IntegratedWorldPolicy.isPrivateSingleplayer(
+                server.isSingleplayer(), server.isPublished());
 
         // 1) 登录后一帧刷新外观（强制客户端重拉皮肤） (Refresh skin one frame after login (force client to re-fetch skin))
         server.execute(() -> {
@@ -73,23 +76,52 @@ public class SkinRefreshHandler {
                 : cn.alini.trueuuid.api.AccountStatus.UNKNOWN;
         if (apiStatus != cn.alini.trueuuid.api.AccountStatus.UNKNOWN) {
             AccountStatusTracker.publish(sp, apiStatus);
+            if (!privateSingleplayer) {
+                cn.alini.trueuuid.presentation.ConfirmedAccountStatus clientStatus = apiStatus.isPremium()
+                        ? cn.alini.trueuuid.presentation.ConfirmedAccountStatus.PREMIUM
+                        : cn.alini.trueuuid.presentation.ConfirmedAccountStatus.OFFLINE;
+                sp.connection.send(new ClientboundSetActionBarTextPacket(Component.literal(
+                        cn.alini.trueuuid.presentation.ClientStatusMarker.encode(clientStatus))));
+            }
         }
 
+        cn.alini.trueuuid.presentation.AuthenticationPresentation presentation = fallbackOpt.isPresent()
+                ? cn.alini.trueuuid.presentation.AuthenticationPresentation.OFFLINE_FALLBACK
+                : successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL
+                    ? cn.alini.trueuuid.presentation.AuthenticationPresentation.YGGDRASIL
+                    : successOpt.isPresent()
+                        ? cn.alini.trueuuid.presentation.AuthenticationPresentation.MOJANG
+                        : server.usesAuthentication()
+                            ? cn.alini.trueuuid.presentation.AuthenticationPresentation.NATIVE_ONLINE_MODE
+                            : null;
+        if (presentation != null) {
+            Trueuuid.LOGGER.info("TrueUUID login_complete outcome={} player={} uuid={} auth_source={}",
+                    presentation.outcome(), sp.getGameProfile().getName(), sp.getUUID(),
+                    presentation.authenticationSource());
+        }
         if (fallbackOpt.isPresent()) {
-            Trueuuid.LOGGER.info("TrueUUID offline fallback login: player={}, uuid={}, reason={}",
-                    sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
             Trueuuid.acceptance("result=offline_fallback player={} uuid={} reason={}",
                     sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
         } else if (successOpt.isPresent()) {
-            String loginType = successOpt.get().source() == AuthState.AuthSource.YGGDRASIL
-                    ? "session-verified skin-site login" : "session-verified premium login";
-            Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", loginType,
-                    sp.getGameProfile().getName(), sp.getUUID());
             Trueuuid.acceptance("result=premium_join player={} uuid={} source={}",
                     sp.getGameProfile().getName(), sp.getUUID(), successOpt.get().source());
         }
 
-        if (!TrueuuidConfig.showJoinFeedback()) {
+        var deliveries = cn.alini.trueuuid.presentation.LoginNotificationRouter.route(
+                sp, server.getPlayerList().getPlayers(), SkinRefreshHandler::hasOperatorPermission,
+                TrueuuidConfig.showJoinFeedback() && !privateSingleplayer,
+                presentation != null && TrueuuidConfig.showOperatorNotifications());
+        for (var delivery : deliveries) {
+            if (delivery.kind() == cn.alini.trueuuid.presentation.LoginNotificationRouter.Kind.OPERATOR_AUDIT) {
+                delivery.recipient().sendSystemMessage(Component.translatable("trueuuid.operator.login",
+                        sp.getGameProfile().getName(), sp.getUUID(), presentation.outcome(),
+                        presentation.authenticationSource()).withStyle(ChatFormatting.GRAY));
+            }
+        }
+
+        boolean sendJoinFeedback = deliveries.stream().anyMatch(delivery ->
+                delivery.kind() == cn.alini.trueuuid.presentation.LoginNotificationRouter.Kind.JOIN_RESULT);
+        if (!sendJoinFeedback) {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 跳过登录提示: 玩家=" + sp.getGameProfile().getName() + ", 原因=showJoinFeedback=false");
             }
@@ -102,34 +134,33 @@ public class SkinRefreshHandler {
                     "trueuuid.chat.offline_fallback"
             ).withStyle(ChatFormatting.RED));
 
-            var title = Component.translatable("trueuuid.title.offline").withStyle(ChatFormatting.RED);
-            var subtitle = TrueuuidText.configComponent(
-                    TrueuuidConfig.offlineShortSubtitle(),
-                    "trueuuid.subtitle.offline"
-            ).withStyle(ChatFormatting.GRAY);
-
-            sendTitleNextTick(server, sp, title, subtitle, "OFFLINE");
+            if (TrueuuidConfig.showJoinTitle()) {
+                var title = Component.translatable("trueuuid.title.offline").withStyle(ChatFormatting.RED);
+                var subtitle = TrueuuidText.configComponent(
+                        TrueuuidConfig.offlineShortSubtitle(), "trueuuid.subtitle.offline").withStyle(ChatFormatting.GRAY);
+                sendTitleNextTick(server, sp, title, subtitle, "OFFLINE");
+            }
         } else if (successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL) {
             // 皮肤站模式：青绿色标题，明确区别于 Mojang 正版验证。
             AuthState.AuthSuccess success = successOpt.get();
             sp.sendSystemMessage(Component.translatable("trueuuid.chat.skin_site", success.displayName()).withStyle(ChatFormatting.AQUA));
-            var title = Component.translatable("trueuuid.title.skin_site").withStyle(ChatFormatting.AQUA);
-            String sourceName = success.displayName();
-            var subtitle = Component.translatable("trueuuid.subtitle.skin_site", sourceName).withStyle(ChatFormatting.GREEN);
-
-            sendTitleNextTick(server, sp, title, subtitle, "YGGDRASIL:" + sourceName);
+            if (TrueuuidConfig.showJoinTitle()) {
+                var title = Component.translatable("trueuuid.title.skin_site").withStyle(ChatFormatting.AQUA);
+                String sourceName = success.displayName();
+                var subtitle = Component.translatable("trueuuid.subtitle.skin_site", sourceName).withStyle(ChatFormatting.GREEN);
+                sendTitleNextTick(server, sp, title, subtitle, "YGGDRASIL:" + sourceName);
+            }
         } else if (successOpt.isPresent()) {
             // 正版模式：绿色标题，副标题短文案（灰色） (Premium Mode: Green title, subtitle short text (Gray))
             sp.sendSystemMessage(Component.translatable("trueuuid.chat.premium").withStyle(ChatFormatting.GREEN));
-            var title = Component.translatable("trueuuid.title.premium").withStyle(ChatFormatting.GREEN);
-            var subtitle = TrueuuidText.configComponent(
-                    TrueuuidConfig.onlineShortSubtitle(),
-                    "trueuuid.subtitle.online"
-            ).withStyle(ChatFormatting.GRAY);
-
-            String mode = "MOJANG:" + successOpt.get().displayName();
-            sendTitleNextTick(server, sp, title, subtitle, mode);
-        } else if (!server.isDedicatedServer()) {
+            if (TrueuuidConfig.showJoinTitle()) {
+                var title = Component.translatable("trueuuid.title.premium").withStyle(ChatFormatting.GREEN);
+                var subtitle = TrueuuidText.configComponent(
+                        TrueuuidConfig.onlineShortSubtitle(), "trueuuid.subtitle.online").withStyle(ChatFormatting.GRAY);
+                String mode = "MOJANG:" + successOpt.get().displayName();
+                sendTitleNextTick(server, sp, title, subtitle, mode);
+            }
+        } else if (!server.isDedicatedServer() && TrueuuidConfig.showJoinTitle()) {
             var title = Component.translatable("trueuuid.title.singleplayer").withStyle(ChatFormatting.GOLD);
             var subtitle = Component.translatable("trueuuid.subtitle.singleplayer").withStyle(ChatFormatting.GRAY);
 
@@ -185,6 +216,20 @@ public class SkinRefreshHandler {
     private static boolean isIntegratedLocalPlayer(net.minecraft.server.MinecraftServer server, ServerPlayer sp) {
         if (server == null || server.isDedicatedServer() || sp == null) return false;
         return !(sp.connection.connection.getRemoteAddress() instanceof InetSocketAddress);
+    }
+
+    private static boolean hasOperatorPermission(ServerPlayer player) {
+        Object source = player.createCommandSourceStack();
+        for (String method : List.of("hasPermission", "hasPermissions")) {
+            try {
+                Object result = source.getClass().getMethod(method, int.class).invoke(source, 2);
+                return result instanceof Boolean allowed && allowed;
+            } catch (NoSuchMethodException ignored) {
+            } catch (ReflectiveOperationException ignored) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private static void sendTitleNextTick(net.minecraft.server.MinecraftServer server, ServerPlayer sp, Component title, Component subtitle, String mode) {

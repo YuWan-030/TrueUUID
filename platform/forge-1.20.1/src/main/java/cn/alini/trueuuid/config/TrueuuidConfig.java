@@ -35,6 +35,8 @@ public final class TrueuuidConfig {
     public static String offlineShortSubtitle() { return COMMON.offlineShortSubtitle.get(); }
     public static String onlineShortSubtitle() { return COMMON.onlineShortSubtitle.get(); }
     public static boolean showJoinFeedback() { return COMMON.showJoinFeedback.get(); }
+    public static boolean showJoinTitle() { return COMMON.showJoinTitle.get(); }
+    public static boolean showOperatorNotifications() { return COMMON.showOperatorNotifications.get(); }
     public static boolean showAccountOverlay() { return COMMON.showAccountOverlay.get(); }
     public static String overlayCorner() { return COMMON.overlayCorner.get(); }
     public static int overlayOffsetX() { return COMMON.overlayOffsetX.get(); }
@@ -63,6 +65,8 @@ public final class TrueuuidConfig {
         public final ForgeConfigSpec.ConfigValue<String> offlineShortSubtitle;
         public final ForgeConfigSpec.ConfigValue<String> onlineShortSubtitle;
         public final ForgeConfigSpec.BooleanValue showJoinFeedback;
+        public final ForgeConfigSpec.BooleanValue showJoinTitle;
+        public final ForgeConfigSpec.BooleanValue showOperatorNotifications;
         public final ForgeConfigSpec.BooleanValue showAccountOverlay;
         public final ForgeConfigSpec.ConfigValue<String> overlayCorner;
         public final ForgeConfigSpec.IntValue overlayOffsetX;
@@ -101,6 +105,10 @@ public final class TrueuuidConfig {
                     .define("onlineShortSubtitle",  "trueuuid.subtitle.online");
             showJoinFeedback = b.comment("Show join feedback after a player joins. When disabled, no premium/skin-site/offline/single-player title or offline fallback chat message is sent; authentication and skin refresh are unchanged. / 玩家进服后显示登录状态提示。关闭后不再发送正版、皮肤站、离线、单人模式标题，也不发送离线兜底聊天提示；不影响鉴权和皮肤刷新。")
                     .define("showJoinFeedback", true);
+            showJoinTitle = b.comment("Also show the full-screen login title. Disabled by default because the transient HUD and Escape-screen badge already show status. / 同时显示全屏登录标题。默认关闭，因为临时 HUD 和暂停菜单角标已显示状态。")
+                    .define("showJoinTitle", false);
+            showOperatorNotifications = b.comment("Notify only permission-level-2 operators about completed logins. Disabled by default; console audit is always enabled. / 仅向权限等级 2 的管理员发送登录审计通知。默认关闭；控制台审计始终启用。")
+                    .define("showOperatorNotifications", false);
             showAccountOverlay = b.comment("Show a small client account-status overlay after a TrueUUID login handshake. / 在 TrueUUID 登录握手后显示小型客户端账号状态覆盖层。")
                     .define("showAccountOverlay", true);
             // Keep these identical to the modern Forge line (platform/forge-common)

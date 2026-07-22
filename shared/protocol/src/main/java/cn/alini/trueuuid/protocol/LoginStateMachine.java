@@ -5,6 +5,8 @@ import java.util.Objects;
 /**
  * Loader-independent login state transitions. Adapters perform the resulting
  * packet, scheduling, profile and disconnect effects on their native APIs.
+ * Transitions are synchronized because loader packet callbacks and the server
+ * tick may observe the same connection from different threads.
  */
 public final class LoginStateMachine {
     public enum Phase { IDLE, AWAITING_AUTH, VERIFYING, AWAITING_MIGRATION, MIGRATING }
@@ -15,13 +17,13 @@ public final class LoginStateMachine {
     private int transactionId;
     private long startedAtMillis;
 
-    public AuthMessages.Query beginAuthentication(int transactionId, String nonce, long nowMillis) {
+    public synchronized AuthMessages.Query beginAuthentication(int transactionId, String nonce, long nowMillis) {
         requireIdle();
         start(transactionId, nowMillis, Phase.AWAITING_AUTH);
         return new AuthMessages.Query(nonce, false, "", "");
     }
 
-    public AuthMessages.Query beginMigration(int transactionId, MigrationTransaction.Offer offer, long nowMillis) {
+    public synchronized AuthMessages.Query beginMigration(int transactionId, MigrationTransaction.Offer offer, long nowMillis) {
         require(Phase.VERIFYING, "migration can only follow verification");
         Objects.requireNonNull(offer, "offer");
         start(transactionId, nowMillis, Phase.AWAITING_MIGRATION);
@@ -29,7 +31,7 @@ public final class LoginStateMachine {
                 offer.offlineUuid().toString(), offer.summary());
     }
 
-    public AnswerResult acceptAnswer(int transactionId, AuthMessages.Answer answer) {
+    public synchronized AnswerResult acceptAnswer(int transactionId, AuthMessages.Answer answer) {
         Objects.requireNonNull(answer, "answer");
         if (this.transactionId != transactionId) return AnswerResult.IGNORE;
         if (phase == Phase.AWAITING_AUTH) {
@@ -45,7 +47,7 @@ public final class LoginStateMachine {
         return AnswerResult.IGNORE;
     }
 
-    public TimeoutResult timeoutAt(long nowMillis, long authTimeoutMillis, long migrationTimeoutMillis) {
+    public synchronized TimeoutResult timeoutAt(long nowMillis, long authTimeoutMillis, long migrationTimeoutMillis) {
         if (phase == Phase.AWAITING_AUTH || phase == Phase.VERIFYING) {
             return elapsed(nowMillis, authTimeoutMillis) ? TimeoutResult.AUTH : TimeoutResult.NONE;
         }
@@ -55,10 +57,10 @@ public final class LoginStateMachine {
         return TimeoutResult.NONE;
     }
 
-    public Phase phase() { return phase; }
-    public int transactionId() { return transactionId; }
-    public boolean isActive() { return phase != Phase.IDLE; }
-    public void reset() { phase = Phase.IDLE; transactionId = 0; startedAtMillis = 0; }
+    public synchronized Phase phase() { return phase; }
+    public synchronized int transactionId() { return transactionId; }
+    public synchronized boolean isActive() { return phase != Phase.IDLE; }
+    public synchronized void reset() { phase = Phase.IDLE; transactionId = 0; startedAtMillis = 0; }
 
     private void start(int transactionId, long nowMillis, Phase next) {
         if (transactionId == 0 || nowMillis < 0) throw new IllegalArgumentException("invalid login state input");

@@ -36,11 +36,12 @@ networking *model* (buffers, transaction, state access), authlib's
   option names/defaults mirror the Forge/NeoForge TOML
 - `login/FabricLoginTransaction.java` — per-connection login state machine,
   offline policy gate, grace acceptance, translation-key disconnects
-- `login/FabricAdapterRuntime.java` — verified-name registry + reconnect grace
-- `login/FabricVerifiedNameRegistry.java` — persistent known-premium-name store
-  (same `trueuuid-registry.json` shape as the other loaders)
-- `login/OfflineFallbackPolicy.java` — pure offline-fallback decision
-- `login/FabricSessionCheck.java` — bounded Mojang `hasJoined` verifier
+- `login/FabricAdapterRuntime.java` — config-path/lifecycle adapter for the
+  shared verified-name store, pending login results, and reconnect grace
+- loader-neutral fallback policy, pending-result bounds, migration locks, endpoint
+  discovery, and safe diagnostics come from `shared/protocol`
+- `login/FabricSessionCheck.java` — Fabric config adapter for the shared bounded
+  Mojang `hasJoined` verifier and response parser
 - `login/FabricLoginPayloads.java` — bounded `PacketByteBuf` boundary
 - `login/FabricLoginStateAccess.java` — accessor interface the login mixin
   implements

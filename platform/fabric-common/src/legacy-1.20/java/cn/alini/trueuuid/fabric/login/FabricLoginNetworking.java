@@ -2,7 +2,10 @@ package cn.alini.trueuuid.fabric.login;
 
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import cn.alini.trueuuid.fabric.config.FabricConfig;
+import cn.alini.trueuuid.fabric.command.FabricCommandPermissions;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.presentation.LoginNotificationRouter;
+import cn.alini.trueuuid.presentation.IntegratedWorldPolicy;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
@@ -45,7 +48,7 @@ public final class FabricLoginNetworking {
             ServerPlayerEntity player = handler.player;
             FabricAuthenticationSource source = FabricAdapterRuntime.consumePendingLogin(player.getUuid());
             if (source == null && server.isOnlineMode()) source = FabricAuthenticationSource.NATIVE_ONLINE_MODE;
-            if (source != null) publishJoinResult(player, source);
+            if (source != null) publishJoinResult(server, player, source);
             server.execute(() -> {
                 PlayerRemoveS2CPacket remove = new PlayerRemoveS2CPacket(List.of(player.getUuid()));
                 PlayerListS2CPacket update = PlayerListS2CPacket.entryFromPlayer(List.of(player));
@@ -85,27 +88,41 @@ public final class FabricLoginNetworking {
     }
 
     /** Runs only from the consumed server result after vanilla has created the player. */
-    private static void publishJoinResult(ServerPlayerEntity player, FabricAuthenticationSource source) {
+    private static void publishJoinResult(net.minecraft.server.MinecraftServer server, ServerPlayerEntity player,
+                                          FabricAuthenticationSource source) {
+        boolean privateSingleplayer = IntegratedWorldPolicy.isPrivateSingleplayer(
+                server.isSingleplayer(), server.isRemote());
         // Publish status for the addon API and notify callbacks first, so any
         // conditional join logic (separate spawn, permissions) sees the status
         // regardless of the join-feedback config below, matching ForgeAdapterRuntime.
         FabricAccountStatusTracker.publish(player, source.publicStatus());
 
-        TrueuuidFabric.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel(),
-                FabricGameProfiles.name(player.getGameProfile()), player.getUuid());
+        TrueuuidFabric.LOGGER.info("TrueUUID login_complete outcome={} player={} uuid={} auth_source={}",
+                source.presentation().outcome(), FabricGameProfiles.name(player.getGameProfile()), player.getUuid(),
+                source.presentation().authenticationSource());
         TrueuuidFabric.acceptance("result={} player={} uuid={}",
                 source == FabricAuthenticationSource.OFFLINE_FALLBACK ? "offline_fallback" : "premium_join",
                 FabricGameProfiles.name(player.getGameProfile()), player.getUuid());
 
-        if (FabricConfig.showJoinFeedback()) {
-            player.sendMessage(Text.translatable(source.chatKey()).formatted(chatColor(source)), false);
+        for (var delivery : LoginNotificationRouter.route(player, server.getPlayerManager().getPlayerList(),
+                FabricCommandPermissions::isOperator,
+                FabricConfig.showJoinFeedback() && !privateSingleplayer,
+                FabricConfig.showOperatorNotifications())) {
+            if (delivery.kind() == LoginNotificationRouter.Kind.JOIN_RESULT) {
+                delivery.recipient().sendMessage(Text.translatable(source.chatKey()).formatted(chatColor(source)), false);
+            } else {
+                delivery.recipient().sendMessage(Text.translatable("trueuuid.operator.login",
+                        FabricGameProfiles.name(player.getGameProfile()), player.getUuid(),
+                        source.presentation().outcome(), source.presentation().authenticationSource())
+                        .formatted(Formatting.GRAY), false);
+            }
         }
-        if (FabricConfig.showJoinTitle()) {
+        if (!privateSingleplayer && FabricConfig.showJoinTitle()) {
             player.networkHandler.sendPacket(new TitleFadeS2CPacket(10, 60, 20));
             player.networkHandler.sendPacket(new TitleS2CPacket(Text.translatable(source.titleKey()).formatted(titleColor(source))));
             player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.translatable(source.subtitleKey()).formatted(Formatting.GRAY)));
         }
-        FabricServerStatusNetworking.send(player, source.clientStatus());
+        if (!privateSingleplayer) FabricServerStatusNetworking.send(player, source.clientStatus());
     }
 
     private static Formatting chatColor(FabricAuthenticationSource source) {

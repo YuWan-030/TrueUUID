@@ -28,6 +28,11 @@ Minecraft 1.21.6 and 1.21.8. Forge 56 excludes only `TrueuuidClientOverlay`:
 that event does not exist until the later Forge line, so 1.21.6 uses the shared
 GUI mixin. Tests live in `src/modern-matrix-test`.
 
+`src/pre-record-matrix` contains the buffer payload and PoseStack HUD seam shared
+through Forge 55; `src/forge52-55` owns that line's event and packet-decode APIs;
+and `src/record-matrix` owns the Forge 60/61 authlib record seam. Minecraft-only
+code shared with NeoForge lives in `platform/forgelike-common`.
+
 The `src/legacy-matrix` root similarly owns the unchanged Forge 48-50 login,
 payload, event, HUD-scale, and lifecycle seams. `src/legacy-overlay` is the old
 Forge 48/49 overlay API, while `src/layered-draw` is shared by Forge 50, 54,
@@ -47,9 +52,11 @@ shared `cn.alini.trueuuid.protocol` module.
 
 - `Trueuuid.java` — `@Mod` entrypoint
 - `config/TrueuuidConfig.java` — `ForgeConfigSpec` surface
-- `server/ForgeAdapterRuntime.java` — session verifier facade, join feedback, audit
-- `server/ForgeVerifiedNameRegistry.java` — persistent known-premium-name store
-- `server/OfflineFallbackPolicy.java` — pure offline-fallback decision
+- `server/ForgeAdapterRuntime.java` — Forge lifecycle/player boundary for the
+  shared session verifier, persistent name store, join feedback, and audit
+- loader-neutral fallback policy, migration locks, pending-result bounds,
+  verified-name persistence, `hasJoined` parsing, endpoint discovery, and safe
+  diagnostics live in `shared/protocol`
 - `server/ForgeLoginFlow.java` — per-connection login state (delegates to `shared/protocol`)
 - `net/ForgeQueryTracker.java` — pending transaction id set
 - `net/ForgeNetIds.java` — the `trueuuid:auth` channel id
@@ -89,6 +96,9 @@ Forge target that includes it. A file shared by a narrower API era belongs in a
 named variant root such as `src/modern-matrix`; only a truly single-target seam is
 duplicated in a module. `forge-1.20.1` is a separate pre-configuration-phase
 protocol era and does **not** use this root.
+
+`scripts/ci/validate-source-sharing.py` enforces this rule by rejecting exact
+Java source copies, including tests.
 
 Two recorded qualifications to that rule:
 

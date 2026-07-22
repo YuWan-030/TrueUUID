@@ -14,8 +14,8 @@ evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
-def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
-def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def adapterMain = "${rootDir}/platform/neoforge-common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-common/src/test"
 def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
 def minecraftVersion = '1.20.2'
 // NeoForge 20.2.93 is the latest stable of the 20.2 line
@@ -58,6 +58,8 @@ def preModernSources = [
         'cn/alini/trueuuid/config/TrueuuidConfig.java'
 ]
 sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
 sourceSets.test.java.srcDir "${adapterTests}/java"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 
@@ -95,9 +97,6 @@ tasks.named('classes') {
 }
 
 tasks.named('processResources', ProcessResources).configure {
-    // trueuuid.mixins.json is module-local (JAVA_17 compatibility level for
-    // the Java 17 toolchain); only the banner comes from the shared source.
-    from("${adapterMain}/resources") { include 'trueuuid-banner.png' }
     filesMatching('META-INF/mods.toml') {
         expand(
                 mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
@@ -115,7 +114,12 @@ tasks.named('processResources', ProcessResources).configure {
 // tree minus the era seams, plus this module's local replacements (which live
 // at the same relative paths, so a plain source-set exclude would drop both).
 tasks.named('compileJava', JavaCompile).configure {
-    source = files(fileTree("${adapterMain}/java") { exclude preModernSources }, fileTree('src/main/java'))
+    source = files(fileTree("${adapterMain}/java") { exclude preModernSources },
+            fileTree("${rootDir}/platform/forgelike-common/src/main/java"),
+            fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java"),
+            fileTree("${rootDir}/platform/neoforge-common/src/overlay-20.2-20.4/java"),
+            fileTree("${rootDir}/platform/neoforge-common/src/config-20.2-20.4/java"),
+            fileTree('src/main/java'))
 }
 
 tasks.named('jar', Jar).configure {
