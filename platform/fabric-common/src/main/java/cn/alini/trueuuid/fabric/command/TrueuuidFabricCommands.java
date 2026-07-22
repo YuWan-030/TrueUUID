@@ -15,17 +15,17 @@ import java.util.UUID;
 public final class TrueuuidFabricCommands {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(CommandManager.literal("trueuuid")
-                .requires(source -> source.hasPermissionLevel(3))
+                .requires(FabricCommandPermissions.require(3))
                 .then(CommandManager.literal("mojang")
                         .then(CommandManager.literal("status")
                                 .executes(context -> mojangStatus(context.getSource()))))
                 .then(CommandManager.literal("cleanupuuid")
-                        .requires(source -> source.hasPermissionLevel(4))
+                        .requires(FabricCommandPermissions.require(4))
                         .then(CommandManager.argument("name", StringArgumentType.word())
                                 .executes(context -> cleanupUuid(context.getSource(),
                                         StringArgumentType.getString(context, "name")))))
                 .then(CommandManager.literal("migrateuuid")
-                        .requires(source -> source.hasPermissionLevel(4))
+                        .requires(FabricCommandPermissions.require(4))
                         .then(CommandManager.argument("name", StringArgumentType.word())
                                 .executes(context -> migrateUuid(context.getSource(),
                                         StringArgumentType.getString(context, "name")))))

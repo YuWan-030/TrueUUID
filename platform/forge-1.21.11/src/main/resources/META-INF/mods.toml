@@ -4,7 +4,7 @@ license="GNU LGPL 3.0"
 
 [[mods]]
 modId="trueuuid"
-version="1.2.0"
+version="${mod_version}"
 displayName="TrueUUID"
 displayURL="https://github.com/YuWan-030/TrueUUID"
 logoFile="trueuuid-banner.png"
@@ -17,7 +17,7 @@ config="trueuuid.mixins.json"
 [[dependencies.trueuuid]]
 modId="forge"
 mandatory=true
-versionRange="[61,)"
+versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 

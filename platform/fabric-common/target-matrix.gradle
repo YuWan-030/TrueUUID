@@ -1,0 +1,110 @@
+evaluationDependsOn(':shared:protocol')
+
+def target = project.ext.fabricTarget
+def requiredKeys = ['minecraftVersion', 'yarnMappings', 'loaderVersion', 'fabricApiVersion', 'javaVersion',
+                    'sessionJoinEra', 'playNetworkingEra']
+def missingKeys = requiredKeys.findAll { !target.containsKey(it) }
+if (!missingKeys.isEmpty()) {
+    throw new GradleException("Missing Fabric target properties: ${missingKeys.join(', ')}")
+}
+
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def fabricCommon = "${rootDir}/platform/fabric-common/src"
+def artifactSuffix = "fabric${target.minecraftVersion}"
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(target.javaVersion as int)
+    withSourcesJar()
+}
+
+// The behaviour is shared across Fabric; this source root contains only the
+// Minecraft/Fabric APIs proven common to the 1.20 compile targets.
+sourceSets.main.java.srcDirs "${fabricCommon}/main/java", "${fabricCommon}/legacy-1.20/java"
+sourceSets.main.java.srcDir "${fabricCommon}/${target.sessionJoinEra}/java"
+sourceSets.main.java.srcDir "${fabricCommon}/${target.playNetworkingEra}/java"
+(target.extraSourceEras ?: [
+        'profile-bean',
+        'permission-levels',
+        'identifier-constructors',
+        'hud-matrix-4d'
+]).each { era -> sourceSets.main.java.srcDir "${fabricCommon}/${era}/java" }
+sourceSets.test.java.srcDirs "${fabricCommon}/test/java", "${fabricCommon}/legacy-1.20-test/java"
+sourceSets.main.resources.srcDirs "${fabricCommon}/legacy-1.20/resources",
+        "${rootDir}/platform/common-assets/src/main/resources"
+
+loom {
+    runs {
+        client {
+            runDir 'run/client'
+            vmArgs '-Xms512M', "-Xmx${providers.environmentVariable('TRUEUUID_CLIENT_XMX').getOrElse('3G')}", '-XX:+UseG1GC'
+        }
+        server {
+            runDir 'run/server'
+            vmArgs '-Xms256M', "-Xmx${providers.environmentVariable('TRUEUUID_SERVER_XMX').getOrElse('1536M')}", '-XX:+UseG1GC'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${target.minecraftVersion}"
+    mappings "net.fabricmc:yarn:${target.yarnMappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${target.loaderVersion}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${target.fabricApiVersion}"
+
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [
+            minecraft_version : target.minecraftVersion,
+            loader_version    : target.loaderVersion,
+            fabric_api_version: target.fabricApiVersion,
+            java_version      : target.javaVersion,
+            mod_id            : mod_id,
+            mod_name          : mod_name,
+            mod_license       : mod_license,
+            mod_version       : mod_version,
+            mod_authors       : mod_authors,
+            mod_description   : mod_description
+    ]
+    inputs.properties(replaceProperties)
+    filesMatching(['fabric.mod.json', 'trueuuid.fabric.mixins.json']) {
+        expand(replaceProperties + [project: project])
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "${mod_id}-${mod_version}-${artifactSuffix}.jar"
+    from(sharedProtocolMain.get().output)
+}
+
+// Loom's plain JAR is a named development artifact. Only this remapped JAR is
+// suitable for installation into a Fabric client or server.
+tasks.named('remapJar').configure {
+    archiveFileName = "${mod_id}-${mod_version}-${artifactSuffix}.jar"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = target.javaVersion as int
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

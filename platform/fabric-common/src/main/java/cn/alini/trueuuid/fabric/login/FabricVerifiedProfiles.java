@@ -11,7 +11,7 @@ final class FabricVerifiedProfiles {
             Property nativeProperty = property.signature() == null
                     ? new Property(property.name(), property.value())
                     : new Property(property.name(), property.value(), property.signature());
-            profile.getProperties().put(property.name(), nativeProperty);
+            profile = FabricGameProfiles.addProperty(profile, property.name(), nativeProperty);
         }
         return profile;
     }

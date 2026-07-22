@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.mixin.client;
 
+import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.net.AuthAnswerPayload;
 import cn.alini.trueuuid.net.AuthPayload;
 import cn.alini.trueuuid.client.ClientAccountStatus;
@@ -132,8 +133,7 @@ abstract class ClientHandshakeMixin {
     }
 
     @Unique private static boolean trueuuid$testAutoConfirmMigration() {
-        String value = System.getenv("TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION");
-        return "1".equals(value) || "true".equalsIgnoreCase(value);
+        return AcceptanceHooks.autoConfirmMigration();
     }
 
     @Unique private static Component trueuuid$authSourceComponent(String hasJoinedUrl) {

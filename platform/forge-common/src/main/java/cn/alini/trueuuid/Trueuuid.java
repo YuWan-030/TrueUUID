@@ -1,5 +1,6 @@
 package cn.alini.trueuuid;
 
+import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import com.mojang.logging.LogUtils;
@@ -24,8 +25,7 @@ public final class Trueuuid {
     }
 
     public static void acceptance(String message, Object... args) {
-        String enabled = System.getenv("TRUEUUID_ACCEPTANCE_LOG");
-        if ("1".equals(enabled) || "true".equalsIgnoreCase(enabled)) {
+        if (AcceptanceHooks.loggingEnabled()) {
             LOGGER.info("TRUEUUID_ACCEPTANCE " + message, args);
         }
     }

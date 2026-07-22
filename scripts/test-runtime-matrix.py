@@ -356,6 +356,7 @@ class RuntimeMatrix:
         env = os.environ.copy()
         env.update(
             {
+                "TRUEUUID_ACCEPTANCE_HOOKS": "1",
                 "TRUEUUID_ACCEPTANCE_LOG": "1",
                 "TRUEUUID_SERVER_PORT": str(port),
                 "TRUEUUID_SERVER_MOTD": f"TrueUUID acceptance {self.run_dir.name}",
@@ -576,7 +577,11 @@ class RuntimeMatrix:
     def build_target_artifact(self, target: str) -> tuple[Path | None, str]:
         metadata = self.targets_by_id[target]
         build_task = metadata.get("build_task")
-        if not isinstance(build_task, str) or not build_task.startswith(":platform:"):
+        standalone = metadata.get("standalone", False)
+        if not isinstance(standalone, bool):
+            return None, f"target {target} has an invalid standalone flag"
+        expected_task = "build" if standalone else f":platform:{target}:build"
+        if build_task != expected_task:
             return None, f"target {target} has an invalid build_task"
         try:
             artifact = self.artifact_path(target)
@@ -604,7 +609,23 @@ class RuntimeMatrix:
         env = os.environ.copy()
         env["JAVA_HOME"] = str(build_java)
         env["PATH"] = f"{build_java / 'bin'}:{env.get('PATH', '')}"
-        command = [str(ROOT / "gradlew"), build_task, "--no-daemon"]
+        if standalone:
+            module = ROOT / "platform" / target
+            command = [
+                str(module / "gradlew"),
+                "-p",
+                str(module),
+                build_task,
+                "-PtrueuuidAcceptanceHooks=true",
+                "--no-daemon",
+            ]
+        else:
+            command = [
+                str(ROOT / "gradlew"),
+                build_task,
+                "-PtrueuuidAcceptanceHooks=true",
+                "--no-daemon",
+            ]
         if os.environ.get("TRUEUUID_OFFLINE"):
             command.append("--offline")
         build_log = self.run_dir / target / "build.log"
@@ -653,6 +674,11 @@ class RuntimeMatrix:
         )
         self.target_artifacts[target] = snapshot
         print(f"JAR   {target} sha256={digest}", flush=True)
+
+        # Never leave the acceptance-instrumented artifact at the normal
+        # manifest path where a later publish command could mistake it for a
+        # production build. The immutable run snapshot is the client input.
+        artifact.unlink()
         return snapshot, ""
 
     def prepare_ephemeral_world(self, target: str) -> None:

@@ -23,8 +23,8 @@ apply plugin: 'org.spongepowered.mixin'
 // mod-compatible with Forge 47 by design. So this module is the
 // platform/forge-1.20.1 island's source recompiled unchanged against the
 // NeoForge 1.20.1 artifact under ForgeGradle 6 — there is no NeoForge-flavored
-// source to write at this version. Build last, stays release: false
-// regardless of outcome.
+// source to write at this version. It is nevertheless an exact, independently
+// built and runtime-accepted release target.
 evaluationDependsOn(':shared:protocol')
 def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)

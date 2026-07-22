@@ -24,11 +24,15 @@ case "$target_id" in
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID Forge adapter loaded'
         ;;
+    forge-1.21.11)
+        task="run${role^}"
+        load_pattern='TrueUUID Forge adapter loaded'
+        ;;
     neoforge-1.20.2|neoforge-1.20.4|neoforge-1.20.6|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.6|neoforge-1.21.8|neoforge-1.21.10|neoforge-1.21.11)
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID NeoForge adapter loaded'
         ;;
-    fabric-1.20.1)
+    fabric-1.20.1|fabric-1.20.2|fabric-1.20.4|fabric-1.20.6|fabric-1.21.1|fabric-1.21.3|fabric-1.21.4|fabric-1.21.5|fabric-1.21.6|fabric-1.21.8|fabric-1.21.10|fabric-1.21.11)
         task=":platform:${target_id}:run${role^}"
         load_pattern='TrueUUID Fabric adapter loaded'
         ;;
@@ -40,6 +44,15 @@ root=$(pwd)
     echo "runtime smoke must run from the repository root" >&2
     exit 66
 }
+
+if [[ "$target_id" == forge-1.21.11 ]]; then
+    gradle_wrapper="$root/platform/$target_id/gradlew"
+    gradle_project="$root/platform/$target_id"
+else
+    gradle_wrapper="$root/gradlew"
+    gradle_project="$root"
+fi
+gradle_command=("$gradle_wrapper" -p "$gradle_project" "$task" --no-daemon --stacktrace)
 
 mkdir -p "$output_dir"
 console_log="$output_dir/${role}-console.log"
@@ -69,16 +82,31 @@ if [[ "$role" == server ]]; then
             fi
         done
     done
-    command=(./gradlew "$task" --no-daemon --stacktrace)
+    command=("${gradle_command[@]}")
 elif [[ "$target_id" == fabric-* ]]; then
     # Loom's run tasks own their program arguments; replacing them with
     # --args would drop the asset/game directory flags the client needs.
-    command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
-        ./gradlew "$task" --no-daemon --stacktrace)
+    if command -v xvfb-run >/dev/null 2>&1; then
+        command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
+            "${gradle_command[@]}")
+    elif [[ -n "${DISPLAY:-}" ]]; then
+        command=(env LIBGL_ALWAYS_SOFTWARE=1 "${gradle_command[@]}")
+    else
+        echo 'client smoke needs xvfb-run or an existing DISPLAY' >&2
+        exit 69
+    fi
 else
-    command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
-        ./gradlew "$task" --no-daemon --stacktrace
-        '--args=--username TrueUUIDCI --width 854 --height 480')
+    if command -v xvfb-run >/dev/null 2>&1; then
+        command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
+            "${gradle_command[@]}"
+            '--args=--username TrueUUIDCI --width 854 --height 480')
+    elif [[ -n "${DISPLAY:-}" ]]; then
+        command=(env LIBGL_ALWAYS_SOFTWARE=1 "${gradle_command[@]}"
+            '--args=--username TrueUUIDCI --width 854 --height 480')
+    else
+        echo 'client smoke needs xvfb-run or an existing DISPLAY' >&2
+        exit 69
+    fi
 fi
 
 pid=
@@ -124,8 +152,13 @@ setsid "${command[@]}" >"$console_log" 2>&1 &
 pid=$!
 success=false
 latest_log=
+smoke_timeout=${TRUEUUID_SMOKE_TIMEOUT:-900}
+[[ "$smoke_timeout" =~ ^[1-9][0-9]*$ ]] || {
+    echo 'TRUEUUID_SMOKE_TIMEOUT must be a positive integer number of seconds' >&2
+    exit 64
+}
 
-for _ in {1..240}; do
+for (( elapsed = 0; elapsed < smoke_timeout; elapsed++ )); do
     latest_log=$(find "$root/platform/$target_id" "$root/run" \
         -path '*/logs/latest.log' -type f -newer "$started" -print 2>/dev/null | head -n 1 || true)
     if [[ -n "$latest_log" ]] && grep -Fq "$load_pattern" "$latest_log"; then

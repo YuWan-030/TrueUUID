@@ -23,11 +23,12 @@ TRUEUUID_PREMIUM_NAME=YourMinecraftName \
 
 The shell command delegates process supervision to the Python 3 standard
 library. Before each target boots, the runner forces the manifest-declared mod
-jar to be packaged, copies that exact jar plus its SHA-256 into the result
-directory, and assigns the server a unique ephemeral world name. Every client
-scenario for that target loads the snapshotted jar. The Gradle development
-server loads the source-set outputs produced by the same build; staging the jar
-into its `mods` directory as well would load TrueUUID twice. The ephemeral
+JAR to be packaged with `-PtrueuuidAcceptanceHooks=true`, copies that exact JAR
+plus its SHA-256 into the ignored result directory, and deletes the instrumented
+source artifact from the module's normal `build/libs` path. Every client
+scenario for that target loads the immutable snapshot. The Gradle development
+server loads source-set outputs compiled with the same matrix-only property;
+staging the JAR into its `mods` directory as well would load TrueUUID twice. The ephemeral
 world is removed only after the server process has stopped, while pre-existing
 `trueuuid-ci-world` and `world` directories are never used or deleted.
 If a preferred port is occupied, the runner selects the next bindable loopback
@@ -82,8 +83,12 @@ Logs and runtime artifacts go under `build/runtime-acceptance/<timestamp>`. The
 server discovers migration data by the verified Minecraft profile name. The
 matrix harness sets `TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION=1` only for the
 migration client, so the client accepts that test prompt without manual clicks.
-It also sets `TRUEUUID_ACCEPTANCE_LOG=1` for both server and client JVMs. The
-mod then emits stable `TRUEUUID_ACCEPTANCE ...` markers such as
+It also sets `TRUEUUID_ACCEPTANCE_LOG=1` for both server and client JVMs. Those
+variables are read only by the matrix-specific compile-time implementation.
+Normal builds compile an always-disabled implementation that contains neither
+environment name, and release-JAR verification fails if an instrumented JAR is
+presented for publication. The instrumented mod emits stable
+`TRUEUUID_ACCEPTANCE ...` markers such as
 `result=premium_join`, `result=offline_fallback`, `phase=migration_query_sent`,
 `phase=client_migration_auto_confirm`, `result=migration_complete`, and
 `result=known_deny`; these markers intentionally avoid account tokens, session
@@ -97,15 +102,20 @@ multiplayer-warning onboarding options, disables the narrator/hotkey, and marks
 the first server join complete so portablemc quick-play cannot wait on a manual
 Continue click.
 
+Do not pass `-PtrueuuidAcceptanceHooks=true` to a normal build, self-test, or
+publish command. `test-runtime-matrix.sh` owns that property and the cleanup of
+its instrumented artifact.
+
 All invocations need a Java 21 Gradle launcher because Fabric Loom is
 configured during every Gradle invocation. Java 17 targets still run the game
 with their module toolchain. Select the launcher with
 `TRUEUUID_JAVA_HOME=/path/to/jdk` when necessary.
 
-## Fabric 1.20.1
+## Fabric 1.20 targets
 
-Fabric has a Java 17 bytecode target, but Loom 1.13.6 requires a Java 21
-Gradle launcher. Run client and offline-mode local server separately:
+Fabric 1.20.1, 1.20.2, and 1.20.4 produce Java 17 bytecode; Fabric 1.20.6 uses
+Java 21. Loom 1.13.6 requires a Java 21 Gradle launcher for all four. Run client
+and offline-mode local server separately, replacing the target ID as needed:
 
 ```bash
 TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
@@ -114,10 +124,11 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
   scripts/run-dev-target.sh fabric-1.20.1 client
 ```
 
-The script prepares `platform/fabric-1.20.1/run/server` with `eula=true`,
-`online-mode=false`, and a localhost bind. Fabric 1.20.1 passed the four core
-scenarios on 2026-07-22; the target matrix records the extended feature paths
-that still need runtime evidence before release approval.
+The script prepares the selected target's `run/server` with `eula=true`,
+`online-mode=false`, and a localhost bind. Fabric 1.20.1, 1.20.2, 1.20.4, and
+1.20.6 passed the four core scenarios on 2026-07-22 and are approved for 1.2.0;
+the target matrix separately records extended feature paths with more limited
+runtime evidence. Minecraft 1.20.3 and 1.20.5 are not implicitly covered.
 
 For concurrent local runs, the launcher caps Gradle at 1G, the Fabric server
 at 1536M, and the Fabric client at 3G. Override one cap only when needed:
@@ -132,7 +143,22 @@ target's `run/server.properties`. This also avoids a wildcard IPv6 bind failure
 on hosts without IPv6. For a LAN test, use the server's actual IPv4 address
 instead; do not expose a development server to the public internet.
 
-Forge 1.21.1 is one of the core-accepted but not release-approved targets.
+## Fabric 1.21 targets
+
+Fabric 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and 1.21.11
+are manifest-integrated and approved for the version-bound 1.2.0 release. Each exact target passed its
+focused build, structural release-JAR check, client/server bootstrap smoke, and
+four-case installed-JAR core login matrix. Launch any exact target with the
+same wrapper:
+
+```bash
+TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+  scripts/run-dev-target.sh fabric-1.21.11 server
+TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
+  scripts/run-dev-target.sh fabric-1.21.11 client
+```
+
+Forge 1.21.1 is one of the core-accepted, 1.2.0-approved targets.
 Launch it with Java 21 in two terminals:
 
 ```bash

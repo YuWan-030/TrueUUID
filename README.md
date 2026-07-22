@@ -12,9 +12,9 @@ The same TrueUUID JAR must be installed on the client and server. Always choose
 the JAR made for your exact Minecraft version and loader.
 
 > [!IMPORTANT]
-> Not every target that builds is release-ready. Check the
-> [target matrix](docs/architecture/target-matrix.md) for tested versions and
-> known feature gaps.
+> Version 1.2.0 publishes only the 36 exact targets approved in the
+> [target matrix](docs/architecture/target-matrix.md). Omitted Minecraft
+> patches are not implicitly supported.
 
 ## Quick start
 
@@ -48,11 +48,11 @@ internet. It deliberately binds to localhost and uses offline mode for testing.
 - Supports configured Yggdrasil/authlib-injector services on adapters that list
   that feature in the target matrix.
 
-All 24 currently declared adapters include offline-to-verified data migration,
-admin commands, and the addon API. Their premium, offline fallback, confirmed
-migration, and known-name denial paths passed the installed-JAR runtime matrix.
-Other feature paths still have target-specific runtime gaps, so consult the
-target matrix instead of assuming every implemented feature was exercised.
+All 36 currently declared adapters include offline-to-verified data migration,
+admin commands, and the addon API. Every exact target passed the premium,
+offline fallback, confirmed migration, and known-name denial installed-JAR
+matrix. Consult the target matrix instead of assuming every implemented feature
+or an omitted adjacent Minecraft patch was exercised.
 
 ## How login verification works
 
@@ -124,7 +124,8 @@ auth.showAccountOverlay = true
 The recommended defaults allow an unknown offline name but stop that name from
 falling back to offline mode after it has completed a verified login.
 
-Forge and NeoForge can position the account badge:
+All three loaders can position the account badge. Forge and NeoForge use TOML;
+Fabric uses the matching keys inside the JSON `auth` object:
 
 ```toml
 auth.overlayCorner = "bottom_right"
@@ -185,7 +186,7 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export PATH="$JAVA_HOME/bin:$PATH"
 
 TARGET=neoforge-1.21.11
-./gradlew ":platform:${TARGET}:build" --no-daemon
+./scripts/ci/build-target.sh "$TARGET"
 ```
 
 The Prism-ready JAR is then:
@@ -201,6 +202,17 @@ forge-1.20.1
 forge-1.21.6
 forge-1.21.8
 fabric-1.20.1
+fabric-1.20.2
+fabric-1.20.4
+fabric-1.20.6
+fabric-1.21.1
+fabric-1.21.3
+fabric-1.21.4
+fabric-1.21.5
+fabric-1.21.6
+fabric-1.21.8
+fabric-1.21.10
+fabric-1.21.11
 neoforge-1.20.4
 neoforge-1.21.11
 ```
@@ -215,12 +227,14 @@ On Windows PowerShell, with Java 21 selected:
 
 ```powershell
 .\gradlew.bat :platform:neoforge-1.21.11:build --no-daemon
+# Forge 1.21.11 is the standalone Gradle 9.5 target:
+.\platform\forge-1.21.11\gradlew.bat -p platform/forge-1.21.11 build --no-daemon
 ```
 
 To build every target instead:
 
 ```bash
-./gradlew build --no-daemon
+./scripts/ci/build-all-targets.sh
 ```
 
 Each finished production JAR is written to:

@@ -7,7 +7,6 @@ import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.MigrationTransaction;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import com.mojang.authlib.GameProfile;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerLoginNetworkHandler;
@@ -33,7 +32,7 @@ public final class FabricLoginTransaction {
     private final LoginStateMachine state = new LoginStateMachine();
     private CompletableFuture<Void> completion;
     private CompletableFuture<?> verification;
-    private PacketSender sender;
+    private FabricLoginQuerySender sender;
     private String nonce;
     private VerifiedProfile pendingVerifiedProfile;
     private PlayerDataMigration.OfflineData pendingOfflineData;
@@ -42,7 +41,7 @@ public final class FabricLoginTransaction {
     private boolean closed;
 
     public synchronized void begin(ServerLoginNetworkHandler handler, MinecraftServer server,
-                                   PacketSender sender, ServerLoginNetworking.LoginSynchronizer synchronizer) {
+                                   FabricLoginQuerySender sender, ServerLoginNetworking.LoginSynchronizer synchronizer) {
         if (closed || completion != null) return;
 
         completion = new CompletableFuture<>();
@@ -51,16 +50,15 @@ public final class FabricLoginTransaction {
         state.beginAuthentication(TRANSACTION_ID, nonce, System.currentTimeMillis());
         synchronizer.waitFor(completion);
         GameProfile pendingProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
-        if (pendingProfile != null && FabricAdapterRuntime.isMigrationPending(pendingProfile.getName())) {
+        if (pendingProfile != null && FabricAdapterRuntime.isMigrationPending(FabricGameProfiles.name(pendingProfile))) {
             closeWithDisconnect(server, handler, "trueuuid.disconnect.migration_pending");
             return;
         }
-        sender.sendPacket(FabricLoginNetworking.AUTH_CHANNEL,
-                FabricLoginPayloads.query(new AuthMessages.Query(nonce, false, "", "")));
+        sender.send(new AuthMessages.Query(nonce, false, "", ""));
         TrueuuidFabric.LOGGER.info("TrueUUID authentication challenge sent: player={}",
-                pendingProfile == null ? "<unknown>" : pendingProfile.getName());
+                pendingProfile == null ? "<unknown>" : FabricGameProfiles.name(pendingProfile));
         TrueuuidFabric.acceptance("phase=auth_query_sent player={}",
-                pendingProfile == null ? "<unknown>" : pendingProfile.getName());
+                pendingProfile == null ? "<unknown>" : FabricGameProfiles.name(pendingProfile));
 
         scheduleTimeout(handler, server, FabricConfig.timeoutMs());
     }
@@ -90,14 +88,15 @@ public final class FabricLoginTransaction {
         }
 
         GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
-        if (offlineProfile == null || offlineProfile.getName() == null || offlineProfile.getName().isBlank()) {
+        if (offlineProfile == null || FabricGameProfiles.name(offlineProfile) == null
+                || FabricGameProfiles.name(offlineProfile).isBlank()) {
             closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
             return;
         }
 
         String ip = clientIp(handler);
         String endpoint = answer.customEndpoint();
-        verification = FabricSessionCheck.hasJoinedAsync(offlineProfile.getName(), nonce, ip, endpoint)
+        verification = FabricSessionCheck.hasJoinedAsync(FabricGameProfiles.name(offlineProfile), nonce, ip, endpoint)
                 .thenCompose(verified -> {
                     if (verified == null) return CompletableFuture.completedFuture(new VerifiedLookup(null, null));
                     return FabricAdapterRuntime.migrations().find(server, verified.name())
@@ -116,7 +115,7 @@ public final class FabricLoginTransaction {
      */
     private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler, boolean allowGrace) {
         GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
-        String name = offlineProfile == null ? null : offlineProfile.getName();
+        String name = offlineProfile == null ? null : FabricGameProfiles.name(offlineProfile);
         if (allowGrace && name != null) {
             var grace = FabricAdapterRuntime.tryGraceLogin(name, clientIp(handler));
             if (grace.isPresent()) {
@@ -233,7 +232,7 @@ public final class FabricLoginTransaction {
         }
         TrueuuidFabric.acceptance("phase=migration_query_sent player={} offlineUuid={} verifiedUuid={}",
                 verified.name(), offlineData.offlineUuid(), verified.uuid());
-        sender.sendPacket(FabricLoginNetworking.AUTH_CHANNEL, FabricLoginPayloads.query(query));
+        sender.send(query);
         scheduleTimeout(handler, server, Math.max(FabricConfig.timeoutMs(), 180_000L));
     }
 
@@ -315,19 +314,20 @@ public final class FabricLoginTransaction {
             synchronized (FabricLoginTransaction.this) {
                 if (closed || completion == null || completion.isDone()) return;
                 GameProfile profile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
-                if (profile == null || profile.getName() == null || profile.getName().isBlank()) {
+                if (profile == null || FabricGameProfiles.name(profile) == null
+                        || FabricGameProfiles.name(profile).isBlank()) {
                     closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
                     return;
                 }
-                if (profile.getId() == null) {
+                if (FabricGameProfiles.id(profile) == null) {
                     UUID offlineId = UUID.nameUUIDFromBytes(
-                            ("OfflinePlayer:" + profile.getName()).getBytes(StandardCharsets.UTF_8));
-                    profile = new GameProfile(offlineId, profile.getName());
+                            ("OfflinePlayer:" + FabricGameProfiles.name(profile)).getBytes(StandardCharsets.UTF_8));
+                    profile = new GameProfile(offlineId, FabricGameProfiles.name(profile));
                     ((FabricLoginStateAccess) handler).trueuuid$setProfile(profile);
                 }
                 TrueuuidFabric.acceptance("result=offline_fallback player={} uuid={}",
-                        profile.getName(), profile.getId());
-                FabricAdapterRuntime.recordOfflineFallback(profile.getId());
+                        FabricGameProfiles.name(profile), FabricGameProfiles.id(profile));
+                FabricAdapterRuntime.recordOfflineFallback(FabricGameProfiles.id(profile));
                 state.reset();
                 completion.complete(null);
             }

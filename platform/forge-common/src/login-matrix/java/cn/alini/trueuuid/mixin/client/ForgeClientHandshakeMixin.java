@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.mixin.client;
 
+import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
@@ -129,8 +130,7 @@ abstract class ForgeClientHandshakeMixin {
     }
 
     @Unique private static boolean trueuuid$testAutoConfirmMigration() {
-        String value = System.getenv("TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION");
-        return "1".equals(value) || "true".equalsIgnoreCase(value);
+        return AcceptanceHooks.autoConfirmMigration();
     }
 
     @Unique private static Component trueuuid$authSourceComponent(String hasJoinedUrl) {

@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Validate manifests and shell scripts
@@ -25,6 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/release/validate-targets.sh
+          ./scripts/release/validate-release-config.sh
+          ./scripts/release/validate-workflows.sh
           find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
   matrix:
@@ -36,7 +38,7 @@ jobs:
       neoforge: ${{ steps.targets.outputs.neoforge }}
       fabric: ${{ steps.targets.outputs.fabric }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - id: targets
@@ -47,7 +49,7 @@ jobs:
           ./scripts/release/validate-targets.sh
           for loader in forge neoforge fabric; do
             matrix=$(jq -c --arg loader "$loader" \
-              '{include: [.targets[] | select(.loader == $loader) | {target: .id, game_version: .game_version, java: (.java | tostring), build_task: .build_task}]}' \
+              '{include: [.targets[] | select(.loader == $loader) | {target: .id, game_version: .game_version, java: (.java | tostring)}]}' \
               release/targets.json)
             jq -e '.include | length > 0' <<<"$matrix" >/dev/null
             echo "${loader}=$matrix" >> "$GITHUB_OUTPUT"
@@ -62,22 +64,22 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.forge) }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
       - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
       - name: Build and test
-        run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
+        run: ./scripts/ci/build-target.sh "${{ matrix.target }}"
 
   neoforge:
     name: NeoForge / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
@@ -88,22 +90,22 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.neoforge) }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
       - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
       - name: Build and test
-        run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
+        run: ./scripts/ci/build-target.sh "${{ matrix.target }}"
 
   fabric:
     name: Fabric / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
@@ -114,19 +116,19 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.fabric) }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install target JDK ${{ matrix.java }} for the Gradle toolchain
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
       - name: Install the JDK 21 Gradle launcher (Loom is configured on every invocation)
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
       - name: Build and test
-        run: ./gradlew :shared:protocol:test ${{ matrix.build_task }} --no-daemon --stacktrace
+        run: ./scripts/ci/build-target.sh "${{ matrix.target }}"

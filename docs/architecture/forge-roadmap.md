@@ -1,112 +1,70 @@
-# TrueUUID Forge architecture roadmap
+# Forge adapter architecture
 
-Status: verified against `origin/1.20` (`99cc1f5`) and `origin/1.21`
-(`abb9454`) on 2026-07-12. The latter is a NeoForge port, not a Forge build;
-its detached `./gradlew build` passed under JDK 21 during this review.
+This document describes the current Forge family. The authoritative support
+and evidence state remains [`target-matrix.md`](target-matrix.md); directory or
+metadata-range presence alone is not a support claim.
 
-## Protocol today
+## Current Forge targets
 
-TrueUUID is a bilateral login-phase protocol; the matching mod is required on
-both client and server. On an offline-mode server, the 1.20.1 adapter marks a
-login as eligible after `ServerLoginPacketListenerImpl.handleHello`, then waits
-for Forge's own `NEGOTIATING` handshake to reach `READY_TO_ACCEPT` before it
-creates a nonce and sends a `ClientboundCustomQueryPacket` on `trueuuid:auth`.
-This ordering prevents a TrueUUID reply from being interpreted as an FML
-indexed handshake reply. The client intercepts
-`ClientHandshakePacketListenerImpl.handleCustomQuery`, calls authlib
-`joinServer` locally (the access token never crosses the connection), and
-returns `ok`, an optional Yggdrasil `hasJoined` endpoint, migration consent, and
-the missing-token flag in `ServerboundCustomQueryPacket`. The server pauses
-login from `tick`, verifies `hasJoined` asynchronously, replaces the pending
-`GameProfile` with the verified UUID/name/textures, records the result, and
-allows the final Forge acceptance path to resume. If verified offline-UUID data
-exists, a second login query asks for migration consent before acceptance.
+Version 1.2.0 declares twelve exact Forge targets for Minecraft 1.20.1, 1.20.2,
+1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and
+1.21.11. On 2026-07-22 every target passed the installed-JAR premium,
+offline-fallback, confirmed-migration, and known-name-denial scenarios. Omitted
+patches and the wider Yggdrasil/timeout/grace/negative-migration/UI evidence
+remain limited exactly as recorded in the target matrix.
 
-The Java-only wire contract is version 1: a fixed header (`0x54555549`), a
-protocol-version byte, a message-kind byte, and bounded UTF-8 query/answer
-fields. Golden query and answer fixtures live with the Java-only codec. Native
-adapters must reject malformed, trailing, or unsupported-version payloads;
-matching client and server artifacts are required for this protocol revision.
-Minecraft packet objects, buffers, listeners, mixins, text components, server
-scheduling, configuration and lifecycle events are not part of that contract.
+Forge 1.21.11 requires ForgeGradle 7 and Gradle 9.5, so it is an intentional
+standalone build island with its own wrapper. It is nevertheless a first-class
+manifest target: build, Verify, Full Self-Test, runtime acceptance, packaging,
+and publishing scripts select that wrapper explicitly. Run
+`scripts/ci/build-all-targets.sh` for the complete 36-target repository build,
+or `scripts/ci/build-target.sh forge-1.21.11` for this target alone.
 
-## Version-specific touchpoints
+## Shared protocol and adapter boundary
 
-| Area | Forge 1.20.1 adapter | NeoForge 1.21.1 evidence / modern Forge port concern |
-|---|---|---|
-| Loader/build | ForgeGradle 6, `net.minecraftforge:forge:1.20.1-47.4.10`, `mods.toml`, Java 17 | Existing other branch uses ModDevGradle, NeoForge 21.1.213, `neoforge.mods.toml`, Java 21; it cannot be reused as a Forge build |
-| Entrypoint/config | Forge `@Mod`, `ModLoadingContext`, `ModConfig`, `ModConfigSpec`, `FMLPaths` | Package/event APIs change to `net.neoforged.*`; a Forge 52 adapter must use Forge APIs rather than renaming the NeoForge artifact |
-| Login listener | `gameProfile`, `handleHello`, `tick`, `handleCustomQueryPacket`, `disconnect` on `ServerLoginPacketListenerImpl` | 1.21 branch shadows `authenticatedProfile` and invokes `startClientVerification` / `verifyLoginAndFinishConnectionSetup`; mappings and state transitions must be checked against Forge 52 |
-| Login packets | `FriendlyByteBuf` carried directly by `ClientboundCustomQueryPacket` / `ServerboundCustomQueryPacket`; `getIdentifier`, `getData`, `getTransactionId` | 1.21 uses `CustomQueryPayload`, `CustomQueryAnswerPayload`, packet `payload()`, and decoder mixins; Forge 52 decoding/registration must be proven in a two-sided login run |
-| Resource ids | 1.20.1 `ResourceLocation` construction | 1.21 uses `ResourceLocation.fromNamespaceAndPath` |
-| Client auth | mixin into `ClientHandshakePacketListenerImpl.handleCustomQuery`; authlib reflection around `YggdrasilMinecraftSessionService` | authlib fields/signatures and login payload APIs differ; the NeoForge branch also contains a direct Mojang join fallback which must not be copied without review |
-| Profile/textures | authlib `GameProfile`, `Property`, pending profile replacement | Field names and connection-accept calls differ across mappings |
-| Events/UI | Forge command, player login/logout and server tick events; 1.20.1 player-info/title packet accessors | Event packages, tick event shape, connection accessor and packet constructors differ on NeoForge 1.21.1 |
-| Disk paths | `MinecraftServer.getWorldPath(LevelResource...)` plus Forge `FMLPaths` | Path discovery must stay in the platform adapter; migration plans operate on supplied `Path` values only |
+`shared/protocol` owns the plain-Java wire codec, bounded endpoint and HTTP
+policy, login state, verified-profile values, known-name and grace stores, and
+migration planning/execution contracts. It has no Minecraft, Forge, authlib,
+Netty, Mixin, or loader imports.
 
-## Compatibility matrix
+`platform/forge-common` owns the stable Forge behaviour: client and server
+login flows, configuration, lifecycle events, commands, HUD/status API,
+profile conversion, world-path discovery, and Mixin integration. Exact target
+modules recompile it against pinned Forge/Minecraft APIs and select only the
+narrow source seams needed by their era. These seams cover SRG versus official
+mappings, login payload shapes, event-bus revisions, GUI calls, authlib record
+profiles, session-service access, and the 1.21.11 `Identifier` rename.
 
-| Target | Loader | Java | Status |
-|---|---|---:|---|
-| Minecraft 1.20.1 / Forge 47.4.10 | Forge | 17 | Current supported target; foundation hardened and built here |
-| Minecraft 1.21.1 / Forge 52.1.14 | Forge | 21 | Planned modern Forge target. [Forge lists 52.1.14 for 1.21.1](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.21.1.html), but TrueUUID support begins only after its exact payload/login APIs compile and a client/server login run passes |
-| Minecraft 1.21.1 / NeoForge 21.1.213 | NeoForge | 21 | Existing independent `origin/1.21` release line; useful API evidence, not a Forge variant and not modified by this integration branch |
-| Minecraft 1.12.2 / Forge 14.23.5.2860 | Forge | 8 | Deferred legacy target; no implementation in this task |
+The login remains bilateral. An offline-mode server sends a one-time custom
+login query; the client calls its local session service and returns only the
+proof inputs. The server verifies `hasJoined` asynchronously, applies the
+verified UUID/name/signed textures, and resumes native login on the server
+thread. The player's access token never leaves the client.
 
-The legacy port needs an isolated Gradle/ForgeGradle build using JDK 8, old MCP
-mappings, old login packet/mixin targets, and a small Java-8-compatible protocol
-facade. It must not lower the shared modern module's language level or dependency
-constraints. Cross-build protocol fixtures, rather than shared Minecraft code,
-will establish compatibility.
+## Build eras
 
-## Module boundary
+- Forge 1.20.1 uses the legacy ForgeGradle 6/SRG path and receives additional
+  refmap and reobfuscation checks.
+- Forge 1.20.2 through 1.21.10 are modules in the root Gradle 8.14 build. They
+  share `forge-common` and choose API-era sources without runtime version
+  branching.
+- Forge 1.21.11 uses its Gradle 9.5 wrapper and ForgeGradle 7. Its processed
+  resources and compiled classes share one development mod root, and its run
+  configurations pass the Mixin config explicitly because the split
+  development classpath has no production JAR manifest.
+- Forge 1.12.2 remains deferred. It would require an isolated JDK 8 build and a
+  Java-8-compatible facade over frozen protocol fixtures; it must not lower the
+  modern shared module's language level.
 
-`shared/protocol` owns Java-only immutable messages, versioned binary codecs
-and golden fixtures, login-state transitions, verified-profile values, session
-verifier/registry/grace/migration interfaces, endpoint policy, a bounded
-request coordinator, DNS-pinned/no-redirect/response-bounded HTTPS transport,
-auth-policy decisions, migration operation/planning contracts, and unit tests.
-It imports no Minecraft, Forge, NeoForge, authlib, Netty or loader classes.
+## Release and compatibility rules
 
-`platform/forge-1.20.1` owns packet/buffer codecs, mixins, authlib profile
-conversion, server-thread handoff, lifecycle events, config adapters, world path
-discovery, commands and localized `Component.translatable` presentation. Its
-login mixin must stay a thin hook delegating to focused authentication,
-connection-state and migration services.
+All changes land through `main`; loader/version names identify modules rather
+than permanent branches. Version 1.2.0 uses one signed tag, `v1.2.0`, and one
+draft GitHub Release containing every approved loader/version artifact. Older
+target-specific tags remain historical and are not the current release model.
 
-`platform/forge-modern` is deliberately absent until Forge 52.1.14 APIs are
-confirmed in source/mappings and both a build and a real two-sided login run
-succeed. A directory name is not a support claim.
-
-`legacy/forge-1.12.2` contains documentation only until the isolated JDK 8 build
-and protocol fixture strategy are approved.
-
-Fabric requires Fabric Loader networking/lifecycle adapters and mixins. Spigot
-and Paper are server-only plugin platforms and cannot satisfy the present
-client-and-server login protocol without a separately designed client mod,
-proxy/plugin channel and threat model. These are future independent ports, not
-Gradle source-set switches.
-
-## Integration, historical branches, and releases
-
-All shared and platform work lands on `main`. New work uses short-lived
-`feature/<scope>` branches; loader/version names describe modules, not permanent
-development branches. Existing `1.20` and `1.21` lines are preserved as
-historical references and are never rewritten in place. The latter is a
-NeoForge line, not a Forge variant.
-
-Release tags identify the artifact target, for example
-`forge-1.20.1-v1.1.0`. Create a `maintenance/<loader>-<minecraft-version>`
-branch only when a released older target needs a backport. Fixes land on `main`
-first and are then cherry-picked with `-x`; release history is never
-force-pushed. See `target-matrix.md` and `../development/adding-adapter.md` for
-the repository-wide rules.
-
-## Acceptance gates for a new adapter
-
-The adapter must compile with its declared JDK, pass shared protocol fixtures
-and focused unit tests, reject untrusted/private endpoint resolution, keep all
-network and disk work off the server thread, cancel login-owned work on timeout
-or disconnect, and complete a real modded-client/modded-server login matrix
-(Mojang success, allowed Yggdrasil success, denial, timeout, disconnect, and
-migration rollback). Until all gates pass, the target remains planned.
+Do not widen a Forge JAR's Minecraft range from protocol equality alone. Each
+claimed patch needs its own loader availability check, structural production
+JAR verification, matching client/server boot, applicable real login matrix,
+artifact evidence, and maintainer approval. New targets follow
+[`adding-adapter.md`](../development/adding-adapter.md).

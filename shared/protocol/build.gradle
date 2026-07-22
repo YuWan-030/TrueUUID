@@ -6,6 +6,16 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
+// Matrix-only behavior is selected at compile time. Normal builds compile the
+// release implementation, which contains no environment-controlled logging or
+// migration auto-confirm path.
+def acceptanceHooks = providers.gradleProperty('trueuuidAcceptanceHooks')
+        .map { it.toBoolean() }
+        .getOrElse(false)
+sourceSets.main.java.srcDir(
+        acceptanceHooks ? 'src/acceptanceHooks/java' : 'src/releaseHooks/java'
+)
+
 repositories {
     mavenCentral()
 }

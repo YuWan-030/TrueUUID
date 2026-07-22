@@ -1,5 +1,6 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
+  "release_version": "1.2.0",
   "curseforge_project_id": 1539688,
   "targets": [
     {
@@ -12,7 +13,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ServerLoginMixin",
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.20.2",
@@ -24,7 +25,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.20.4",
@@ -36,7 +37,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.20.6",
@@ -48,7 +49,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.1",
@@ -60,7 +61,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.3",
@@ -72,7 +73,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.4",
@@ -84,7 +85,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.5",
@@ -96,7 +97,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.6",
@@ -108,7 +109,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.8",
@@ -120,7 +121,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "forge-1.21.10",
@@ -132,7 +133,20 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
+    },
+    {
+      "id": "forge-1.21.11",
+      "standalone": true,
+      "build_task": "build",
+      "artifact": "platform/forge-1.21.11/build/libs/trueuuid-%VERSION%-forge1.21.11.jar",
+      "loader": "forge",
+      "game_version": "1.21.11",
+      "runtime_loader_version": "61.1.9",
+      "java": 21,
+      "metadata": "META-INF/mods.toml",
+      "srg_probe": null,
+      "release": true
     },
     {
       "id": "fabric-1.20.1",
@@ -144,7 +158,139 @@
       "java": 17,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": false
+      "release": true
+    },
+    {
+      "id": "fabric-1.20.2",
+      "build_task": ":platform:fabric-1.20.2:build",
+      "artifact": "platform/fabric-1.20.2/build/libs/trueuuid-%VERSION%-fabric1.20.2.jar",
+      "loader": "fabric",
+      "game_version": "1.20.2",
+      "runtime_loader_version": "0.19.3",
+      "java": 17,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.20.4",
+      "build_task": ":platform:fabric-1.20.4:build",
+      "artifact": "platform/fabric-1.20.4/build/libs/trueuuid-%VERSION%-fabric1.20.4.jar",
+      "loader": "fabric",
+      "game_version": "1.20.4",
+      "runtime_loader_version": "0.19.3",
+      "java": 17,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.20.6",
+      "build_task": ":platform:fabric-1.20.6:build",
+      "artifact": "platform/fabric-1.20.6/build/libs/trueuuid-%VERSION%-fabric1.20.6.jar",
+      "loader": "fabric",
+      "game_version": "1.20.6",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.1",
+      "build_task": ":platform:fabric-1.21.1:build",
+      "artifact": "platform/fabric-1.21.1/build/libs/trueuuid-%VERSION%-fabric1.21.1.jar",
+      "loader": "fabric",
+      "game_version": "1.21.1",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.3",
+      "build_task": ":platform:fabric-1.21.3:build",
+      "artifact": "platform/fabric-1.21.3/build/libs/trueuuid-%VERSION%-fabric1.21.3.jar",
+      "loader": "fabric",
+      "game_version": "1.21.3",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.4",
+      "build_task": ":platform:fabric-1.21.4:build",
+      "artifact": "platform/fabric-1.21.4/build/libs/trueuuid-%VERSION%-fabric1.21.4.jar",
+      "loader": "fabric",
+      "game_version": "1.21.4",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.5",
+      "build_task": ":platform:fabric-1.21.5:build",
+      "artifact": "platform/fabric-1.21.5/build/libs/trueuuid-%VERSION%-fabric1.21.5.jar",
+      "loader": "fabric",
+      "game_version": "1.21.5",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.6",
+      "build_task": ":platform:fabric-1.21.6:build",
+      "artifact": "platform/fabric-1.21.6/build/libs/trueuuid-%VERSION%-fabric1.21.6.jar",
+      "loader": "fabric",
+      "game_version": "1.21.6",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.8",
+      "build_task": ":platform:fabric-1.21.8:build",
+      "artifact": "platform/fabric-1.21.8/build/libs/trueuuid-%VERSION%-fabric1.21.8.jar",
+      "loader": "fabric",
+      "game_version": "1.21.8",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.10",
+      "build_task": ":platform:fabric-1.21.10:build",
+      "artifact": "platform/fabric-1.21.10/build/libs/trueuuid-%VERSION%-fabric1.21.10.jar",
+      "loader": "fabric",
+      "game_version": "1.21.10",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
+    },
+    {
+      "id": "fabric-1.21.11",
+      "build_task": ":platform:fabric-1.21.11:build",
+      "artifact": "platform/fabric-1.21.11/build/libs/trueuuid-%VERSION%-fabric1.21.11.jar",
+      "loader": "fabric",
+      "game_version": "1.21.11",
+      "runtime_loader_version": "0.19.3",
+      "java": 21,
+      "metadata": "fabric.mod.json",
+      "srg_probe": null,
+      "release": true
     },
     {
       "id": "neoforge-1.20.1",
@@ -156,7 +302,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ServerLoginMixin",
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.20.2",
@@ -168,7 +314,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.20.4",
@@ -180,7 +326,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.20.6",
@@ -192,7 +338,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.1",
@@ -204,7 +350,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.3",
@@ -216,7 +362,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.4",
@@ -228,7 +374,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.5",
@@ -240,7 +386,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.6",
@@ -252,7 +398,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.8",
@@ -264,7 +410,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.10",
@@ -276,7 +422,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     },
     {
       "id": "neoforge-1.21.11",
@@ -288,7 +434,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": false
+      "release": true
     }
   ]
 }

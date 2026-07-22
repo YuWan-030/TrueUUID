@@ -68,6 +68,31 @@ if grep -Eq '(^|/)(test|tests)/|Test\.class$' <<<"$entries"; then
     echo "test classes leaked into $artifact" >&2
     exit 65
 fi
+if grep -Eq '(^|/)scripts/|\.sh$|(^|/)build/runtime-acceptance/' <<<"$entries"; then
+    echo "development scripts or runtime evidence leaked into $artifact" >&2
+    exit 65
+fi
+
+# These names exist only in the compile-time acceptance implementation. Fabric
+# nests shared/protocol inside the mod JAR, so inspect both the unpacked outer
+# archive and every embedded JAR rather than searching compressed bytes.
+scan_dir=$(mktemp -d "${TMPDIR:-/tmp}/trueuuid-release-scan.XXXXXX")
+trap 'rm -rf "$scan_dir"' EXIT
+mkdir -p "$scan_dir/outer" "$scan_dir/nested"
+unzip -qq "$artifact" -d "$scan_dir/outer"
+nested_index=0
+while IFS= read -r -d '' nested_jar; do
+    nested_index=$((nested_index + 1))
+    nested_dir="$scan_dir/nested/$nested_index"
+    mkdir -p "$nested_dir"
+    unzip -qq "$nested_jar" -d "$nested_dir"
+done < <(find "$scan_dir/outer" -type f -name '*.jar' -print0)
+if grep -aRqE --exclude='*.jar' \
+        'TRUEUUID_ACCEPTANCE_LOG|TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION' \
+        "$scan_dir/outer" "$scan_dir/nested"; then
+    echo "matrix-only acceptance hooks leaked into $artifact" >&2
+    exit 65
+fi
 
 if [[ -n "$srg_probe" ]]; then
     ./scripts/ci/verify-srg-mixin-jar.sh "$artifact" "$srg_probe"

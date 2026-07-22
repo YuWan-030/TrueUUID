@@ -3,6 +3,7 @@ package cn.alini.trueuuid.fabric;
 import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.fabric.command.TrueuuidFabricCommands;
 import cn.alini.trueuuid.fabric.login.FabricLoginNetworking;
+import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import org.slf4j.Logger;
@@ -23,8 +24,7 @@ public final class TrueuuidFabric implements ModInitializer {
     }
 
     public static void acceptance(String message, Object... args) {
-        String enabled = System.getenv("TRUEUUID_ACCEPTANCE_LOG");
-        if ("1".equals(enabled) || "true".equalsIgnoreCase(enabled)) {
+        if (AcceptanceHooks.loggingEnabled()) {
             LOGGER.info("TRUEUUID_ACCEPTANCE " + message, args);
         }
     }

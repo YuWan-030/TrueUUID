@@ -6,14 +6,15 @@ patches. The live target inventory and evidence are in
 
 ## Current state
 
-The root manifest contains 24 exact compile targets: 11 Forge, one Fabric, and
-12 NeoForge. All passed the four-case core runtime matrix on 2026-07-22. Their
-metadata remains conservative and does not implicitly claim omitted patches.
+The release manifest contains 36 exact compile targets: 12 Forge, 12 Fabric,
+and 12 NeoForge. All 36 passed the four-case core runtime matrix on 2026-07-22.
+Metadata remains conservative and does not implicitly claim omitted patches.
 
-Fabric 1.20.2-1.21.11 is the remaining loader expansion. Follow the canonical
-[Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md). Forge 1.21.11
-is a separate Gradle 9.5 build island and still needs root release/CI integration
-plus runtime acceptance.
+The exact Fabric compile-patch expansion is complete. Adjacent candidate patches
+still require their own matching client/server evidence before any metadata
+range is widened. Follow the canonical [Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md).
+Forge 1.21.11 remains a separate Gradle 9.5 build island, but its own wrapper is
+integrated into the manifest, CI, release workflow, and runtime harness.
 
 ## Candidate protocol clusters
 

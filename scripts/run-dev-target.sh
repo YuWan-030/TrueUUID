@@ -78,8 +78,18 @@ fi
 # Java 17 or Java 21 toolchain declared by the selected module.
 required_java=21
 target_game_java=$(jq -r '.java' <<<"$target_metadata")
+standalone=$(jq -r '.standalone // false' <<<"$target_metadata")
 role_cap="$(tr '[:lower:]' '[:upper:]' <<< "${role:0:1}")${role:1}"
-gradle_task=":platform:${target}:run${role_cap}"
+if [[ "$standalone" == true ]]; then
+    gradle_project="$root/platform/$target"
+    gradle_wrapper="$gradle_project/gradlew"
+    gradle_task="run${role_cap}"
+else
+    gradle_project="$root"
+    gradle_wrapper="$root/gradlew"
+    gradle_task=":platform:${target}:run${role_cap}"
+fi
+[[ -x "$gradle_wrapper" ]] || { echo "Missing Gradle wrapper: $gradle_wrapper" >&2; exit 66; }
 
 java_home="${TRUEUUID_JAVA_HOME:-${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}}"
 
@@ -157,8 +167,11 @@ gradle_flags=(--no-daemon)
 if [[ -n "${TRUEUUID_OFFLINE:-}" ]]; then
     gradle_flags+=(--offline)
 fi
+if [[ "${TRUEUUID_ACCEPTANCE_HOOKS:-}" == "1" ]]; then
+    gradle_flags+=("-PtrueuuidAcceptanceHooks=true")
+fi
 # Do not let the project-wide build default reserve several gigabytes while a
 # client/server run is loading assets. Loom applies the separate game-process
 # caps in the Fabric adapter's run configuration.
 gradle_jvmargs="-Xms256M -Xmx${TRUEUUID_GRADLE_XMX:-1G} -Dfile.encoding=UTF-8"
-exec ./gradlew "-Dorg.gradle.jvmargs=${gradle_jvmargs}" "$gradle_task" "${gradle_flags[@]}"
+exec "$gradle_wrapper" -p "$gradle_project" "-Dorg.gradle.jvmargs=${gradle_jvmargs}" "$gradle_task" "${gradle_flags[@]}"

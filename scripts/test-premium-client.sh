@@ -283,7 +283,6 @@ game_version=$(jq -r '.game_version' <<<"$meta")
 game_java=$(jq -r '.java' <<<"$meta")
 manifest_loader_version=$(jq -r '.runtime_loader_version' <<<"$meta")
 artifact_tmpl=$(jq -r '.artifact' <<<"$meta")
-build_task=$(jq -r '.build_task' <<<"$meta")
 
 mod_version=$(sed -n 's/^mod_version=//p' "$root/gradle.properties" | tr -d '[:space:]')
 [[ -n "$mod_version" ]] || { echo 'Could not read mod_version from gradle.properties.' >&2; exit 70; }
@@ -308,7 +307,10 @@ source_newer_than_artifact() {
     )
     local loader_common="$root/platform/${loader}-common"
     if [[ -d "$loader_common" ]]; then
-        roots+=("$loader_common/build.gradle" "$loader_common/src")
+        # Include loader-wide Gradle composition as well as source roots. A
+        # target artifact must be rebuilt when an API-era source selection or
+        # dependency wiring change is newer than the staged JAR.
+        roots+=("$loader_common")
     fi
     local root_path
     for root_path in "${roots[@]}"; do
@@ -330,8 +332,9 @@ source_newer_than_artifact() {
 if [[ -z "$artifact_override" ]] && { [[ ! -f "$artifact" || "${TRUEUUID_REBUILD_MOD:-}" == "1" ]] || source_newer_than_artifact; }; then
     build_java="${TRUEUUID_BUILD_JAVA:-/usr/lib/jvm/java-21-openjdk-amd64}"
     [[ -x "$build_java/bin/java" ]] || { echo "Need a JDK 21 to build; set TRUEUUID_BUILD_JAVA." >&2; exit 78; }
-    echo "Building fresh mod jar with $build_task ..."
-    ( cd "$root" && JAVA_HOME="$build_java" ./gradlew "$build_task" --no-daemon )
+    echo "Building fresh mod jar for $target ..."
+    ( cd "$root" && JAVA_HOME="$build_java" PATH="$build_java/bin:$PATH" \
+        ./scripts/ci/build-target.sh "$target" )
 fi
 [[ -f "$artifact" ]] || { echo "Build did not produce $artifact" >&2; exit 70; }
 
@@ -423,8 +426,12 @@ cp "$artifact" "$mods_dir/"
 if [[ "$loader" == "fabric" ]]; then
     fabric_api="${TRUEUUID_FABRIC_API_JAR:-}"
     if [[ -z "$fabric_api" ]]; then
-        coord=$(grep -oE "net\.fabricmc\.fabric-api:fabric-api:[0-9A-Za-z.+-]+" \
-            "$root/platform/$target/build.gradle" | head -1 | awk -F: '{print $3}')
+        coord=$(sed -nE "s/^[[:space:]]*fabricApiVersion:[[:space:]]*'([^']+)'.*/\\1/p" \
+            "$root/platform/$target/build.gradle" | head -1)
+        if [[ -z "$coord" ]]; then
+            coord=$(grep -oE "net\.fabricmc\.fabric-api:fabric-api:[0-9A-Za-z.+-]+" \
+                "$root/platform/$target/build.gradle" | head -1 | awk -F: '{print $3}')
+        fi
         if [[ -n "$coord" ]]; then
             fabric_api=$(find "$HOME/.gradle/caches" -name "fabric-api-$coord.jar" 2>/dev/null | head -1)
         fi
