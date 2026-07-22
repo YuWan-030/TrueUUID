@@ -6,22 +6,35 @@ import cn.alini.trueuuid.protocol.SafeSessionHttpClient;
 import cn.alini.trueuuid.protocol.SafeSessionVerifier;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
+import cn.alini.trueuuid.fabric.config.FabricConfig;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/** Mojang-only, bounded hasJoined verifier for the initial Fabric adapter. */
+/** Bounded hasJoined verifier for Fabric. */
 final class FabricSessionCheck {
     private static final Gson GSON = new Gson();
     private static BoundedRequestCoordinator requests;
 
     static CompletableFuture<VerifiedProfile> hasJoinedAsync(String username, String serverId) {
-        return verifier().verify(new SessionVerifier.Request(username, serverId, "", ""))
+        return hasJoinedAsync(username, serverId, "", "");
+    }
+
+    static CompletableFuture<VerifiedProfile> hasJoinedAsync(String username, String serverId,
+                                                             String clientIp, String clientEndpoint) {
+        return verifier().verify(new SessionVerifier.Request(username, serverId, clientIp, clientEndpoint))
                 .thenApply(result -> result.orElse(null));
+    }
+
+    static CompletableFuture<Integer> probeMojangAsync() {
+        SafeSessionHttpClient http = new SafeSessionHttpClient();
+        return requests().submit("__probe__", "mojang", "probe", () ->
+                http.getTrusted(URI.create("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=Mojang&serverId=test")).status());
     }
 
     static synchronized void close() {
@@ -32,8 +45,12 @@ final class FabricSessionCheck {
     }
 
     private static synchronized SessionVerifier verifier() {
+        return new SafeSessionVerifier(requests(), () -> new EndpointPolicy(FabricConfig.yggdrasilHosts()), FabricSessionCheck::parse);
+    }
+
+    private static synchronized BoundedRequestCoordinator requests() {
         if (requests == null) requests = new BoundedRequestCoordinator();
-        return new SafeSessionVerifier(requests, () -> new EndpointPolicy(List.of()), FabricSessionCheck::parse);
+        return requests;
     }
 
     private static Optional<VerifiedProfile> parse(SafeSessionHttpClient.Response response) {

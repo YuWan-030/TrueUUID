@@ -17,7 +17,7 @@ final class ServerLoginMixinTest {
     @Test
     void createsRecordEraProfileWithSignedTextureProperty() throws ReflectiveOperationException {
         UUID uuid = UUID.fromString("01234567-89ab-cdef-0123-456789abcdef");
-        VerifiedProfile verified = new VerifiedProfile(uuid, "FixGOD", List.of(
+        VerifiedProfile verified = new VerifiedProfile(uuid, "PremiumUser", List.of(
                 new VerifiedProfile.Property("textures", "skin-payload", "skin-signature")
         ));
 
@@ -28,7 +28,7 @@ final class ServerLoginMixinTest {
         Property texture = profile.properties().get("textures").iterator().next();
 
         assertEquals(uuid, profile.id());
-        assertEquals("FixGOD", profile.name());
+        assertEquals("PremiumUser", profile.name());
         assertEquals("skin-payload", texture.value());
         assertEquals("skin-signature", texture.signature());
     }

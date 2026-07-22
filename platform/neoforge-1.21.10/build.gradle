@@ -40,7 +40,8 @@ sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/res
 // Minecraft 1.21.6+ replaced the GUI PoseStack with Matrix3x2fStack. Keep
 // that render-only change in this target; login/authentication remains shared.
 def modernGuiSources = [
-        'cn/alini/trueuuid/client/ClientAccountStatus.java'
+        'cn/alini/trueuuid/client/ClientAccountStatus.java',
+        'cn/alini/trueuuid/TrueuuidClientOverlay.java'
 ]
 
 // Minecraft 1.21.9+ made authlib's GameProfile a record (id()/name()/

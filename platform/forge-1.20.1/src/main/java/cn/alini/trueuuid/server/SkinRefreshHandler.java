@@ -78,11 +78,15 @@ public class SkinRefreshHandler {
         if (fallbackOpt.isPresent()) {
             Trueuuid.LOGGER.info("TrueUUID offline fallback login: player={}, uuid={}, reason={}",
                     sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
+            Trueuuid.acceptance("result=offline_fallback player={} uuid={} reason={}",
+                    sp.getGameProfile().getName(), sp.getUUID(), fallbackOpt.get());
         } else if (successOpt.isPresent()) {
             String loginType = successOpt.get().source() == AuthState.AuthSource.YGGDRASIL
                     ? "session-verified skin-site login" : "session-verified premium login";
             Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", loginType,
                     sp.getGameProfile().getName(), sp.getUUID());
+            Trueuuid.acceptance("result=premium_join player={} uuid={} source={}",
+                    sp.getGameProfile().getName(), sp.getUUID(), successOpt.get().source());
         }
 
         if (!TrueuuidConfig.showJoinFeedback()) {

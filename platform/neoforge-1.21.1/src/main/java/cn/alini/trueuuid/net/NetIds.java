@@ -11,5 +11,6 @@ public final class NetIds {
     // is unreachable.
     public static final ResourceLocation AUTH =
             java.util.Objects.requireNonNull(ResourceLocation.tryParse("trueuuid:auth"));
+    public static final String MIGRATION_CONFIRM_SERVER_ID = "trueuuid:migration-confirm";
     private NetIds() {}
 }

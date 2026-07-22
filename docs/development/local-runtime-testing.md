@@ -10,6 +10,93 @@ scripts/run-dev-target.sh forge-1.20.1 server
 scripts/run-dev-target.sh forge-1.20.1 client
 ```
 
+For a real-account acceptance pass, sign in once and then let the harness start
+local offline-mode servers, launch the matching modded client, auto-connect via
+portablemc, and verify the server log markers:
+
+```bash
+scripts/test-premium-client.sh login
+scripts/test-runtime-matrix.sh --targets forge-1.20.1 --scenarios premium,offline
+TRUEUUID_PREMIUM_NAME=YourMinecraftName \
+  scripts/test-runtime-matrix.sh --targets all --scenarios premium,offline,migrate,known-deny
+```
+
+The shell command delegates process supervision to the Python 3 standard
+library. Before each target boots, the runner forces the manifest-declared mod
+jar to be packaged, copies that exact jar plus its SHA-256 into the result
+directory, and assigns the server a unique ephemeral world name. Every client
+scenario for that target loads the snapshotted jar. The Gradle development
+server loads the source-set outputs produced by the same build; staging the jar
+into its `mods` directory as well would load TrueUUID twice. The ephemeral
+world is removed only after the server process has stopped, while pre-existing
+`trueuuid-ci-world` and `world` directories are never used or deleted.
+If a preferred port is occupied, the runner selects the next bindable loopback
+port within its bounded scan instead of killing or disturbing the existing
+owner. It fails preflight only when no candidate port is available.
+The manifest also pins the exact Forge/Fabric/NeoForge build used by each
+target; PortableMC must not substitute its generally recommended loader build
+for the one against which the artifact was compiled.
+
+The runner boots each target once and reuses that server for its selected
+scenarios, watches server/client output as it is produced, and fails
+immediately when either process exits. There are no unconditional shutdown
+sleeps or blocking FIFO writes. The first Ctrl-C performs bounded cleanup; a
+per-launch inherited process token lets cleanup find Gradle, game, and client
+descendants even if Gradle reparents them into another process group. A second
+Ctrl-C force-kills every matching process. Use `--fail-fast` for a
+quick compatibility sweep, `--timeout` for a login marker deadline, and
+`--startup-timeout` for slower first builds/boots that still need to download
+assets. Initial PortableMC installation/download time is tracked separately by
+`--client-startup-timeout` (default 15 minutes), and the shorter login timeout
+starts only when the client begins connecting to the local server. Client
+fatal/mixin errors still fail immediately.
+When multiple scenarios share a target boot, the runner uses dependency-safe
+order: migration first, then premium and offline, with known-deny last. This
+keeps the migration destination absent on the fresh world and ensures the
+known-deny check follows a verified-name registration. A different order in
+`--scenarios` changes the selected set, not this execution order.
+After an interrupted all-target run, `--targets all --start-at forge-1.20.2`
+resumes at that target without repeating earlier target boots.
+For non-contiguous results, `--resume-from <run-directory>` reads that run's
+`summary.tsv` and reuses a target only when every currently requested scenario
+has exactly one `PASS` (or previously reused pass). Failed, partial, and
+interrupted targets rerun all requested scenarios together on a fresh server;
+this preserves the premium-to-known-deny dependency. The new summary records
+those carried results as `REUSED_PASS`, so resume runs can be chained. Repeat
+`--resume-from` to combine passed targets from more than one earlier run.
+Reused rows retain the original existing evidence directory; legacy chained
+summaries are resolved recursively, and missing/duplicate/cyclic provenance
+fails closed so that target runs again instead of carrying an unverifiable pass.
+PortableMC downloads and Forge post-processing milestones are echoed to the
+terminal while detailed byte progress remains in `client.log`; first-time
+loader installation should no longer look like a hung client.
+
+`test-premium-client.sh` stores PortableMC's canonical auth database under
+`~/.local/share/trueuuid-testclient/shared` with private permissions. Because
+PortableMC otherwise resolves its auth database from each `--work-dir`, the
+launcher consolidates same-account legacy databases and links every target to
+the canonical file. Refresh-token rotation is promoted back after each run, so
+moving to a new Minecraft version does not require another browser approval.
+Logs and runtime artifacts go under `build/runtime-acceptance/<timestamp>`. The
+`migrate` and `known-deny` scenarios need `TRUEUUID_PREMIUM_NAME` because the
+server discovers migration data by the verified Minecraft profile name. The
+matrix harness sets `TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION=1` only for the
+migration client, so the client accepts that test prompt without manual clicks.
+It also sets `TRUEUUID_ACCEPTANCE_LOG=1` for both server and client JVMs. The
+mod then emits stable `TRUEUUID_ACCEPTANCE ...` markers such as
+`result=premium_join`, `result=offline_fallback`, `phase=migration_query_sent`,
+`phase=client_migration_auto_confirm`, `result=migration_complete`, and
+`result=known_deny`; these markers intentionally avoid account tokens, session
+nonces, raw endpoint URLs, and profile properties. `test-premium-client.sh`
+rebuilds the staged mod artifact when relevant source/config files are newer
+than the jar, or unconditionally with `TRUEUUID_REBUILD_MOD=1`. The matrix uses
+`TRUEUUID_MOD_JAR` internally to pin clients to its prebuilt snapshot and avoid
+rebuilding the same target for every scenario. In its isolated
+per-target work directory it also pre-answers Minecraft's accessibility and
+multiplayer-warning onboarding options, disables the narrator/hotkey, and marks
+the first server join complete so portablemc quick-play cannot wait on a manual
+Continue click.
+
 All invocations need a Java 21 Gradle launcher because Fabric Loom is
 configured during every Gradle invocation. Java 17 targets still run the game
 with their module toolchain. Select the launcher with
@@ -28,9 +115,9 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
 ```
 
 The script prepares `platform/fabric-1.20.1/run/server` with `eula=true`,
-`online-mode=false`, and a localhost bind. Fabric has policy-gated offline
-fallback and a verified-name registry, but no migration, addon API, admin
-commands, or Yggdrasil runtime claim.
+`online-mode=false`, and a localhost bind. Fabric 1.20.1 passed the four core
+scenarios on 2026-07-22; the target matrix records the extended feature paths
+that still need runtime evidence before release approval.
 
 For concurrent local runs, the launcher caps Gradle at 1G, the Fabric server
 at 1536M, and the Fabric client at 3G. Override one cap only when needed:
@@ -45,8 +132,7 @@ target's `run/server.properties`. This also avoids a wildcard IPv6 bind failure
 on hosts without IPv6. For a LAN test, use the server's actual IPv4 address
 instead; do not expose a development server to the public internet.
 
-Forge 1.21.1 is a test candidate, not a released target. Its local premium
-login path has passed once, but the full acceptance matrix is incomplete.
+Forge 1.21.1 is one of the core-accepted but not release-approved targets.
 Launch it with Java 21 in two terminals:
 
 ```bash
@@ -56,9 +142,9 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
   scripts/run-dev-target.sh forge-1.21.1 client
 ```
 
-Use the Gradle development runs for the first 1.21.1 acceptance pass. A normal
-distribution artifact must not be called ready until the real login matrix has
-passed.
+Use the Gradle development runs for manual diagnostics. Use
+`test-runtime-matrix.sh` when the result must refer to the snapshotted
+production JAR and fresh-world evidence.
 
 Forge's `online-mode=true` performs Mojang authentication itself and therefore
 bypasses TrueUUID's custom login query. To test the TrueUUID premium-session
@@ -82,14 +168,14 @@ login. Successful premium names are recorded in
 `config/trueuuid-registry.json`; keep
 `auth.knownPremiumDenyOffline=true` and
 `auth.allowOfflineForUnknownOnly=true` on public/private shared servers.
-Do not advertise the Yggdrasil and player-data migration behaviours from the
-1.20.1 adapter for 1.21.1 yet.
+Yggdrasil, timeout/grace, negative migration, command, addon-callback, and skin
+refresh runtime evidence remains separate from the four core scenarios.
 
 Run the server and client commands in separate terminals. The client must use
 the same freshly built protocol-v1 source tree as the server; it cannot
 interoperate with an older TrueUUID jar.
 
 The launcher accepts every target in the validated manifest, including
-NeoForge 1.20.x, 1.21.6, 1.21.10, and 1.21.11. This is a test convenience, not
-a support or release claim; record each real login result separately in the
-target matrix before changing its release flag.
+NeoForge 1.20.x, 1.21.6, 1.21.10, and 1.21.11. Record each exact artifact and
+scenario separately in the target matrix; a successful run never widens a
+version range or changes a release flag by itself.

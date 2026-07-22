@@ -3,6 +3,7 @@ package cn.alini.trueuuid.server;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
+import cn.alini.trueuuid.protocol.MigrationTransaction;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 
@@ -33,11 +34,21 @@ public final class ForgeLoginFlow {
         };
     }
 
+    public byte[] migrationQuery(int transactionId, MigrationTransaction.Offer offer, long now) {
+        return AuthWireCodec.encodeQuery(state.beginMigration(transactionId, offer, now));
+    }
+
+    public boolean acceptMigration(int transactionId, byte[] answerWire) {
+        AuthMessages.Answer answer = AuthWireCodec.decodeAnswer(answerWire);
+        return state.acceptAnswer(transactionId, answer) == LoginStateMachine.AnswerResult.MIGRATE;
+    }
+
     public boolean timedOut(long now, long timeoutMillis) {
         return state.timeoutAt(now, timeoutMillis, timeoutMillis) != LoginStateMachine.TimeoutResult.NONE;
     }
 
     public boolean active() { return state.isActive(); }
+    public LoginStateMachine.Phase phase() { return state.phase(); }
 
     public void close() {
         if (verification != null) verification.cancel(true);

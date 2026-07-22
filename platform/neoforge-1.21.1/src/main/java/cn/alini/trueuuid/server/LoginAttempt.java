@@ -3,6 +3,7 @@ package cn.alini.trueuuid.server;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
+import cn.alini.trueuuid.protocol.MigrationTransaction;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 
@@ -40,6 +41,15 @@ public final class LoginAttempt {
                         ? new Outcome(Result.VERIFIED, profile) : new Outcome(Result.DENY, Optional.empty()));
             }
         };
+    }
+
+    public byte[] migrationQuery(int transactionId, MigrationTransaction.Offer offer, long nowMillis) {
+        return AuthWireCodec.encodeQuery(state.beginMigration(transactionId, offer, nowMillis));
+    }
+
+    public boolean acceptMigration(int transactionId, byte[] wire) {
+        AuthMessages.Answer answer = AuthWireCodec.decodeAnswer(wire);
+        return state.acceptAnswer(transactionId, answer) == LoginStateMachine.AnswerResult.MIGRATE;
     }
 
     public Result timeout(long nowMillis, long timeoutMillis) {

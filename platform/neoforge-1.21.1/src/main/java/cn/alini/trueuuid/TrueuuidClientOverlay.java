@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
  * Registers the account badge as a NeoForge HUD layer. NeoForge composites
  * LayeredDraw layers itself, so the badge needs no Gui.render mixin here.
  */
-@EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public final class TrueuuidClientOverlay {
     @SubscribeEvent
     public static void registerLayers(RegisterGuiLayersEvent event) {

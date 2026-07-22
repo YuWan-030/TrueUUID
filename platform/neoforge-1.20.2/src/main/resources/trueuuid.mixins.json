@@ -9,7 +9,6 @@
     "client.ClientHandshakeMixin"
   ],
   "mixins": [
-    "server.ServerboundCustomQueryAnswerMixin",
     "server.ServerLoginMixin"
   ],
   "injectors": {

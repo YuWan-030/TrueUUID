@@ -19,12 +19,14 @@ what lets one fix (e.g. to the config surface or the offline-fallback policy) la
 every Forge version at once, while each version still gets a correct, remapped jar.
 
 Narrow API eras use additional source-only roots beneath this directory. The
-`src/modern-matrix` root contains the unchanged Forge 56/58 login seams, EventBus
-7 subscriptions, payload types, and 2D matrix HUD adapter used by Minecraft
-1.21.6 and 1.21.8. Forge 56 excludes only `TrueuuidClientOverlay`: that event does
-not exist until the later Forge line, so 1.21.6 uses the shared GUI mixin. Tests
-live in `src/modern-matrix-test`. This avoids copying an entire target adapter
-while still compiling and remapping each artifact against its exact dependency.
+`src/login-matrix` root contains the unchanged pre-record Forge 52-58 client and
+server login mixins used by Minecraft 1.21.1 through 1.21.8. Keeping this seam
+shared prevents migration/security fixes from silently missing the earlier
+1.21 targets. The `src/modern-matrix` root contains the remaining Forge 56/58
+EventBus subscriptions, payload types, and 2D matrix HUD adapter used by
+Minecraft 1.21.6 and 1.21.8. Forge 56 excludes only `TrueuuidClientOverlay`:
+that event does not exist until the later Forge line, so 1.21.6 uses the shared
+GUI mixin. Tests live in `src/modern-matrix-test`.
 
 The `src/legacy-matrix` root similarly owns the unchanged Forge 48-50 login,
 payload, event, HUD-scale, and lifecycle seams. `src/legacy-overlay` is the old
@@ -65,7 +67,11 @@ Keep it in either a narrowly named source-only era root or the module's own
 
 - `mixin/client/ForgeClientHandshakeMixin`, `mixin/client/ForgeClientQueryDecodeMixin`,
   `mixin/server/ForgeServerLoginMixin`, `mixin/server/ForgeServerAnswerDecodeMixin`
-  — the login mixins (the refmap is generated per build)
+  — the login mixins. The pre-record Forge 52-58 handshake/server pair lives in
+  `src/login-matrix`; the remaining packet decode/payload seams stay in their
+  narrower roots or modules. `src/srg-runtime` enables member remapping for Forge
+  48/49; `src/official-runtime` disables it for Forge 50's official-named
+  production JAR. The build verifies the resulting refmap mode.
 - `net/ForgeAuthPayload.java`, `net/ForgeAuthAnswerPayload.java` — the
   `CustomQueryPayload` / `CustomQueryAnswerPayload` implementations
 - `TrueuuidForgeEvents.java` — game-event seam; differs only by the
@@ -124,9 +130,9 @@ Two traps to remember:
   (`RegisterGuiOverlaysEvent`, `RenderGuiEvent`, `IGuiOverlay`) that are absent
   from the actual compile classpath. `javap` the
   `forge-<mc>-<ver>_mapped_official_<mc>.jar` instead.
-- Only the Forge-preserved *login* methods may use `remap = false`. An ordinary
-  vanilla method such as `Gui.render` is obfuscated at runtime and must be
-  remapped through the refmap, or the injection silently never matches.
+- Forge 50+ production JARs keep official names for the login targets and
+  `Gui.render`; those injections use `remap = false`. Forge 48/49 remain SRG
+  and must retain their generated mappings.
 
 The icon is drawn with `GuiGraphics.fill` primitives rather than a blit texture,
 because the `blit` signatures differ across 1.21.1 through 1.21.8. Adding a real texture

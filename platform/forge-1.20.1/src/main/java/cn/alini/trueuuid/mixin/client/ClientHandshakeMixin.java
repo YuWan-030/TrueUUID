@@ -62,6 +62,8 @@ public abstract class ClientHandshakeMixin {
         boolean offlineUpgradeAvailable = query.migrationAvailable();
         String offlineUuid = query.offlineUuid();
         String offlineDataSummary = query.summary();
+        Trueuuid.acceptance("phase=client_query_received migrationAvailable={} migrationConfirm={}",
+                offlineUpgradeAvailable, NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId));
 
         Minecraft mc = Minecraft.getInstance();
         User user = mc.getUser();
@@ -71,6 +73,7 @@ public abstract class ClientHandshakeMixin {
         int transactionId = packet.getTransactionId();
 
         if (offlineUpgradeAvailable && NetIds.MIGRATION_CONFIRM_SERVER_ID.equals(serverId)) {
+            Trueuuid.acceptance("phase=client_migration_query_received offlineUuid={}", offlineUuid);
             trueuuid$confirmOfflinePlayerDataUpgrade(mc, offlineUuid, offlineDataSummary, this.trueuuid$lastHasJoinedUrl,
                     loginConnection, transactionId);
             ci.cancel();
@@ -80,6 +83,7 @@ public abstract class ClientHandshakeMixin {
         // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
         if (trueuuid$isMissingSessionToken(token)) {
             trueuuid$debug("client session token is absent or is a development placeholder");
+            Trueuuid.acceptance("phase=client_missing_session_token");
             ClientAccountStatus.markOffline();
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
@@ -102,12 +106,14 @@ public abstract class ClientHandshakeMixin {
                         // 令牌只在本地使用 (Token is only used locally)
                         mc.getMinecraftSessionService().joinServer(profile, token, serverId);
                         trueuuid$debug("joinServer completed successfully");
+                        Trueuuid.acceptance("phase=client_joinserver_ok");
                         return true;
                     } catch (Throwable t) {
                         // Never log the access token, profile properties, nonce, endpoint,
                         // or raw authlib response.  A small fixed category is enough to
                         // tell a stale Prism session from a connectivity/service failure.
                         trueuuid$debug("joinServer failed: " + trueuuid$authFailureCategory(t));
+                        Trueuuid.acceptance("phase=client_joinserver_failed category={}", trueuuid$authFailureCategory(t));
                         return false;
                     }
                 })
@@ -117,6 +123,7 @@ public abstract class ClientHandshakeMixin {
                     if (ok) ClientAccountStatus.markPremium();
                     else ClientAccountStatus.markOffline();
                     if (!ok || !upgradeAvailable) {
+                        Trueuuid.acceptance("phase=client_auth_answer_sent joined={} migrationConfirmed=false", ok);
                         trueuuid$sendAuthAck(loginConnection, transactionId, ok, hasJoinedUrl, false, false);
                         return;
                     }
@@ -159,15 +166,24 @@ public abstract class ClientHandshakeMixin {
         // LOGIN 自定义查询必须回复 LOGIN 阶段的 ServerboundCustomQueryPacket，不能切到 PLAY 包。
         FriendlyByteBuf resp = new FriendlyByteBuf(Unpooled.wrappedBuffer(AuthWireCodec.encodeAnswer(
                 new AuthMessages.Answer(ok, hasJoinedUrl, migrationConfirmed, missingSessionToken))));
+        Trueuuid.acceptance("phase=client_answer_send joined={} migrationConfirmed={} missingToken={}",
+                ok, migrationConfirmed, missingSessionToken);
         connection.send(new ServerboundCustomQueryPacket(transactionId, resp));
     }
 
     @Unique
     private static void trueuuid$confirmOfflinePlayerDataUpgrade(Minecraft mc, String offlineUuid, String offlineDataSummary, String hasJoinedUrl, Connection connection, int transactionId) {
+        if (trueuuid$testAutoConfirmMigration()) {
+            Trueuuid.acceptance("phase=client_migration_auto_confirm offlineUuid={}", offlineUuid);
+            trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, true, false);
+            return;
+        }
         mc.execute(() -> {
             Component mode = trueuuid$authSourceComponent(hasJoinedUrl);
+            Trueuuid.acceptance("phase=client_migration_prompt_shown offlineUuid={}", offlineUuid);
             mc.setScreen(new ConfirmScreen(
                     confirmed -> {
+                        Trueuuid.acceptance("phase=client_migration_prompt_answer confirmed={}", confirmed);
                         trueuuid$sendAuthAck(connection, transactionId, true, hasJoinedUrl, confirmed, false);
                         mc.setScreen(null);
                     },
@@ -177,6 +193,12 @@ public abstract class ClientHandshakeMixin {
                     Component.translatable("trueuuid.confirm.exit_admin")
             ));
         });
+    }
+
+    @Unique
+    private static boolean trueuuid$testAutoConfirmMigration() {
+        String value = System.getenv("TRUEUUID_TEST_AUTO_CONFIRM_MIGRATION");
+        return "1".equals(value) || "true".equalsIgnoreCase(value);
     }
 
     @Unique

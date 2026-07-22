@@ -1,4 +1,4 @@
-// Shared ForgeGradle wiring for the SRG-named Minecraft 1.20.2-1.20.6 era.
+// Shared ForgeGradle wiring for the Minecraft 1.20.2-1.20.6 login API era.
 // Each thin target build supplies only its exact dependency and metadata values.
 apply plugin: 'org.spongepowered.mixin'
 
@@ -18,8 +18,10 @@ base {
 
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
 def legacyMatrix = "${rootDir}/platform/forge-common/src/legacy-matrix"
+def runtimeNames = target.get('officialRuntimeNames') == true ? 'official-runtime' : 'srg-runtime'
 sourceSets.main.java.srcDir "${forgeCommon}/java"
 sourceSets.main.java.srcDir "${legacyMatrix}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/${runtimeNames}/java"
 sourceSets.main.java.exclude 'cn/alini/trueuuid/mixin/client/ForgeClientGuiMixin.java'
 if (target.layeredHud) {
     sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
@@ -133,4 +135,31 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+def loginMixins = [
+        'cn/alini/trueuuid/mixin/client/ForgeClientQueryDecodeMixin',
+        'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin',
+        'cn/alini/trueuuid/mixin/server/ForgeServerAnswerDecodeMixin',
+        'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin'
+]
+def verifyRuntimeMixinMappings = tasks.register('verifyRuntimeMixinMappings') {
+    dependsOn tasks.named('compileJava')
+    def refmapFile = layout.buildDirectory.file('tmp/compileJava/trueuuid.refmap.json')
+    inputs.file(refmapFile)
+    doLast {
+        def refmap = new groovy.json.JsonSlurper().parse(refmapFile.get().asFile)
+        def mappings = refmap.mappings ?: [:]
+        def present = loginMixins.findAll { mappings.containsKey(it) }
+        if (target.get('officialRuntimeNames') == true && !present.isEmpty()) {
+            throw new GradleException("Official-named Forge runtime must not ship SRG login mappings: ${present}")
+        }
+        if (target.get('officialRuntimeNames') != true && present.size() != loginMixins.size()) {
+            def missing = loginMixins - present
+            throw new GradleException("SRG-named Forge runtime is missing login mappings: ${missing}")
+        }
+    }
+}
+tasks.named('check') {
+    dependsOn verifyRuntimeMixinMappings
 }

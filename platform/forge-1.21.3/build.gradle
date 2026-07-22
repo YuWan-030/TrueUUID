@@ -38,7 +38,9 @@ base {
 // Only the version-divergent shims (mixins, payloads, client render, mods.toml)
 // live in this module's own src tree. See platform/forge-common/README.md.
 def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def loginMatrix = "${rootDir}/platform/forge-common/src/login-matrix"
 sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${loginMatrix}/java"
 sourceSets.main.resources.srcDir "${forgeCommon}/resources"
 sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
 

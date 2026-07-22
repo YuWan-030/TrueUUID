@@ -16,6 +16,7 @@ def sharedProtocolMain = project(':shared:protocol')
         .named('main')
 def adapterMain = "${rootDir}/platform/neoforge-1.21.1/src/main"
 def adapterTests = "${rootDir}/platform/neoforge-1.21.1/src/test"
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
 def minecraftVersion = '1.20.2'
 // NeoForge 20.2.93 is the latest stable of the 20.2 line
 // (maven.neoforged.net, checked 2026-07-16).
@@ -44,12 +45,16 @@ repositories { mavenCentral() }
 // - TrueuuidClientOverlay: RegisterGuiLayersEvent is 1.21+; 20.2 uses the
 //   pre-1.21 RegisterGuiOverlaysEvent + Mod.EventBusSubscriber form.
 // - mixin/server/ServerLoginMixin: onDisconnect takes Component before 1.21
-//   (DisconnectionDetails does not exist yet).
+//   (DisconnectionDetails does not exist yet), and NeoForge 20.2 wraps login
+//   answers in SimpleQueryPayload.
+// - net/AuthAnswerPackets: NeoForge 20.2 requires SimpleQueryPayload on the
+//   client-to-server login wire; later versions accept the vanilla payload.
 // - config/TrueuuidConfig: FML 1.x registers configs on ModLoadingContext,
 //   not ModContainer.
 def preModernSources = [
         'cn/alini/trueuuid/TrueuuidClientOverlay.java',
         'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
+        'cn/alini/trueuuid/net/AuthAnswerPackets.java',
         'cn/alini/trueuuid/config/TrueuuidConfig.java'
 ]
 sourceSets.main.java.srcDir "${adapterMain}/java"
@@ -68,13 +73,25 @@ runs {
     }
 }
 
-sourceSets.main.output.dir(sharedProtocolMain.get().output)
-
 dependencies {
     implementation "net.neoforged:neoforge:${neoForgeVersion}"
     implementation project(':shared:protocol')
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+// NeoGradle 7 turns each classes directory attached to a source-set output
+// into a separate secure module. The shared protocol then becomes invisible
+// to TrueUUID at runtime even though the release jar is correct. Merge its
+// plain-Java classes into the dev mod's own classes directory instead.
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs)
+    include '**/*.class'
+    into(mainClassesDir)
+}
+tasks.named('classes') {
+    dependsOn mergeSharedProtocolClasses
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -103,7 +120,6 @@ tasks.named('compileJava', JavaCompile).configure {
 
 tasks.named('jar', Jar).configure {
     archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
-    from { project(':shared:protocol').sourceSets.main.output }
 }
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }

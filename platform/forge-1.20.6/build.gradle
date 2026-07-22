@@ -31,7 +31,10 @@ ext.forgeTarget = [
         javaCompatibility    : 'JAVA_17',
         packFormat           : 32,
         layeredHud           : true,
-        streamCodec          : true
+        streamCodec          : true,
+        // Forge 50's production client/server JAR keeps Mojang's official
+        // member names. Older Forge 48/49 production JARs still use SRG.
+        officialRuntimeNames : true
 ]
 
 apply from: "${rootDir}/platform/forge-common/legacy-matrix.gradle"

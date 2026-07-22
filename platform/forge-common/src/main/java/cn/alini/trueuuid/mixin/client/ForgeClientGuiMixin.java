@@ -15,13 +15,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * exists and TrueuuidClientOverlay registers a real HUD layer instead; those
  * newer pipelines drop draws made from a Gui.render inject.
  *
- * <p>Note: no {@code remap = false} here. Gui.render is an ordinary vanilla
- * method whose runtime name is obfuscated, so it must be remapped through the
- * refmap. Only the Forge-preserved login methods may use remap = false.
+ * <p>Forge 52+ production JARs retain Mojang's official member names. Remapping
+ * this target through the userdev SRG refmap changes {@code render} to the
+ * absent {@code m_280421_} and crashes before the title screen appears.
  */
-@Mixin(Gui.class)
+@Mixin(value = Gui.class, remap = false)
 abstract class ForgeClientGuiMixin {
-    @Inject(method = "render", at = @At("TAIL"))
+    @Inject(method = "render", at = @At("TAIL"), remap = false)
     private void trueuuid$renderAccountStatus(GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback) {
         ClientAccountStatus.render(graphics);
     }

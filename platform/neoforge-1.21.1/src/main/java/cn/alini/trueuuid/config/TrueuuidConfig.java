@@ -1,9 +1,11 @@
 package cn.alini.trueuuid.config;
 
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -99,5 +101,52 @@ public final class TrueuuidConfig {
     public static boolean recentIpGraceEnabled() { return RECENT_IP_GRACE_ENABLED.get(); }
     public static int recentIpGraceTtlSeconds() { return RECENT_IP_GRACE_TTL_SECONDS.get(); }
     public static boolean debug() { return DEBUG.get(); }
+
+    public static void reloadFromDisk(Path path) {
+        try (CommentedFileConfig config = CommentedFileConfig.builder(path).sync().autosave().build()) {
+            config.load();
+            setBoolean(config, "auth.allowOfflineOnTimeout", ALLOW_OFFLINE_ON_TIMEOUT);
+            setBoolean(config, "auth.showJoinFeedback", SHOW_JOIN_FEEDBACK);
+            setBoolean(config, "auth.showJoinTitle", SHOW_JOIN_TITLE);
+            setBoolean(config, "auth.showAccountOverlay", SHOW_ACCOUNT_OVERLAY);
+            setBoolean(config, "auth.allowOfflineOnFailure", ALLOW_OFFLINE_ON_FAILURE);
+            setBoolean(config, "auth.knownPremiumDenyOffline", KNOWN_PREMIUM_DENY_OFFLINE);
+            setBoolean(config, "auth.allowOfflineForUnknownOnly", ALLOW_OFFLINE_FOR_UNKNOWN_ONLY);
+            setBoolean(config, "auth.recentIpGrace.enabled", RECENT_IP_GRACE_ENABLED);
+            setBoolean(config, "auth.debug", DEBUG);
+            setLong(config, "auth.timeoutMs", TIMEOUT_MS);
+            setInt(config, "auth.recentIpGrace.ttlSeconds", RECENT_IP_GRACE_TTL_SECONDS);
+            setInt(config, "auth.overlayOffsetX", OVERLAY_OFFSET_X);
+            setInt(config, "auth.overlayOffsetY", OVERLAY_OFFSET_Y);
+            setDouble(config, "auth.overlayScale", OVERLAY_SCALE);
+            Object corner = config.get("auth.overlayCorner");
+            if (corner instanceof String value) OVERLAY_CORNER.set(value);
+            Object hosts = config.get("auth.yggdrasil.apiRootWhitelist");
+            if (hosts instanceof List<?> values && values.stream().allMatch(String.class::isInstance)) {
+                YGGDRASIL_HOSTS.set(values.stream().map(String.class::cast).toList());
+            }
+        }
+    }
+
+    private static void setBoolean(CommentedFileConfig config, String key, ModConfigSpec.BooleanValue value) {
+        Object current = config.get(key);
+        if (current instanceof Boolean typed) value.set(typed);
+    }
+
+    private static void setLong(CommentedFileConfig config, String key, ModConfigSpec.LongValue value) {
+        Object current = config.get(key);
+        if (current instanceof Number typed) value.set(typed.longValue());
+    }
+
+    private static void setInt(CommentedFileConfig config, String key, ModConfigSpec.IntValue value) {
+        Object current = config.get(key);
+        if (current instanceof Number typed) value.set(typed.intValue());
+    }
+
+    private static void setDouble(CommentedFileConfig config, String key, ModConfigSpec.DoubleValue value) {
+        Object current = config.get(key);
+        if (current instanceof Number typed) value.set(typed.doubleValue());
+    }
+
     private TrueuuidConfig() {}
 }

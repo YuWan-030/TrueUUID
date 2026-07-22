@@ -48,10 +48,11 @@ internet. It deliberately binds to localhost and uses offline mode for testing.
 - Supports configured Yggdrasil/authlib-injector services on adapters that list
   that feature in the target matrix.
 
-Some older adapters also include offline-to-verified data migration, admin
-commands, and the addon API. Fabric and the newer Forge/NeoForge adapters do
-not yet have every Forge 1.20.1 feature, so consult the target matrix instead
-of assuming full parity.
+All 24 currently declared adapters include offline-to-verified data migration,
+admin commands, and the addon API. Their premium, offline fallback, confirmed
+migration, and known-name denial paths passed the installed-JAR runtime matrix.
+Other feature paths still have target-specific runtime gaps, so consult the
+target matrix instead of assuming every implemented feature was exercised.
 
 ## How login verification works
 
@@ -142,11 +143,11 @@ An empty allowlist keeps Mojang as the only accepted session service.
 
 ## Migration and admin commands
 
-Adapters with migration support can back up and move same-name offline player
-data to a verified UUID. Migration requires confirmation and preserves both
+TrueUUID can back up and move same-name offline player data to a verified UUID.
+Migration requires confirmation and preserves both
 the old offline data and any existing destination data before changing files.
 
-Available admin commands on those adapters:
+Available admin commands:
 
 ```text
 /trueuuid cleanupuuid <name>
@@ -158,9 +159,8 @@ adapters currently include migration.
 
 ## Addon API
 
-Adapters with the server-side API expose `cn.alini.trueuuid.api.TrueuuidApi`.
-Other mods can query whether a player joined as premium or through offline
-fallback:
+The server-side API exposes `cn.alini.trueuuid.api.TrueuuidApi`. Other mods can
+query whether a player joined as premium or through offline fallback:
 
 ```java
 AccountStatus status = TrueuuidApi.getStatus(serverPlayer);

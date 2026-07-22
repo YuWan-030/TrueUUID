@@ -3,6 +3,7 @@ package cn.alini.trueuuid.fabric.config;
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
@@ -13,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Fabric configuration surface. Fabric ships no config library, so this is a
@@ -29,6 +32,7 @@ public final class FabricConfig {
     private static final boolean DEFAULT_ALLOW_OFFLINE_FOR_UNKNOWN_ONLY = true;
     private static final long DEFAULT_TIMEOUT_MS = 30_000L;
     private static final boolean DEFAULT_ALLOW_OFFLINE_ON_TIMEOUT = false;
+    private static final List<String> DEFAULT_YGGDRASIL_HOSTS = List.of();
     private static final boolean DEFAULT_RECENT_IP_GRACE_ENABLED = true;
     private static final int DEFAULT_RECENT_IP_GRACE_TTL_SECONDS = 10;
     private static final boolean DEFAULT_SHOW_JOIN_FEEDBACK = true;
@@ -45,6 +49,7 @@ public final class FabricConfig {
     private static volatile boolean allowOfflineForUnknownOnly = DEFAULT_ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
     private static volatile long timeoutMs = DEFAULT_TIMEOUT_MS;
     private static volatile boolean allowOfflineOnTimeout = DEFAULT_ALLOW_OFFLINE_ON_TIMEOUT;
+    private static volatile List<String> yggdrasilHosts = DEFAULT_YGGDRASIL_HOSTS;
     private static volatile boolean recentIpGraceEnabled = DEFAULT_RECENT_IP_GRACE_ENABLED;
     private static volatile int recentIpGraceTtlSeconds = DEFAULT_RECENT_IP_GRACE_TTL_SECONDS;
     private static volatile boolean showJoinFeedback = DEFAULT_SHOW_JOIN_FEEDBACK;
@@ -80,6 +85,7 @@ public final class FabricConfig {
                 allowOfflineForUnknownOnly = readBoolean(auth, "allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
                 timeoutMs = readBoundedLong(auth, "timeoutMs", timeoutMs, 1_000L, 600_000L);
                 allowOfflineOnTimeout = readBoolean(auth, "allowOfflineOnTimeout", allowOfflineOnTimeout);
+                yggdrasilHosts = readStringList(auth, "yggdrasilHosts", yggdrasilHosts, 128, 2048);
                 JsonObject grace = auth.get("recentIpGrace") instanceof JsonObject section ? section : new JsonObject();
                 recentIpGraceEnabled = readBoolean(grace, "enabled", recentIpGraceEnabled);
                 recentIpGraceTtlSeconds = (int) readBoundedLong(grace, "ttlSeconds", recentIpGraceTtlSeconds, 1L, 60L);
@@ -113,6 +119,9 @@ public final class FabricConfig {
 
     /** false: kick when authentication times out. true: apply the offline fallback policy on timeout instead. */
     public static boolean allowOfflineOnTimeout() { return allowOfflineOnTimeout; }
+
+    /** Explicit allowlist for client-supplied Yggdrasil hasJoined endpoints. */
+    public static List<String> yggdrasilHosts() { return yggdrasilHosts; }
 
     /** Enable short same-IP reconnect grace after logout, reusing the last verified identity only within the TTL window. */
     public static boolean recentIpGraceEnabled() { return recentIpGraceEnabled; }
@@ -157,6 +166,18 @@ public final class FabricConfig {
         return Float.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
     }
 
+    private static List<String> readStringList(JsonObject section, String key, List<String> fallback,
+                                               int maxEntries, int maxChars) {
+        if (!(section.get(key) instanceof JsonArray values)) return fallback;
+        List<String> result = new ArrayList<>();
+        for (int i = 0; i < values.size() && result.size() < maxEntries; i++) {
+            if (!values.get(i).isJsonPrimitive() || !values.get(i).getAsJsonPrimitive().isString()) continue;
+            String value = values.get(i).getAsString().trim();
+            if (!value.isEmpty() && value.length() <= maxChars) result.add(value);
+        }
+        return List.copyOf(result);
+    }
+
     private static String readOverlayCorner(JsonObject section, String key, String fallback) {
         if (!section.has(key) || !section.get(key).isJsonPrimitive() || !section.get(key).getAsJsonPrimitive().isString()) {
             return fallback;
@@ -175,6 +196,9 @@ public final class FabricConfig {
         auth.addProperty("allowOfflineForUnknownOnly", allowOfflineForUnknownOnly);
         auth.addProperty("timeoutMs", timeoutMs);
         auth.addProperty("allowOfflineOnTimeout", allowOfflineOnTimeout);
+        JsonArray hosts = new JsonArray();
+        for (String host : yggdrasilHosts) hosts.add(host);
+        auth.add("yggdrasilHosts", hosts);
         JsonObject grace = new JsonObject();
         grace.addProperty("enabled", recentIpGraceEnabled);
         grace.addProperty("ttlSeconds", recentIpGraceTtlSeconds);
@@ -202,6 +226,7 @@ public final class FabricConfig {
         allowOfflineForUnknownOnly = DEFAULT_ALLOW_OFFLINE_FOR_UNKNOWN_ONLY;
         timeoutMs = DEFAULT_TIMEOUT_MS;
         allowOfflineOnTimeout = DEFAULT_ALLOW_OFFLINE_ON_TIMEOUT;
+        yggdrasilHosts = DEFAULT_YGGDRASIL_HOSTS;
         recentIpGraceEnabled = DEFAULT_RECENT_IP_GRACE_ENABLED;
         recentIpGraceTtlSeconds = DEFAULT_RECENT_IP_GRACE_TTL_SECONDS;
         showJoinFeedback = DEFAULT_SHOW_JOIN_FEEDBACK;

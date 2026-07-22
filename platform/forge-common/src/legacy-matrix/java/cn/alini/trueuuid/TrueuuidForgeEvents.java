@@ -1,7 +1,9 @@
 package cn.alini.trueuuid;
 
+import cn.alini.trueuuid.command.TrueuuidCommands;
 import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 // EventBus 6 (Forge 48-50 / MC 1.20.2-1.20.6), same as Forge 52-55. The EventBus 7 line
@@ -24,6 +26,11 @@ public final class TrueuuidForgeEvents {
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         ForgeAdapterRuntime.onPlayerLoggedOut(event);
+    }
+
+    @SubscribeEvent
+    public static void onRegisterCommands(RegisterCommandsEvent event) {
+        TrueuuidCommands.register(event.getDispatcher());
     }
 
     @SubscribeEvent

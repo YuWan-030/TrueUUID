@@ -27,6 +27,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 
 /** Forge-owned runtime facade for the shared safe session verifier. */
@@ -52,12 +54,16 @@ public final class ForgeAdapterRuntime {
     private static SessionVerifier verifier;
     private static ForgeVerifiedNameRegistry verifiedNames;
     private static RecentIpGrace ipGrace;
+    private static MigrationCoordinator migrations;
+    private static MigrationLockRegistry migrationLocks;
 
     public static synchronized void initialize() {
         if (verifier != null) return;
         requests = new BoundedRequestCoordinator();
         verifiedNames = new ForgeVerifiedNameRegistry();
         ipGrace = new RecentIpGrace();
+        migrations = new MigrationCoordinator();
+        migrationLocks = new MigrationLockRegistry();
         // Fail closed for custom endpoints until this target exposes an explicit
         // Forge config allowlist; Mojang's fixed endpoint remains available.
         verifier = new SafeSessionVerifier(requests, () -> new EndpointPolicy(TrueuuidConfig.yggdrasilHosts()), ForgeAdapterRuntime::parse);
@@ -78,6 +84,10 @@ public final class ForgeAdapterRuntime {
         verifiedNames = null;
         if (ipGrace != null) ipGrace.close();
         ipGrace = null;
+        if (migrations != null) migrations.close();
+        migrations = null;
+        if (migrationLocks != null) migrationLocks.close();
+        migrationLocks = null;
     }
 
     /** Records a TrueUUID session verification until the matching player joins. */
@@ -118,6 +128,32 @@ public final class ForgeAdapterRuntime {
                 TrueuuidConfig.knownPremiumDenyOffline(), TrueuuidConfig.allowOfflineForUnknownOnly());
     }
 
+    public static synchronized boolean isMigrationPending(String name) {
+        initialize();
+        return migrationLocks != null && migrationLocks.contains(name);
+    }
+
+    public static synchronized void markMigrationPending(String name) {
+        initialize();
+        if (migrationLocks != null) migrationLocks.mark(name);
+    }
+
+    public static synchronized void clearMigrationPending(String name) {
+        if (migrationLocks != null) migrationLocks.clear(name);
+    }
+
+    public static MigrationCoordinator migrations() {
+        initialize();
+        return migrations;
+    }
+
+    public static CompletableFuture<Integer> probeMojangAsync() {
+        initialize();
+        SafeSessionHttpClient http = new SafeSessionHttpClient();
+        return requests.submit("__probe__", "mojang", "probe", () ->
+                http.getTrusted(URI.create("https://sessionserver.mojang.com/session/minecraft/hasJoined?username=Mojang&serverId=test")).status());
+    }
+
     private static void recordPendingLogin(UUID uuid, AuthenticationSource source) {
         prunePendingLogins(System.currentTimeMillis());
         while (pendingLogins.size() >= MAX_PENDING_VERIFICATIONS) {
@@ -149,6 +185,9 @@ public final class ForgeAdapterRuntime {
         statusStore.publish(player, player.getUUID(), source.publicStatus);
 
         Trueuuid.LOGGER.info("TrueUUID {}: player={}, uuid={}", source.auditLabel,
+                player.getGameProfile().name(), player.getUUID());
+        Trueuuid.acceptance("result={} player={} uuid={}",
+                source == AuthenticationSource.OFFLINE_FALLBACK ? "offline_fallback" : "premium_join",
                 player.getGameProfile().name(), player.getUUID());
 
         if (TrueuuidConfig.showJoinFeedback()) {

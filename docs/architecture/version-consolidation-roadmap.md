@@ -1,140 +1,58 @@
 # Version consolidation roadmap
 
-Status: written 2026-07-16, not yet executed. This is the canonical reference
-for three planned future sessions:
+This document records when one compiled adapter may claim adjacent Minecraft
+patches. The live target inventory and evidence are in
+[`target-matrix.md`](target-matrix.md).
 
-1. [`forge-1.20-1.21-consolidation-handoff.md`](../development/forge-1.20-1.21-consolidation-handoff.md)
-2. [`neoforge-1.20-1.21-consolidation-handoff.md`](../development/neoforge-1.20-1.21-consolidation-handoff.md)
-3. [`fabric-1.20-consolidation-handoff.md`](../development/fabric-1.20-consolidation-handoff.md)
+## Current state
 
-Read this document first; it holds the shared evidence and rules those three
-docs all point back to instead of repeating.
+The root manifest contains 24 exact compile targets: 11 Forge, one Fabric, and
+12 NeoForge. All passed the four-case core runtime matrix on 2026-07-22. Their
+metadata remains conservative and does not implicitly claim omitted patches.
 
-## The problem this solves
+Fabric 1.20.2-1.21.11 is the remaining loader expansion. Follow the canonical
+[Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md). Forge 1.21.11
+is a separate Gradle 9.5 build island and still needs root release/CI integration
+plus runtime acceptance.
 
-Today TrueUUID ships 12 Gradle modules (`target-matrix.md`), each declaring a
-`versionRange` that covers exactly one Minecraft patch, even in the parts of
-the tree that already share source aggressively (`forge-common`,
-`neoforge-1.21.1`'s privileged-module pattern, `fabric-common`). Diffing every
-per-module file across the five existing `forge-1.21.x` modules confirms the
-source layer is not the problem: only **2 files** genuinely diverge across
-the whole family —
+## Candidate protocol clusters
 
-- `TrueuuidForgeEvents.java` (the `SubscribeEvent` import: EventBus 6 for
-  Forge ≤ 55 vs EventBus 7 for Forge 56+), and
-- `client/TrueuuidHudScale.java` (`PoseStack` vs `Matrix3x2fStack`, the
-  1.21.5+ GUI pipeline change)
+Matching protocol versions identify candidates for one compiled JAR; they do
+not establish loader/API or runtime compatibility.
 
-— everything else compiles unchanged from `platform/forge-common/src/main`
-via `srcDir`. So extending version coverage without "flooding" the repo is
-not a source-sharing problem to re-solve; it's a question of **which patches
-can safely share one compiled jar**, via a widened `versionRange`, instead of
-getting their own module.
+| Cluster | Candidate Minecraft patches |
+|---|---|
+| 763 | 1.20.1 |
+| 764 | 1.20.2 |
+| 765 | 1.20.3, 1.20.4 |
+| 766 | 1.20.5, 1.20.6 |
+| 767 | 1.21, 1.21.1 |
+| 768 | 1.21.2, 1.21.3 |
+| 769 | 1.21.4 |
+| 770 | 1.21.5 |
+| 771 | 1.21.6 |
+| 772 | 1.21.7, 1.21.8 |
+| 773 | 1.21.9, 1.21.10 |
+| 774 | 1.21.11 |
 
-## The evidence: Minecraft protocol version numbers
+Forge has no published loader for Minecraft 1.20.5 or 1.21.2. Loader-specific
+availability must be checked before attempting a candidate range.
 
-`target-matrix.md` already has a policy for this ("Sharing a jar across
-patches"): a module may declare a wider `versionRange` than its build patch
-only after a real two-sided login run passes on every patch it claims.
-Protocol-identical adjacent patches are the objective way to find *candidates*
-worth attempting that proof on — never a substitute for the proof itself.
+## Widening rule
 
-Source: [minecraft.wiki protocol version table](https://minecraft.wiki/w/Protocol_version),
-cross-checked against this repo's own already-shipped version numbers (which
-match, e.g. `forge-1.21.3`/`neoforge-1.21.3` already cover exactly the 768
-cluster's higher member).
+A target may widen its Minecraft version range only after all of the following:
 
-| MC version | Protocol | Clusters with | Forge module today | NeoForge module today |
-|---|---:|---|---|---|
-| 1.20.1 | 763 | *(none — pre-configuration-phase, permanent island)* | `forge-1.20.1` | — |
-| 1.20.2 | 764 | *(none — first configuration-phase patch)* | — | — |
-| 1.20.3 | 765 | 1.20.4 | — | — |
-| 1.20.4 | 765 | 1.20.3 | — | — |
-| 1.20.5 | 766 | 1.20.6 | — | — |
-| 1.20.6 | 766 | 1.20.5 | — | — |
-| 1.21 | 767 | 1.21.1 | *(not declared — range starts at 1.21.1)* | *(not declared)* |
-| 1.21.1 | 767 | 1.21 | `forge-1.21.1` `[1.21.1,1.21.2)` | `neoforge-1.21.1` `[1.21.1,1.21.2)` |
-| 1.21.2 | 768 | 1.21.3 | *(not declared)* | *(not declared)* |
-| 1.21.3 | 768 | 1.21.2 | `forge-1.21.3` `[1.21.3,1.21.4)` | `neoforge-1.21.3` `[1.21.3,1.21.4)` |
-| 1.21.4 | 769 | *(none)* | `forge-1.21.4` | `neoforge-1.21.4` |
-| 1.21.5 | 770 | *(none)* | `forge-1.21.5` | `neoforge-1.21.5` |
-| 1.21.6 | 771 | *(none)* | — | — |
-| 1.21.7 | 772 | 1.21.8 | *(not declared)* | *(not declared)* |
-| 1.21.8 | 772 | 1.21.7 | `forge-1.21.8` `[1.21.8,1.21.9)` | `neoforge-1.21.8` `[1.21.8,1.21.9)` |
-| 1.21.9 | 773 | 1.21.10 | — | — |
-| 1.21.10 | 773 | 1.21.9 | — | — |
-| 1.21.11 | 774 | *(none)* | — | — |
+1. the same production JAR passes structural verification;
+2. a matching modded client and server boot on every exact patch claimed;
+3. the full applicable login/feature matrix passes on every patch;
+4. the target matrix records the loader build, artifact hash, and result; and
+5. a maintainer explicitly approves the range and release state.
 
-Two important, non-obvious findings from this table:
+Compilation, protocol equality, or success on the module's compile patch does
+not substitute for an exact-patch run. If an API seam prevents safe widening,
+add a thin module/source-set seam instead of introducing version conditionals
+into shared behaviour.
 
-### 1. A correction to `forge-1.21.8`'s own source
-
-`platform/forge-1.21.8/src/main/resources/META-INF/mods.toml` currently
-carries this comment:
-
-```
-# hotfixes; widen this to "[1.21.6,1.21.9)" (and loaderVersion to "[56,)") only
-# after a two-sided login run passes on those patches.
-```
-
-This is wrong. **1.21.6's protocol number (771) does not match 1.21.7/1.21.8's
-(772).** Only 1.21.7 is a genuine wire-level match for the 1.21.8 build;
-1.21.6 needs its own module. Session 1 must fix this comment (target
-`[1.21.7,1.21.9)`, not `[1.21.6,1.21.9)`) and give 1.21.6 its own module
-rather than trying to fold it in.
-
-### 2. 1.21.11 is not an arbitrary ceiling
-
-[Minecraft Wiki](https://minecraft.wiki/w/Java_Edition_1.21.11) and
-[NeoForged's own 26.1 release notes](https://neoforged.net/news/26.1release/)
-confirm 1.21.11 is **the final Java Edition release using the legacy
-`1.x.y` version scheme** — Minecraft moves to a year-based `26.1`/`26.2`
-scheme afterward, and NeoForge already has a `26.1` line live. The requested
-ceiling of 1.21.11 is therefore the complete remaining legacy range, not a
-number chosen arbitrarily. The `26.x` line is **explicitly out of scope**
-for the three sessions this roadmap covers — a future session should treat it
-as a new, separate versioning era (much like 1.20.1 → 1.20.2 or 1.20.1 was to
-the rest of this repo), not an extension of any `1.21.x` module's range.
-
-## Target module counts after all three sessions
-
-| Loader | Today | After | Distinct MC patches covered |
-|---|---:|---:|---|
-| Forge | 6 modules | 12 modules | 18 (1.20.1–1.20.6, 1.21–1.21.11) |
-| NeoForge | 5 modules | 12 modules | 18 (1.20.1–1.20.6, 1.21–1.21.11) |
-| Fabric | 1 module | 4 modules | 6 (1.20.1–1.20.6) |
-
-Full per-loader module lists, phase ordering, and architectural decisions
-(new shared roots vs. reusing existing ones) live in each session's own
-handoff doc — this document intentionally does not repeat them, to avoid the
-two ever drifting out of sync.
-
-## Decisions already made (do not re-litigate without new information)
-
-1. **NeoForge 1.20.1 is in scope as a best-effort module**, despite
-   [NeoForged's own docs](https://docs.neoforged.net/docs/gettingstarted/versioning/)
-   recommending Forge instead of NeoForge on 1.20.1 (NeoForge only became
-   fully independent starting at 1.20.2). It is the lowest-priority target in
-   Session 2, built last, and stays `release: false` unless it genuinely
-   proves solid — this is explicitly going against upstream's own guidance,
-   so keep expectations low.
-2. **Already-shipped modules get widened, not just left alone**, wherever the
-   protocol table above supports it: `forge-1.21.1`/`neoforge-1.21.1` should
-   eventually also declare bare `1.21`; `forge-1.21.3`/`neoforge-1.21.3`
-   should eventually also declare `1.21.2`. Same login-run-before-widening
-   gate as every new module — this is a widen, not a shortcut.
-
-## The one rule every session must not skip
-
-> A `versionRange` may only claim a second Minecraft patch after a real,
-> recorded two-sided (modded client + modded server) login run passes on
-> **every** patch it claims. Protocol-version matching (this document) tells
-> you where that attempt is *likely* to succeed. It never substitutes for
-> making the attempt. A compiling jar and a matching protocol number are not
-> a support claim — see `target-matrix.md`'s existing framing of "Planned"
-> vs. runtime-proven targets, which applies identically here.
-
-Each session doc's first task is to add its new target rows to
-`target-matrix.md` as `Planned`, exactly as
-[`fabric-1.20.1-handoff.md`](../development/fabric-1.20.1-handoff.md)
-already did for Fabric before that module existed.
+Minecraft 1.21.11 is the last legacy `1.x.y` patch considered by this roadmap.
+Later year-based versions are a new compatibility era and require a separate
+design and target plan.

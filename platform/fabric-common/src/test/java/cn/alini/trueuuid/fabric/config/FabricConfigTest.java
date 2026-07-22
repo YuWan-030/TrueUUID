@@ -29,6 +29,17 @@ class FabricConfigTest {
         assertEquals(17, FabricConfig.overlayOffsetX());
         assertEquals(-8, FabricConfig.overlayOffsetY());
         assertEquals(2.0F, FabricConfig.overlayScale());
+        assertTrue(FabricConfig.yggdrasilHosts().isEmpty());
+    }
+
+    @Test
+    void readsBoundedYggdrasilHostAllowlist() throws Exception {
+        Path file = temporaryDirectory.resolve("trueuuid.json");
+        Files.writeString(file, "{\"auth\":{\"yggdrasilHosts\":[\"skin.example\",\"  auth.example  \",123,\"\"]}}");
+
+        FabricConfig.load(file);
+
+        assertEquals(java.util.List.of("skin.example", "auth.example"), FabricConfig.yggdrasilHosts());
     }
 
     @Test

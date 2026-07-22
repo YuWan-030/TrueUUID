@@ -16,19 +16,19 @@ config="trueuuid.mixins.json"
 
 [[dependencies.${mod_id}]]
 modId="neoforge"
-mandatory=true
+type="required"
 versionRange="${neoforge_version_range}"
 ordering="NONE"
 side="BOTH"
 
-# 1.20.4-era NeoForge still predates the neoforge.mods.toml rename and the
-# type="required" dependency syntax, hence META-INF/mods.toml and
-# mandatory=true here. 1.20.4 is protocol 765, shared with 1.20.3;
+# 1.20.4-era NeoForge still uses META-INF/mods.toml, but its FML parser rejects
+# the older mandatory=true dependency field and requires type="required".
+# 1.20.4 is protocol 765, shared with 1.20.3;
 # see the widen note in build.gradle and target-matrix.md. See also
 # docs/architecture/version-consolidation-roadmap.md.
 [[dependencies.${mod_id}]]
 modId="minecraft"
-mandatory=true
+type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"

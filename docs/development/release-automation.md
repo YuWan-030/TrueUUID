@@ -13,14 +13,22 @@ TrueUUID has one repository version and one complete target inventory:
   then boots a localhost development server and headless client for every
   target.
 
-The current inventory is 20 modules: seven Forge, one Fabric, and twelve
-NeoForge. CI coverage is separate from release approval. A target with
+The current root inventory is 24 modules: eleven Forge, one Fabric, and twelve
+NeoForge. Forge 1.21.11 is a standalone build island and is not yet part of
+this inventory or release workflow. CI coverage is separate from release approval. A target with
 `"release": false` is still built and self-tested, but it is never attached to
 a GitHub Release or sent to a distribution service.
 
 Every matrix job installs the target's declared JDK for the Java toolchain and
 JDK 21 as the Gradle launcher. The launcher must be 21 even for Java 17 targets
 because Fabric Loom is configured on every Gradle invocation.
+
+Run the aggregate `./gradlew build` with dependency access enabled. The legacy
+NeoGradle 7 task used by NeoForge 1.20.2 treats Gradle's offline state as a cache
+input; switching that task to `--offline` can remove its cached Minecraft client
+artifact and then fail because it is forbidden to restore it. This is a plugin
+cache limitation, not a source validation mode. Focused tests may use
+`--offline` only when their loader toolchain is known to support it.
 
 ## Publishing gates
 
@@ -82,7 +90,7 @@ Run the manual `Publish Access Check` workflow at any time to verify Modrinth
 and CurseForge without creating a tag or release. The Release workflow repeats
 those checks immediately after validating its draft, and also PATCHes the
 draft with its existing body and flags to prove GitHub write access without a
-semantic change. All checks run before the 20-target self-test. Modrinth and
+semantic change. All checks run before the 24-target self-test. Modrinth and
 CurseForge are probed with complete metadata but deliberately no file; both
 upload APIs must authorize the request and then reject it for the missing
 required file. The probe never creates a version or uploads an artifact.
@@ -116,10 +124,14 @@ handling, or migration rollback. Those scenarios remain manual release gates.
 ## Publishing version 1.2.0
 
 At the time this document was updated, every target in `release/targets.json`
-still had `"release": false`. The repository can build and self-test every
-target, but the Release workflow will intentionally publish nothing until at
-least one target's manual acceptance evidence is complete and that target is
-explicitly approved.
+still had `"release": false`. All 24 exact targets passed the automated
+installed-JAR premium, offline fallback, confirmed migration, and known-name
+denial matrix on 2026-07-22. That result does not cover allowed Yggdrasil,
+timeouts/disconnects, reconnect grace, negative/rollback migration paths,
+admin commands, addon callbacks, or skin refresh, so it does not yet satisfy
+the complete publication gate. The Release workflow will intentionally publish
+nothing until the remaining applicable evidence is recorded and a maintainer
+explicitly approves each target.
 
 After the manual acceptance matrix passes for each target being approved:
 

@@ -151,3 +151,7 @@ secrets/
 # Default location is ~/.local/share/trueuuid-testclient (outside the repo);
 # this guards against an in-repo TRUEUUID_TEST_HOME ever being committed.
 trueuuid-testclient/
+
+# Python caches produced by the runtime acceptance harness.
+__pycache__/
+*.py[cod]

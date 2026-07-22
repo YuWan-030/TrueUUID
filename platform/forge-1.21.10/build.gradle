@@ -46,6 +46,7 @@ def modernMatrixTest = "${rootDir}/platform/forge-common/src/modern-matrix-test"
 // and supplied as module-local copies under src/main/java. Pinned by
 // diagnostic compile.
 def recordEraSources = [
+        'cn/alini/trueuuid/TrueuuidClientOverlay.java',
         'cn/alini/trueuuid/server/ForgeAdapterRuntime.java',
         'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin.java',
         'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin.java'

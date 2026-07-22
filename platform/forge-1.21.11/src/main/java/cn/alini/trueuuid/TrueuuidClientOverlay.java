@@ -4,6 +4,7 @@ import cn.alini.trueuuid.client.ClientAccountStatus;
 import net.minecraft.resources.Identifier;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.common.Mod;
 // EventBus 7 (Forge 56+). Forge <=55 uses eventbus.api.SubscribeEvent.
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
@@ -18,7 +19,11 @@ import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 @Mod.EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class TrueuuidClientOverlay {
     @SubscribeEvent
-    public static void addLayers(AddGuiOverlayLayersEvent event) {
+    public static void clientSetup(FMLClientSetupEvent event) {
+        AddGuiOverlayLayersEvent.BUS.addListener(TrueuuidClientOverlay::addLayers);
+    }
+
+    private static void addLayers(AddGuiOverlayLayersEvent event) {
         event.getLayeredDraw().add(
                 Identifier.fromNamespaceAndPath(Trueuuid.MODID, "account_status"),
                 (graphics, deltaTracker) -> ClientAccountStatus.render(graphics));

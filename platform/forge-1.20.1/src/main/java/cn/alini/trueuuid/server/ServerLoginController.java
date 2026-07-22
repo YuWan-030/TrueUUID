@@ -119,6 +119,7 @@ public final class ServerLoginController {
         this.trueuuid$offlineUpgradeOffered = false;
         this.trueuuid$migrationConfirmation = false;
         debug("sending authentication query for " + access.profile().getName());
+        Trueuuid.acceptance("phase=auth_query_sent player={}", access.profile().getName());
 
         access.connection().send(LoginPacketCodec.initial(this.trueuuid$txId, this.trueuuid$nonce));
         // Do not let vanilla accept the offline profile while authentication
@@ -152,6 +153,7 @@ public final class ServerLoginController {
         }
 
         if (this.trueuuid$offlineUpgradeOffered) {
+            Trueuuid.acceptance("result=migration_timeout player={}", access.profile() == null ? "<unknown>" : access.profile().getName());
             sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_confirm_timeout"));
             reset();
         } else if (TrueuuidConfig.allowOfflineOnTimeout()) {
@@ -177,6 +179,8 @@ public final class ServerLoginController {
             return;
         }
         debug("received authentication response for " + access.profile().getName());
+        Trueuuid.acceptance("phase=auth_answer_received player={} migrationPhase={}",
+                access.profile().getName(), this.trueuuid$migrationConfirmation);
 
         String ip;
         if (access.connection().getRemoteAddress() instanceof InetSocketAddress isa) {
@@ -228,12 +232,16 @@ public final class ServerLoginController {
             try {
                 if (!ackOk || !finalMigrationConfirmed || this.trueuuid$pendingVerifiedProfile == null
                         || this.trueuuid$pendingAuthSource == null || this.trueuuid$pendingOfflineData == null) {
+                    Trueuuid.acceptance("result=migration_rejected player={} joined={} confirmed={}",
+                            access.profile() == null ? "<unknown>" : access.profile().getName(), ackOk, finalMigrationConfirmed);
                     trueuuid$sendDuplicateUuidDisconnect();
                     reset();
                     return;
                 }
 
                 String migrationName = this.trueuuid$pendingVerifiedProfile.getName();
+                Trueuuid.acceptance("phase=migration_answer_accepted player={} uuid={}",
+                        migrationName, this.trueuuid$pendingVerifiedProfile.getId());
                 trueuuid$markMigrationPending(migrationName);
                 int activeTx = this.trueuuid$txId;
                 this.trueuuid$currentWork = TrueuuidRuntime.MIGRATIONS.forServer(access.server()).migrate(
@@ -242,6 +250,7 @@ public final class ServerLoginController {
                             if (this.trueuuid$txId != activeTx) return;
                             try {
                                 if (failure != null) {
+                                    Trueuuid.acceptance("result=migration_failed player={}", migrationName);
                                     sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_failed",
                                             migrationName, this.trueuuid$pendingOfflineData.offlineUuid(),
                                             this.trueuuid$pendingVerifiedProfile.getId(), Component.translatable("trueuuid.error.internal")));
@@ -249,6 +258,8 @@ public final class ServerLoginController {
                                     trueuuid$finalizeVerifiedLogin(this.trueuuid$pendingIp != null ? this.trueuuid$pendingIp : ip,
                                             this.trueuuid$pendingVerifiedProfile, this.trueuuid$pendingAuthSource,
                                             this.trueuuid$pendingAuthDisplayName);
+                                    Trueuuid.acceptance("result=migration_complete player={} uuid={}",
+                                            migrationName, this.trueuuid$pendingVerifiedProfile.getId());
                                 }
                             } finally {
                                 trueuuid$clearMigrationPending(migrationName);
@@ -421,6 +432,8 @@ public final class ServerLoginController {
         String name = verifiedProfile.getName();
         UUID verifiedUuid = verifiedProfile.getId();
         if (data != null && !data.offlineUuid().equals(verifiedUuid)) {
+            Trueuuid.acceptance("phase=migration_needed player={} offlineUuid={} verifiedUuid={}",
+                    name, data.offlineUuid(), verifiedUuid);
             trueuuid$requestOfflineUpgradeConfirmation(data, verifiedProfile, source, displayName, ip);
             return false;
         }
@@ -434,6 +447,7 @@ public final class ServerLoginController {
         UUID verifiedUuid = verifiedProfile.getId();
         access.profile(verifiedProfile);
         VerifiedProfileService.record(access.connection(), verifiedProfile, ip, source, displayName);
+        Trueuuid.acceptance("result=premium_ready player={} uuid={} source={}", name, verifiedUuid, source);
         if (TrueuuidConfig.debug()) {
             System.out.println("[TrueUUID] 记录认证成功来源: " + source + ", displayName=" + displayName);
         }
@@ -454,6 +468,8 @@ public final class ServerLoginController {
         this.loginState.beginMigration(this.trueuuid$txId,
                 new MigrationTransaction.Offer(data.offlineUuid(), data.summary()), this.trueuuid$sentAt);
 
+        Trueuuid.acceptance("phase=migration_query_sent player={} offlineUuid={} verifiedUuid={}",
+                verifiedProfile.getName(), data.offlineUuid(), verifiedProfile.getId());
         access.connection().send(LoginPacketCodec.migration(this.trueuuid$txId, data));
     }
 

@@ -10,5 +10,6 @@ public final class NetIds {
     // unreachable.
     public static final Identifier AUTH =
             java.util.Objects.requireNonNull(Identifier.tryParse("trueuuid:auth"));
+    public static final String MIGRATION_CONFIRM_SERVER_ID = "trueuuid:migration-confirm";
     private NetIds() {}
 }

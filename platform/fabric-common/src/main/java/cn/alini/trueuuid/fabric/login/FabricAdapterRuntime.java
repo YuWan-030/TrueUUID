@@ -20,6 +20,8 @@ public final class FabricAdapterRuntime {
     private static FabricVerifiedNameRegistry verifiedNames;
     private static RecentIpGrace ipGrace;
     private static FabricPendingLoginStore pendingLogins;
+    private static MigrationCoordinator migrations;
+    private static MigrationLockRegistry migrationLocks;
 
     /** Records a TrueUUID session verification plus the same-IP reconnect grace seed. */
     public static synchronized void recordVerifiedProfile(VerifiedProfile profile, String clientIp) {
@@ -73,6 +75,27 @@ public final class FabricAdapterRuntime {
         return registry().premiumUuid(name);
     }
 
+    public static synchronized boolean isMigrationPending(String name) {
+        return migrationLocks().contains(name);
+    }
+
+    public static synchronized void markMigrationPending(String name) {
+        migrationLocks().mark(name);
+    }
+
+    public static synchronized void clearMigrationPending(String name) {
+        if (migrationLocks != null) migrationLocks.clear(name);
+    }
+
+    public static synchronized MigrationCoordinator migrations() {
+        if (migrations == null) migrations = new MigrationCoordinator();
+        return migrations;
+    }
+
+    public static java.util.concurrent.CompletableFuture<Integer> probeMojangAsync() {
+        return FabricSessionCheck.probeMojangAsync();
+    }
+
     public static synchronized void shutdown() {
         if (pendingLogins != null) pendingLogins.clear();
         pendingLogins = null;
@@ -80,6 +103,10 @@ public final class FabricAdapterRuntime {
         verifiedNames = null;
         if (ipGrace != null) ipGrace.close();
         ipGrace = null;
+        if (migrations != null) migrations.close();
+        migrations = null;
+        if (migrationLocks != null) migrationLocks.close();
+        migrationLocks = null;
     }
 
     private static FabricVerifiedNameRegistry registry() {
@@ -95,6 +122,11 @@ public final class FabricAdapterRuntime {
     private static FabricPendingLoginStore pendingLogins() {
         if (pendingLogins == null) pendingLogins = new FabricPendingLoginStore();
         return pendingLogins;
+    }
+
+    private static MigrationLockRegistry migrationLocks() {
+        if (migrationLocks == null) migrationLocks = new MigrationLockRegistry();
+        return migrationLocks;
     }
 
     private FabricAdapterRuntime() {}

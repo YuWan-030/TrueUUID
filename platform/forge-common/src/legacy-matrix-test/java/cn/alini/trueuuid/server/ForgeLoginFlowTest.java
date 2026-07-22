@@ -3,6 +3,7 @@ package cn.alini.trueuuid.server;
 import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
+import cn.alini.trueuuid.protocol.MigrationTransaction;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import io.netty.buffer.Unpooled;
@@ -34,6 +35,22 @@ class ForgeLoginFlowTest {
         assertTrue(flow.timedOut(130, 30));
         flow.close();
         assertTrue(!flow.active());
+    }
+
+    @Test
+    void migrationConfirmationCanOnlyFollowVerification() {
+        ForgeLoginFlow flow = new ForgeLoginFlow();
+        byte[] answer = AuthWireCodec.encodeAnswer(new AuthMessages.Answer(true, "", false, false));
+        flow.start(22, "nonce", 100);
+        assertTrue(flow.accept(22, answer, "Player", "203.0.113.9", verifier()).join().isPresent());
+
+        UUID offline = UUID.nameUUIDFromBytes("OfflinePlayer:Player".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        AuthMessages.Query query = AuthWireCodec.decodeQuery(flow.migrationQuery(23,
+                new MigrationTransaction.Offer(offline, "playerdata"), 110));
+        assertTrue(query.migrationAvailable());
+        assertEquals(offline.toString(), query.offlineUuid());
+        assertTrue(!flow.acceptMigration(24, AuthWireCodec.encodeAnswer(new AuthMessages.Answer(true, "", true, false))));
+        assertTrue(flow.acceptMigration(23, AuthWireCodec.encodeAnswer(new AuthMessages.Answer(true, "", true, false))));
     }
 
     @Test

@@ -43,6 +43,12 @@ release-jar installer and does not claim that a planned target is supported.
 Memory defaults: Gradle 1G, Fabric client 3G, Fabric server 1536M. Override
 them deliberately with TRUEUUID_GRADLE_XMX, TRUEUUID_CLIENT_XMX, or
 TRUEUUID_SERVER_XMX (for example: TRUEUUID_CLIENT_XMX=4G).
+
+Server env overrides:
+  TRUEUUID_SERVER_IP      Bind address (default: 127.0.0.1)
+  TRUEUUID_SERVER_PORT    Port (default: Minecraft default / existing file)
+  TRUEUUID_SERVER_MOTD    MOTD written to server.properties for test runs
+  TRUEUUID_SERVER_LEVEL   World directory name (default: trueuuid-ci-world)
 EOF
 }
 
@@ -75,7 +81,7 @@ target_game_java=$(jq -r '.java' <<<"$target_metadata")
 role_cap="$(tr '[:lower:]' '[:upper:]' <<< "${role:0:1}")${role:1}"
 gradle_task=":platform:${target}:run${role_cap}"
 
-java_home="${TRUEUUID_JAVA_HOME:-${JAVA_HOME:-/usr/lib/jvm/jdk-17.0.12-oracle-x64}}"
+java_home="${TRUEUUID_JAVA_HOME:-${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}}"
 
 if [[ ! -x "$java_home/bin/java" ]]; then
     printf 'A JDK %s is required. Set TRUEUUID_JAVA_HOME to its installation directory.\n' "$required_java" >&2
@@ -97,23 +103,52 @@ if [[ "$role" == "server" ]]; then
     # TrueUUID's premium-session path is exercised only by an offline-mode
     # server. Keep the development server local by default; a production
     # server must be configured deliberately and must not inherit this script.
-    run_dir="$root/platform/$target/run/server"
-    mkdir -p "$run_dir"
-    # Auto-accept the Minecraft EULA for this LOCAL development server only.
-    # This is a throwaway test instance on your own machine; a production
-    # server must agree to the EULA deliberately and must not inherit this.
-    printf 'eula=true\n' > "$run_dir/eula.txt"
-    server_properties="$run_dir/server.properties"
-    touch "$server_properties"
-    for setting in 'online-mode=false' 'server-ip=127.0.0.1'; do
-        key="${setting%%=*}"
-        if grep -q "^${key}=" "$server_properties"; then
-            sed -i -E "s|^${key}=.*|${setting}|" "$server_properties"
-        else
-            printf '\n%s\n' "$setting" >> "$server_properties"
-        fi
+    # Different Gradle plugins and target eras use different dev-server
+    # working directories. Prepare both common locations; the actual run only
+    # reads the one its Gradle run config selects.
+    run_dirs=(
+        "$root/platform/$target/run"
+        "$root/platform/$target/run/server"
+        # NeoGradle 7 (used only by NeoForge 1.20.2) defaults to runs/server.
+        "$root/platform/$target/runs/server"
+    )
+    server_level="${TRUEUUID_SERVER_LEVEL:-trueuuid-ci-world}"
+    if [[ ! "$server_level" =~ ^[A-Za-z0-9._-]+$ || "$server_level" == "." || "$server_level" == ".." ]]; then
+        printf 'TRUEUUID_SERVER_LEVEL must be a simple world directory name, not a path: %q\n' "$server_level" >&2
+        exit 64
+    fi
+    settings=(
+        "online-mode=false"
+        "server-ip=${TRUEUUID_SERVER_IP:-127.0.0.1}"
+        "level-name=${server_level}"
+        "max-tick-time=-1"
+    )
+    if [[ -n "${TRUEUUID_SERVER_PORT:-}" ]]; then
+        settings+=("server-port=${TRUEUUID_SERVER_PORT}")
+    fi
+    if [[ -n "${TRUEUUID_SERVER_MOTD:-}" ]]; then
+        settings+=("motd=${TRUEUUID_SERVER_MOTD}")
+    fi
+    for run_dir in "${run_dirs[@]}"; do
+        mkdir -p "$run_dir"
+        # Auto-accept the Minecraft EULA for this LOCAL development server only.
+        # This is a throwaway test instance on your own machine; a production
+        # server must agree to the EULA deliberately and must not inherit this.
+        printf 'eula=true\n' > "$run_dir/eula.txt"
+        server_properties="$run_dir/server.properties"
+        touch "$server_properties"
+        for setting in "${settings[@]}"; do
+            key="${setting%%=*}"
+            if grep -q "^${key}=" "$server_properties"; then
+                sed -i -E "s|^${key}=.*|${setting}|" "$server_properties"
+            else
+                printf '\n%s\n' "$setting" >> "$server_properties"
+            fi
+        done
     done
-    printf 'TrueUUID local test server: eula=true, online-mode=false, server-ip=127.0.0.1\n'
+    printf 'TrueUUID local test server: eula=true, online-mode=false, server-ip=%s' "${TRUEUUID_SERVER_IP:-127.0.0.1}"
+    [[ -n "${TRUEUUID_SERVER_PORT:-}" ]] && printf ', server-port=%s' "$TRUEUUID_SERVER_PORT"
+    printf ', level-name=%s\n' "$server_level"
 fi
 
 # Online by default: a new Minecraft version's assets must download on first run.

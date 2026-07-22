@@ -9,6 +9,8 @@ import java.util.List;
 public final class TrueuuidConfig {
     public static final ForgeConfigSpec COMMON_SPEC;
     public static final Common COMMON;
+    private static final List<String> OVERLAY_CORNERS = List.of(
+            "top_left", "top_right", "bottom_left", "bottom_right");
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -104,7 +106,8 @@ public final class TrueuuidConfig {
             // Keep these identical to the modern Forge line (platform/forge-common)
             // so the badge behaves the same on every supported target.
             overlayCorner = b.comment("Screen corner for the account-status badge: top_left, top_right, bottom_left, bottom_right. Default bottom_right: vanilla keeps status effects and advancement toasts in the top right, chat in the bottom left, and mods commonly take the top left. / 账号状态角标所在屏幕角落。默认 bottom_right。")
-                    .defineInList("overlayCorner", "bottom_right", java.util.List.of("top_left", "top_right", "bottom_left", "bottom_right"));
+                    .define("overlayCorner", "bottom_right",
+                            value -> value instanceof String && OVERLAY_CORNERS.contains(value));
             overlayOffsetX = b.comment("Extra horizontal pixels for the badge, to dodge another mod's HUD. Positive moves right. / 角标水平像素偏移，正值向右。")
                     .defineInRange("overlayOffsetX", 0, -4096, 4096);
             overlayOffsetY = b.comment("Extra vertical pixels for the badge, to dodge another mod's HUD. Positive moves down. / 角标垂直像素偏移，正值向下。")

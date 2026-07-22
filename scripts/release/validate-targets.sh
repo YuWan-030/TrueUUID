@@ -11,13 +11,13 @@ fi
 [[ -f "$targets_file" ]] || { echo "missing target manifest: $targets_file" >&2; exit 66; }
 
 jq -e '
-  .schema_version == 2 and
+  .schema_version == 3 and
   (.curseforge_project_id | type == "number" and floor == . and . > 0) and
   (.targets | type == "array" and length > 0) and
   ([.targets[].id] | length == (unique | length)) and
   ([.targets[].artifact] | length == (unique | length)) and
   all(.targets[];
-    ((keys | sort) == (["artifact", "build_task", "game_version", "id", "java", "loader", "metadata", "release", "srg_probe"] | sort)) and
+    ((keys | sort) == (["artifact", "build_task", "game_version", "id", "java", "loader", "metadata", "release", "runtime_loader_version", "srg_probe"] | sort)) and
     (.id | type == "string" and test("^[a-z0-9]+(?:[.-][a-z0-9]+)*$")) and
     (.build_task == (":platform:" + .id + ":build")) and
     (.id as $id |
@@ -27,6 +27,7 @@ jq -e '
       contains("%VERSION%")) and
     (.loader | type == "string" and test("^[a-z0-9-]+$")) and
     (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$")) and
+    (.runtime_loader_version | type == "string" and test("^[0-9]+(?:\\.[0-9]+)+(?:-[A-Za-z0-9.-]+)?$")) and
     (.java == 17 or .java == 21) and
     (.metadata == "META-INF/mods.toml" or
       .metadata == "META-INF/neoforge.mods.toml" or

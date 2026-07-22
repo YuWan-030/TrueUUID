@@ -11,5 +11,6 @@ public final class ForgeNetIds {
     // 1.21.x. The input is a constant, so the null branch is unreachable.
     public static final ResourceLocation AUTH =
             Objects.requireNonNull(ResourceLocation.tryParse("trueuuid:auth"));
+    public static final String MIGRATION_CONFIRM_SERVER_ID = "trueuuid:migration-confirm";
     private ForgeNetIds() {}
 }
