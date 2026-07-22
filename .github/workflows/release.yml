@@ -112,11 +112,17 @@ jobs:
                game_version: .game_version}]}' \
             release/targets.json)
           jq -e '.include | length > 0' <<<"$approved" >/dev/null
-          release_json=$(gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json databaseId,tagName,isDraft,isPrerelease,body)
+          release_json=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+            jq -sce --arg tag "$RELEASE_TAG" '
+              add |
+              [.[] | select(.tag_name == $tag)] as $matches |
+              if ($matches | length) == 1 then $matches[0]
+              elif ($matches | length) == 0 then error("release not found")
+              else error("release tag is ambiguous")
+              end')
           jq -e --arg tag "$RELEASE_TAG" \
-            '.tagName == $tag and .isDraft == true and .isPrerelease == false and
+            '.tag_name == $tag and .draft == true and .prerelease == false and
              (.body | length > 0)' <<<"$release_json" >/dev/null
           jq -j '.body' <<<"$release_json" > release-changelog.md
           ./scripts/release/validate-release-config.sh "$version" release-changelog.md
@@ -128,7 +134,7 @@ jobs:
           fi
           echo "Release ${RELEASE_TAG} requested by @${GITHUB_ACTOR}."
           echo "approved=$approved" >> "$GITHUB_OUTPUT"
-          echo "release_id=$(jq -r '.databaseId' <<<"$release_json")" >> "$GITHUB_OUTPUT"
+          echo "release_id=$(jq -r '.id' <<<"$release_json")" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
       - name: Freeze the draft GitHub changelog
@@ -233,8 +239,35 @@ jobs:
       - name: Attach tested assets to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
-        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          RELEASE_ID: ${{ needs.metadata.outputs.release_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
+          for asset in release-assets/*; do
+            name=$(basename "$asset")
+            [[ "$name" =~ ^(SHA256SUMS|trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+\.[0-9]+\.jar)$ ]]
+            while IFS= read -r asset_id; do
+              [[ "$asset_id" =~ ^[1-9][0-9]*$ ]]
+              gh api --method DELETE \
+                "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"
+            done < <(gh api \
+              "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" \
+              --jq ".[] | select(.name == \"${name}\") | .id")
+            curl --fail --silent --show-error \
+              --proto '=https' \
+              --tlsv1.2 \
+              --connect-timeout 10 \
+              --max-time 300 \
+              --request POST \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              --header 'Content-Type: application/octet-stream' \
+              --data-binary "@${asset}" \
+              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${name}" \
+              >/dev/null
+          done
 
   publish-external:
     name: Publish ${{ matrix.loader_name }} ${{ matrix.game_version }} (Modrinth @${{ needs.publishing-access.outputs.modrinth_username }})
@@ -352,22 +385,27 @@ jobs:
       - name: Publish only after every external upload succeeds
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.metadata.outputs.release_id }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
-          release_json=$(gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json isDraft,isPrerelease,body)
-          jq -e '.isDraft == true and .isPrerelease == false' \
+          [[ "$RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
+          release_json=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == true and .prerelease == false' \
             <<<"$release_json" >/dev/null
           jq -j '.body' <<<"$release_json" > current-changelog.md
           if ! cmp --silent frozen-changelog/release-changelog.md current-changelog.md; then
             echo "The draft changelog changed while the release was running." >&2
             exit 73
           fi
-          gh release edit "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --notes-file frozen-changelog/release-changelog.md \
-            --draft=false \
-            --latest
+          updated=$(gh api --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=false \
+            -F prerelease=false \
+            -f make_latest=true)
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == false and .prerelease == false' \
+            <<<"$updated" >/dev/null

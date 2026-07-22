@@ -48,6 +48,12 @@ Publishing starts only when a maintainer manually runs the `Release` workflow
 from `main` and supplies the tag of an existing draft GitHub Release. The
 workflow requires all of these independent gates:
 
+GitHub gives an unpublished draft an `untagged-...` browser URL and its normal
+release-by-tag endpoint returns 404 until publication. The workflow therefore
+resolves the authenticated draft through the releases list by its stored
+`tag_name`, then uses the immutable release ID for asset uploads and final
+publication.
+
 1. The GitHub Release is still a draft, is not a prerelease, and its body is
    byte-for-byte identical to the checked-in English-first bilingual changelog
    for that version.

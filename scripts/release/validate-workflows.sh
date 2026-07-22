@@ -38,6 +38,16 @@ for release_guard in \
     }
 done
 
+for draft_api_contract in \
+    'repos/${GITHUB_REPOSITORY}/releases?per_page=100' \
+    'https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${name}' \
+    'repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}'; do
+    grep -Fq "$draft_api_contract" .github/workflows/release.yml || {
+        echo "release.yml cannot safely operate on unpublished drafts: ${draft_api_contract}" >&2
+        exit 65
+    }
+done
+
 grep -Fq 'The draft body must exactly match' .github/workflows/release.yml || {
     echo "release.yml must reject a draft body that differs from the checked-in changelog" >&2
     exit 65
