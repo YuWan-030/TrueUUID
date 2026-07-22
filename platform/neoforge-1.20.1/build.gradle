@@ -116,7 +116,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-neoforge1.20.1.jar"
+    archiveFileName = "trueuuid-${project.version}-neoforge-1.20.1.jar"
     from { project(':shared:protocol').sourceSets.main.output }
     manifest {
         attributes('MixinConfigs': "${mod_id}.mixins.json")

@@ -116,7 +116,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-forge${target.minecraftVersion}.jar"
+    archiveFileName = "trueuuid-${project.version}-forge-${target.minecraftVersion}.jar"
     // Forge 48-50 production uses SRG names. Keep the generated refmap and
     // ForgeGradle reobfuscation output as the shipped target artifact.
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

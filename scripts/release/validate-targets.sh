@@ -36,13 +36,13 @@ jq -e --arg project_version "$project_version" '
       then (.build_task == "build")
       else (.build_task == (":platform:" + .id + ":build"))
       end) and
-    (.id as $id |
-      .artifact | type == "string" and
-      startswith("platform/" + $id + "/build/libs/") and
-      endswith(".jar") and
-      contains("%VERSION%")) and
-    (.loader | type == "string" and test("^[a-z0-9-]+$")) and
+    (.loader as $loader |
+      ($loader | type == "string") and
+      (["forge", "fabric", "neoforge"] | index($loader)) != null) and
     (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$")) and
+    (.id as $id | .loader as $loader | .game_version as $game_version |
+      .artifact == ("platform/" + $id + "/build/libs/trueuuid-%VERSION%-" +
+        $loader + "-" + $game_version + ".jar")) and
     (.runtime_loader_version | type == "string" and test("^[0-9]+(?:\\.[0-9]+)+(?:-[A-Za-z0-9.-]+)?$")) and
     (.java == 17 or .java == 21) and
     (.metadata == "META-INF/mods.toml" or

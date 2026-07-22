@@ -24,6 +24,14 @@ loader=$(jq -r '.loader' <<<"$target")
 minecraft_version=$(jq -r '.game_version' <<<"$target")
 [[ -f "$jar" ]] || { echo "missing release artifact: $jar" >&2; exit 66; }
 
+case "$loader" in
+  forge) loader_name=Forge ;;
+  fabric) loader_name=Fabric ;;
+  neoforge) loader_name=NeoForge ;;
+  *) echo "unsupported release loader: $loader" >&2; exit 65 ;;
+esac
+display_name="TrueUUID ${version} for ${loader_name} ${minecraft_version}"
+
 umask 077
 version_number="${version}+${target_id}"
 user_agent="YuWan-030/TrueUUID/${version} (https://github.com/YuWan-030/TrueUUID)"
@@ -47,12 +55,14 @@ case "$existing_status" in
     if ! jq -e \
       --arg project_id "$MODRINTH_PROJECT_ID" \
       --arg version_number "$version_number" \
+      --arg display_name "$display_name" \
       --arg loader "$loader" \
       --arg minecraft_version "$minecraft_version" \
       --arg sha512 "$jar_sha512" \
       --rawfile changelog "$changelog_file" \
       '.project_id == $project_id and
        .version_number == $version_number and
+       .name == $display_name and
        .changelog == $changelog and
        (.loaders | index($loader)) != null and
        (.game_versions | index($minecraft_version)) != null and
@@ -73,13 +83,14 @@ esac
 
 metadata=$(jq -cn \
   --arg project_id "$MODRINTH_PROJECT_ID" \
+  --arg display_name "$display_name" \
   --arg target_id "$target_id" \
   --arg version "$version" \
   --arg loader "$loader" \
   --arg minecraft_version "$minecraft_version" \
   --rawfile changelog "$changelog_file" \
   '{
-    name: ("TrueUUID " + $version + " for " + $target_id),
+    name: $display_name,
     version_number: ($version + "+" + $target_id),
     changelog: $changelog,
     dependencies: [],

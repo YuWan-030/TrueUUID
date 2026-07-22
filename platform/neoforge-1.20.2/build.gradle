@@ -119,7 +119,7 @@ tasks.named('compileJava', JavaCompile).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
+    archiveFileName = "trueuuid-${project.version}-neoforge-${minecraftVersion}.jar"
 }
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }

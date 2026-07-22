@@ -192,7 +192,7 @@ TARGET=neoforge-1.21.11
 The Prism-ready JAR is then:
 
 ```text
-platform/neoforge-1.21.11/build/libs/trueuuid-1.2.0-neoforge1.21.11.jar
+platform/neoforge-1.21.11/build/libs/trueuuid-1.2.0-neoforge-1.21.11.jar
 ```
 
 Change `TARGET` to any ID in `release/targets.json`, for example:

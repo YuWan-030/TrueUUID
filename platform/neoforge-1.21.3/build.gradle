@@ -76,7 +76,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-neoforge${minecraftVersion}.jar"
+    archiveFileName = "trueuuid-${project.version}-neoforge-${minecraftVersion}.jar"
     from { project(':shared:protocol').sourceSets.main.output }
 }
 

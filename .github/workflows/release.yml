@@ -99,8 +99,17 @@ jobs:
           tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
           git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main
           ./scripts/release/validate-targets.sh
-          approved=$(jq -c \
-            '{include: [.targets[] | select(.release == true) | {target: .id}]}' \
+          approved=$(jq -c '
+            def loader_name:
+              if . == "forge" then "Forge"
+              elif . == "fabric" then "Fabric"
+              elif . == "neoforge" then "NeoForge"
+              else error("unsupported loader")
+              end;
+            {include: [.targets[] | select(.release == true) |
+              {target: .id,
+               loader_name: (.loader | loader_name),
+               game_version: .game_version}]}' \
             release/targets.json)
           jq -e '.include | length > 0' <<<"$approved" >/dev/null
           release_json=$(gh release view "$RELEASE_TAG" \
@@ -228,7 +237,7 @@ jobs:
         run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
 
   publish-external:
-    name: Publish ${{ matrix.target }} (Modrinth @${{ needs.publishing-access.outputs.modrinth_username }})
+    name: Publish ${{ matrix.loader_name }} ${{ matrix.game_version }} (Modrinth @${{ needs.publishing-access.outputs.modrinth_username }})
     needs: [metadata, publishing-access, attach]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -317,7 +326,7 @@ jobs:
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ env.RELEASE_JAR }}
-          name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.target }}
+          name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.loader_name }} ${{ matrix.game_version }}
           version: ${{ needs.metadata.outputs.version }}+${{ matrix.target }}
           version-type: release
           changelog-file: frozen-changelog/release-changelog.md

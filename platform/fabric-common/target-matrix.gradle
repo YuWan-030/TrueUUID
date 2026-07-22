@@ -12,7 +12,7 @@ def sharedProtocolMain = project(':shared:protocol')
         .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
         .named('main')
 def fabricCommon = "${rootDir}/platform/fabric-common/src"
-def artifactSuffix = "fabric${target.minecraftVersion}"
+def artifactSuffix = "fabric-${target.minecraftVersion}"
 
 group = mod_group_id
 version = mod_version

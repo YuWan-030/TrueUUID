@@ -43,6 +43,20 @@ grep -Fq 'The draft body must exactly match' .github/workflows/release.yml || {
     exit 65
 }
 
+for publishing_name_contract in \
+    'loader_name: (.loader | loader_name)' \
+    'name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.loader_name }} ${{ matrix.game_version }}'; do
+    grep -Fq "$publishing_name_contract" .github/workflows/release.yml || {
+        echo "release.yml is missing human-readable publishing names: ${publishing_name_contract}" >&2
+        exit 65
+    }
+done
+grep -Fq 'display_name="TrueUUID ${version} for ${loader_name} ${minecraft_version}"' \
+    scripts/release/publish-modrinth.sh || {
+    echo "Modrinth publishing must use the human-readable loader display name" >&2
+    exit 65
+}
+
 for workflow in .github/workflows/verify.yml .github/workflows/self-test.yml; do
     grep -Fq './scripts/ci/build-target.sh "${{ matrix.target }}"' "$workflow" || {
         echo "$workflow must use the manifest-aware target builder" >&2

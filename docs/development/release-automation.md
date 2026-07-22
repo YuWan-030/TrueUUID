@@ -23,6 +23,13 @@ from release approval. Version 1.2.0 approves all 36 targets; a future target wi
 `"release": false` would still be built and self-tested but would never be
 attached to a GitHub Release or sent to a distribution service.
 
+Public JARs use the unambiguous all-hyphen pattern
+`trueuuid-{mod-version}-{loader}-{minecraft-version}.jar`, for example
+`trueuuid-1.2.0-fabric-1.21.11.jar`. Modrinth and CurseForge use the matching
+human-readable display name `TrueUUID 1.2.0 for Fabric 1.21.11`; stable API
+version identifiers remain machine-oriented, such as
+`1.2.0+fabric-1.21.11`.
+
 Every matrix job installs the target's declared JDK for the Java toolchain and
 JDK 21 as the Gradle launcher. The launcher must be 21 even for Java 17 targets
 because Fabric Loom is configured on every Gradle invocation.
@@ -203,6 +210,39 @@ After the owner-only repository setup above is complete:
    36 JARs plus `SHA256SUMS`, published the same target artifacts to Modrinth
    and CurseForge, and only then changed the GitHub Release from draft to
    public.
+
+### Adding independent developer signatures
+
+Do not place developers' personal private GPG keys in repository or environment
+secrets. After the Release workflow attaches the 36 JARs and `SHA256SUMS`, each
+developer can add an independent signature with one command:
+
+```bash
+./scripts/release/sign-release-assets.sh v1.2.0 YOUR_FULL_GPG_FINGERPRINT
+```
+
+The helper identifies the developer by the account authenticated in `gh`,
+downloads all release JARs and `SHA256SUMS`, requires the exact manifest-approved
+filename set, verifies every checksum, signs the checksum manifest with the
+developer's local GPG key, verifies the new signature, and uploads it as
+`SHA256SUMS.<github-user>.asc`. It refuses to overwrite an existing signature.
+The key argument may be omitted when the developer has only one default signing
+key. It works for draft releases visible to the authenticated maintainer and
+for published releases.
+
+Three developers therefore create three small detached signatures rather than
+108 per-JAR files. A signature over the exact `SHA256SUMS` binds all 36 JARs.
+Anyone who imports the signer's public key can verify an endorsement with:
+
+```bash
+gpg --verify SHA256SUMS.<github-user>.asc SHA256SUMS
+sha256sum --check SHA256SUMS
+```
+
+These are independent human endorsements and do not currently block automated
+publication. A mandatory three-of-three gate requires the maintainers to first
+check in the three trusted public-key fingerprints; accepting arbitrary keys or
+storing all three private keys in Actions would not provide independent trust.
 
 ## Failure recovery
 

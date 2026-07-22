@@ -117,7 +117,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-forge1.21.1.jar"
+    archiveFileName = "trueuuid-${project.version}-forge-1.21.1.jar"
     manifest {
         // Forge's Mixin bootstrap discovers production mod configs from this
         // manifest attribute. The development run supplies it as an argument,

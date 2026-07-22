@@ -136,7 +136,7 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
-    archiveFileName = "trueuuid-${project.version}-forge1.21.10.jar"
+    archiveFileName = "trueuuid-${project.version}-forge-1.21.10.jar"
     manifest {
         attributes('MixinConfigs': 'trueuuid.mixins.json')
     }
