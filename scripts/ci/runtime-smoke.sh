@@ -60,6 +60,31 @@ else
 fi
 gradle_command=("$gradle_wrapper" -p "$gradle_project" "$task" --no-daemon --stacktrace)
 
+disable_fml_early_window() {
+    local run_dir
+    local config_file
+    # Forge's and NeoForge's optional early loading window can race Xvfb on
+    # otherwise healthy CI runners. Disable only that splash window; the smoke
+    # still requires Minecraft's real render thread to reach its ready marker.
+    for run_dir in \
+        "$root/platform/$target_id/run" \
+        "$root/platform/$target_id/run/client" \
+        "$root/platform/$target_id/runs/client" \
+        "$root/run"; do
+        config_file="$run_dir/config/fml.toml"
+        mkdir -p "$(dirname "$config_file")"
+        if [[ -f "$config_file" ]] && grep -Eq \
+            '^[[:space:]]*earlyWindowControl[[:space:]]*=' "$config_file"; then
+            sed -i -E \
+                's/^[[:space:]]*earlyWindowControl[[:space:]]*=.*/earlyWindowControl = false/' \
+                "$config_file"
+        else
+            printf '\n# The CI smoke validates Minecraft itself, not the optional FML splash.\nearlyWindowControl = false\n' \
+                >> "$config_file"
+        fi
+    done
+}
+
 mkdir -p "$output_dir"
 console_log="$output_dir/${role}-console.log"
 latest_copy="$output_dir/${role}-latest.log"
@@ -94,6 +119,10 @@ if [[ "$role" == server ]]; then
     done
     command=("${gradle_command[@]}")
 elif [[ "$loader" == fabric || "$loader" == neoforge ]]; then
+    if [[ "$loader" == neoforge ]]; then
+        disable_fml_early_window
+    fi
+
     # Loom and NeoForge ModDev own their run-task program arguments. Replacing
     # them with Gradle's --args drops required launcher state (Loom's asset/game
     # flags or ModDev's real main class) and makes a clean CI client fail before
@@ -108,6 +137,7 @@ elif [[ "$loader" == fabric || "$loader" == neoforge ]]; then
         exit 69
     fi
 else
+    disable_fml_early_window
     if command -v xvfb-run >/dev/null 2>&1; then
         command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
             "${gradle_command[@]}"
@@ -163,14 +193,30 @@ trap stop_process EXIT INT TERM
 setsid "${command[@]}" >"$console_log" 2>&1 &
 pid=$!
 success=false
+failure_reason=
 latest_log=
 smoke_timeout=${TRUEUUID_SMOKE_TIMEOUT:-900}
 [[ "$smoke_timeout" =~ ^[1-9][0-9]*$ ]] || {
     echo 'TRUEUUID_SMOKE_TIMEOUT must be a positive integer number of seconds' >&2
     exit 64
 }
+max_console_bytes=${TRUEUUID_SMOKE_MAX_CONSOLE_BYTES:-67108864}
+[[ "$max_console_bytes" =~ ^[1-9][0-9]*$ ]] || {
+    echo 'TRUEUUID_SMOKE_MAX_CONSOLE_BYTES must be a positive integer number of bytes' >&2
+    exit 64
+}
 
 for (( elapsed = 0; elapsed < smoke_timeout; elapsed++ )); do
+    console_bytes=$(stat -c '%s' "$console_log" 2>/dev/null || printf '0')
+    if (( console_bytes > max_console_bytes )); then
+        failure_reason="console log exceeded ${max_console_bytes} bytes"
+        break
+    fi
+    if tail -c 262144 "$console_log" 2>/dev/null | grep -Eq \
+        'Failed to initialize (graphics window|the mod loading system and display)|Timed out trying to setup the Game Window'; then
+        failure_reason='the loader early display failed to initialize'
+        break
+    fi
     latest_log=$(find "$root/platform/$target_id" "$root/run" \
         -path '*/logs/latest.log' -type f -newer "$started" -print 2>/dev/null | head -n 1 || true)
     if [[ -n "$latest_log" ]] && grep -Fq "$load_pattern" "$latest_log"; then
@@ -194,7 +240,11 @@ if [[ -n "$latest_log" && -f "$latest_log" ]]; then
 fi
 
 if [[ "$success" != true ]]; then
-    echo "$target_id $role smoke did not reach its ready marker" >&2
+    if [[ -n "$failure_reason" ]]; then
+        echo "$target_id $role smoke failed: $failure_reason" >&2
+    else
+        echo "$target_id $role smoke did not reach its ready marker" >&2
+    fi
     tail -n 120 "$console_log" >&2 || true
     if [[ -f "$latest_copy" ]]; then
         tail -n 120 "$latest_copy" >&2 || true

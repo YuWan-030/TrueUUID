@@ -163,7 +163,9 @@ each target, the workflow:
 4. Boots an offline-mode server on `127.0.0.1` and requires both the TrueUUID
    loader message and Minecraft's server-ready marker.
 5. Boots a software-rendered client under Xvfb and requires both the TrueUUID
-   loader message and a render-thread startup marker.
+   loader message and a render-thread startup marker. Forge-like targets
+   disable the optional FML early splash in CI because it can race Xvfb; the
+   real Minecraft window and render thread are still required.
 6. Preserves the verified JAR and runtime logs as workflow artifacts.
 
 The runtime smokes use loader development runs, while the separately verified
