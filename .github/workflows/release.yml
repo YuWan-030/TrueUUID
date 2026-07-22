@@ -1,4 +1,8 @@
 name: Release
+run-name: >-
+  ${{ github.event_name == 'release'
+      && format('Guard accidental publication of {0} by @{1}', github.event.release.tag_name, github.actor)
+      || format('Release {0} requested by @{1}', inputs.tag, github.actor) }}
 
 on:
   workflow_dispatch:
@@ -7,6 +11,8 @@ on:
         description: Existing signed version tag with a draft GitHub Release
         required: true
         type: string
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -16,8 +22,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  guard-accidental-publish:
+    name: Return manually published release to draft
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # GitHub does not recursively emit workflow runs for events created with
+      # GITHUB_TOKEN. The guarded Release workflow publishes with that token;
+      # a UI, CLI, PAT, or other manual publication does emit this event.
+      - name: Re-draft release published outside the guarded workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == 'YuWan-030/TrueUUID' ]]
+          [[ "$RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          release_json=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}")
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == false' <<<"$release_json" >/dev/null
+          updated=$(gh api --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=true \
+            -F prerelease=false \
+            -f make_latest=false)
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == true' <<<"$updated" >/dev/null
+          {
+            echo '## Accidental publication blocked'
+            echo
+            echo "@${GITHUB_ACTOR} published ${RELEASE_TAG} outside the guarded Release workflow."
+            echo 'The release was immediately returned to draft. Run the Release workflow from `main` instead.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Release returned to draft::${RELEASE_TAG} was published outside the guarded workflow by @${GITHUB_ACTOR}."
+          exit 1
+
   metadata:
     name: Validate draft release
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -63,6 +111,13 @@ jobs:
              (.body | length > 0)' <<<"$release_json" >/dev/null
           jq -j '.body' <<<"$release_json" > release-changelog.md
           ./scripts/release/validate-release-config.sh "$version" release-changelog.md
+          expected_changelog="docs/development/release-changelog-${version}.md"
+          [[ -f "$expected_changelog" ]]
+          if ! cmp --silent "$expected_changelog" release-changelog.md; then
+            echo "The draft body must exactly match ${expected_changelog}." >&2
+            exit 73
+          fi
+          echo "Release ${RELEASE_TAG} requested by @${GITHUB_ACTOR}."
           echo "approved=$approved" >> "$GITHUB_OUTPUT"
           echo "release_id=$(jq -r '.databaseId' <<<"$release_json")" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -86,13 +141,15 @@ jobs:
       contents: read
 
   publishing-access:
-    name: Validate publishing credentials
+    name: Identify publisher and validate credentials
     needs: metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: release
     permissions:
       contents: write
+    outputs:
+      modrinth_username: ${{ steps.distribution.outputs.modrinth_username }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,8 +172,9 @@ jobs:
           gh api --method PATCH \
             "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --input github-release-write-probe.json >/dev/null
-          echo "Verified GitHub Release write access."
-      - name: Validate Modrinth and CurseForge publishing access
+          echo "Publishing requested by @${GITHUB_ACTOR}; GitHub Release writes use the repository-scoped github-actions[bot] token."
+      - id: distribution
+        name: Identify Modrinth publisher and validate distribution access
         env:
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
           MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
@@ -132,6 +190,7 @@ jobs:
     needs: [metadata, full-self-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    environment: release
     permissions:
       contents: write
     steps:
@@ -169,8 +228,8 @@ jobs:
         run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
 
   publish-external:
-    name: Publish ${{ matrix.target }}
-    needs: [metadata, attach]
+    name: Publish ${{ matrix.target }} (Modrinth @${{ needs.publishing-access.outputs.modrinth_username }})
+    needs: [metadata, publishing-access, attach]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release
@@ -272,6 +331,7 @@ jobs:
     needs: [metadata, publish-external]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    environment: release
     permissions:
       contents: write
     steps:

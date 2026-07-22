@@ -1,5 +1,8 @@
 ## English
 
+TrueUUID 1.2.0 is the complete cross-loader release since 1.1.2, expanding the
+original Forge 1.20.1 and NeoForge 1.21.1 support to 36 exact targets.
+
 ### Platform expansion
 
 - Added core-accepted Fabric adapters for Minecraft 1.20.1, 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and 1.21.11.
@@ -11,6 +14,7 @@
 
 - Added a small client-side account-status HUD showing verified premium or offline fallback state after a TrueUUID handshake.
 - Added configurable HUD corner, offset, and scale options across Forge, Fabric, and NeoForge.
+- Added the loader-neutral public `TrueuuidApi` for addons to query account status, register login callbacks, and inspect protected verified names across Forge, Fabric, and NeoForge.
 - Added client-language English and Simplified Chinese messages for login feedback and disconnect reasons.
 - Added configurable verification timeouts, safer offline-fallback policy, persistent protection for previously verified names, and short same-IP reconnect grace.
 - Added bounded Mojang/Yggdrasil verification with HTTPS endpoint validation, public-address checks, response limits, and redirect refusal.
@@ -26,6 +30,9 @@
 
 ## 中文
 
+TrueUUID 1.2.0 是自 1.1.2 以来的完整跨加载器版本，将原有的 Forge
+1.20.1 和 NeoForge 1.21.1 支持扩展到 36 个精确目标。
+
 ### 平台扩展
 
 - 新增已完成核心验收的 Minecraft 1.20.1、1.20.2、1.20.4、1.20.6、1.21.1、1.21.3、1.21.4、1.21.5、1.21.6、1.21.8、1.21.10 和 1.21.11 Fabric 适配器。
@@ -37,6 +44,7 @@
 
 - 新增小型客户端账号状态 HUD，在 TrueUUID 握手后显示已验证正版状态或离线回退状态。
 - Forge、Fabric 和 NeoForge 均新增 HUD 角落、偏移和缩放配置。
+- 新增跨加载器的公开 `TrueuuidApi`，供附加模组在 Forge、Fabric 和 NeoForge 上查询账号状态、注册登录回调并检查受保护的已验证名称。
 - 新增由客户端语言控制的英文和简体中文登录反馈及断开连接提示。
 - 新增可配置验证超时、更安全的离线回退策略、对已验证名称的持久化保护，以及短时间同 IP 重连宽限。
 - 新增有界 Mojang/Yggdrasil 验证，并检查 HTTPS 端点、公共地址、响应大小，同时拒绝重定向。

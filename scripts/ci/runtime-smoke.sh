@@ -9,34 +9,15 @@ fi
 target_id=$1
 role=$2
 output_dir=$3
+[[ "$target_id" =~ ^(forge|neoforge|fabric)-[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "invalid runtime smoke target: $target_id" >&2
+    exit 64
+}
+command -v jq >/dev/null 2>&1 || { echo 'jq is required' >&2; exit 69; }
 
 case "$role" in
     server|client) ;;
     *) echo "invalid smoke role: $role" >&2; exit 64 ;;
-esac
-
-case "$target_id" in
-    forge-1.20.1|neoforge-1.20.1)
-        task=":platform:${target_id}:run${role^}"
-        load_pattern='TrueUUID 已经加载'
-        ;;
-    forge-1.20.2|forge-1.20.4|forge-1.20.6|forge-1.21.1|forge-1.21.3|forge-1.21.4|forge-1.21.5|forge-1.21.6|forge-1.21.8)
-        task=":platform:${target_id}:run${role^}"
-        load_pattern='TrueUUID Forge adapter loaded'
-        ;;
-    forge-1.21.11)
-        task="run${role^}"
-        load_pattern='TrueUUID Forge adapter loaded'
-        ;;
-    neoforge-1.20.2|neoforge-1.20.4|neoforge-1.20.6|neoforge-1.21.1|neoforge-1.21.3|neoforge-1.21.4|neoforge-1.21.5|neoforge-1.21.6|neoforge-1.21.8|neoforge-1.21.10|neoforge-1.21.11)
-        task=":platform:${target_id}:run${role^}"
-        load_pattern='TrueUUID NeoForge adapter loaded'
-        ;;
-    fabric-1.20.1|fabric-1.20.2|fabric-1.20.4|fabric-1.20.6|fabric-1.21.1|fabric-1.21.3|fabric-1.21.4|fabric-1.21.5|fabric-1.21.6|fabric-1.21.8|fabric-1.21.10|fabric-1.21.11)
-        task=":platform:${target_id}:run${role^}"
-        load_pattern='TrueUUID Fabric adapter loaded'
-        ;;
-    *) echo "target has no runtime smoke configuration: $target_id" >&2; exit 65 ;;
 esac
 
 root=$(pwd)
@@ -45,10 +26,35 @@ root=$(pwd)
     exit 66
 }
 
-if [[ "$target_id" == forge-1.21.11 ]]; then
+./scripts/release/validate-targets.sh >/dev/null
+if ! target=$(jq -ce --arg id "$target_id" '
+    [.targets[] | select(.id == $id)] as $matches |
+    if ($matches | length) == 1 then $matches[0]
+    else error("target must appear exactly once")
+    end
+' release/targets.json 2>/dev/null); then
+    echo "target has no runtime smoke configuration: $target_id" >&2
+    exit 65
+fi
+
+loader=$(jq -r '.loader' <<<"$target")
+standalone=$(jq -r '.standalone // false' <<<"$target")
+case "$loader" in
+    forge) load_pattern='TrueUUID Forge adapter loaded' ;;
+    neoforge) load_pattern='TrueUUID NeoForge adapter loaded' ;;
+    fabric) load_pattern='TrueUUID Fabric adapter loaded' ;;
+    *) echo "unsupported runtime smoke loader: $loader" >&2; exit 65 ;;
+esac
+if [[ "$target_id" == forge-1.20.1 || "$target_id" == neoforge-1.20.1 ]]; then
+    load_pattern='TrueUUID 已经加载'
+fi
+
+if [[ "$standalone" == true ]]; then
+    task="run${role^}"
     gradle_wrapper="$root/platform/$target_id/gradlew"
     gradle_project="$root/platform/$target_id"
 else
+    task=":platform:${target_id}:run${role^}"
     gradle_wrapper="$root/gradlew"
     gradle_project="$root"
 fi
@@ -63,7 +69,11 @@ touch "$started"
 if [[ "$role" == server ]]; then
     # Every launcher working directory a target's runServer may use: the module
     # run root, the split server run dir (Forge/Fabric), and the repo root.
-    for run_dir in "$root/platform/$target_id/run" "$root/platform/$target_id/run/server" "$root/run"; do
+    for run_dir in \
+        "$root/platform/$target_id/run" \
+        "$root/platform/$target_id/run/server" \
+        "$root/platform/$target_id/runs/server" \
+        "$root/run"; do
         mkdir -p "$run_dir"
         printf 'eula=true\n' > "$run_dir/eula.txt"
         properties="$run_dir/server.properties"
@@ -83,9 +93,11 @@ if [[ "$role" == server ]]; then
         done
     done
     command=("${gradle_command[@]}")
-elif [[ "$target_id" == fabric-* ]]; then
-    # Loom's run tasks own their program arguments; replacing them with
-    # --args would drop the asset/game directory flags the client needs.
+elif [[ "$loader" == fabric || "$loader" == neoforge ]]; then
+    # Loom and NeoForge ModDev own their run-task program arguments. Replacing
+    # them with Gradle's --args drops required launcher state (Loom's asset/game
+    # flags or ModDev's real main class) and makes a clean CI client fail before
+    # Minecraft starts.
     if command -v xvfb-run >/dev/null 2>&1; then
         command=(env LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a --server-args=-screen\ 0\ 1280x720x24
             "${gradle_command[@]}")

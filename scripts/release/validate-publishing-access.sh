@@ -22,6 +22,42 @@ curseforge_project_id=$1
 
 user_agent="YuWan-030/TrueUUID publishing access check (https://github.com/YuWan-030/TrueUUID)"
 
+# Modrinth exposes the account represented by a personal access token. Report
+# that server-provided identity before probing VERSION_CREATE so a maintainer
+# can catch a valid token belonging to the wrong publisher without revealing
+# any credential material.
+if ! modrinth_user_response=$(curl --silent --show-error \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --header "User-Agent: ${user_agent}" \
+    --header "Authorization: ${MODRINTH_TOKEN}" \
+    --write-out $'\n%{http_code}' \
+    https://api.modrinth.com/v2/user); then
+    echo "Modrinth publisher identity lookup could not reach the API" >&2
+    exit 69
+fi
+modrinth_user_status=${modrinth_user_response##*$'\n'}
+modrinth_user_body=${modrinth_user_response%$'\n'*}
+if [[ "$modrinth_user_status" != 200 ]] || ! jq -e '
+    (.username | type == "string" and length > 0) and
+    (.id | type == "string" and length > 0)
+' <<<"$modrinth_user_body" >/dev/null; then
+    echo "Modrinth rejected MODRINTH_TOKEN during publisher identity lookup (HTTP ${modrinth_user_status})." >&2
+    exit 77
+fi
+modrinth_username=$(jq -r '.username' <<<"$modrinth_user_body")
+modrinth_user_id=$(jq -r '.id' <<<"$modrinth_user_body")
+if [[ "$modrinth_username" == *$'\n'* || "$modrinth_username" == *$'\r'* ]]; then
+    echo "Modrinth returned an unsafe publisher username" >&2
+    exit 69
+fi
+echo "Publishing to Modrinth as @${modrinth_username} (user ${modrinth_user_id})."
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    printf 'modrinth_username=%s\n' "$modrinth_username" >> "$GITHUB_OUTPUT"
+fi
+
 # VERSION_CREATE is a token scope rather than a project permission. A listed
 # version must contain a file, so this complete metadata request with no file is
 # a non-creating scope probe: 400 means authorization passed and body validation
@@ -84,7 +120,7 @@ curseforge_version_types_body=${curseforge_version_types%$'\n'*}
 if [[ "$curseforge_version_types_status" != 200 ]] ||
     ! jq -e 'type == "array" and length > 0' <<<"$curseforge_version_types_body" >/dev/null; then
     echo "CurseForge rejected CURSEFORGE_TOKEN (HTTP ${curseforge_version_types_status})." >&2
-    echo "Create a CurseForge upload token and store it as the CURSEFORGE_TOKEN repository secret." >&2
+    echo "Create a CurseForge upload token and store it as the CURSEFORGE_TOKEN release-environment secret." >&2
     exit 77
 fi
 echo "Verified that CurseForge accepts CURSEFORGE_TOKEN."
@@ -168,3 +204,4 @@ if [[ "$curseforge_status" != 400 ]] || ! jq -e '
     exit 77
 fi
 echo "Verified CurseForge project upload access without creating a file."
+echo "CurseForge does not expose the upload token owner's username; identity is reported only as an accepted token with upload access to project ${curseforge_project_id}."

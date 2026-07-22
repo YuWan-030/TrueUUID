@@ -41,16 +41,20 @@ Publishing starts only when a maintainer manually runs the `Release` workflow
 from `main` and supplies the tag of an existing draft GitHub Release. The
 workflow requires all of these independent gates:
 
-1. The GitHub Release is still a draft, is not a prerelease, and has a valid
-   English-first bilingual body.
+1. The GitHub Release is still a draft, is not a prerelease, and its body is
+   byte-for-byte identical to the checked-in English-first bilingual changelog
+   for that version.
 2. Its signed annotated tag is exactly `vX.Y.Z`, its version equals
    `mod_version`, and its commit is contained in `main`.
 3. GitHub verifies the tag signature.
 4. `release_version`, `mod_version`, and the tag version agree, and every
    declared Forge, Fabric, and NeoForge target has `"release": true`.
 5. An idempotent no-change draft update verifies GitHub Release write access;
+   the release log identifies the authenticated Modrinth username, and
    non-creating permission probes verify Modrinth `VERSION_CREATE`, the
-   CurseForge upload token, and CurseForge project upload access.
+   CurseForge upload token, and CurseForge project upload access. CurseForge's
+   upload API does not expose the token owner's username, so the workflow does
+   not invent one.
 6. The full self-test passes for all 36 declared targets.
 
 After those gates pass, the workflow freezes the draft body, collects only
@@ -100,14 +104,26 @@ No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
 steps.
 
-Run the manual `Publish Access Check` workflow at any time to verify Modrinth
-and CurseForge without creating a tag or release. The Release workflow repeats
-those checks immediately after validating its draft, and also PATCHes the
-draft with its existing body and flags to prove GitHub write access without a
-semantic change. All checks run before the 36-target self-test. Modrinth and
-CurseForge are probed with complete metadata but deliberately no file; both
-upload APIs must authorize the request and then reject it for the missing
-required file. The probe never creates a version or uploads an artifact.
+Publishing access is checked only inside the guarded `Release` workflow; there
+is no separate credential-check workflow that can drift from the real release
+path. Immediately after validating the draft, Release identifies the initiating
+GitHub actor and authenticated Modrinth username, PATCHes the draft with its
+existing body and flags to prove GitHub write access without a semantic change,
+and probes both distribution services. All checks run before the 36-target
+self-test. Modrinth and CurseForge are probed with complete metadata but
+deliberately no file; both upload APIs must authorize the request and then
+reject it for the missing required file. The probe never creates a version or
+uploads an artifact.
+
+GitHub has no server-side pre-publication hook that can disable the **Publish
+release** button for a maintainer who already has release write permission. As
+a poka-yoke, the `Release` workflow also listens for manually published
+releases and immediately changes them back to drafts, then leaves a failed
+guard run naming the actor and tag. The guarded workflow's own final publication
+uses `GITHUB_TOKEN`; GitHub does not recursively start workflows for events
+created by that token. A manual publication may therefore be visible briefly,
+but it cannot remain public or start Modrinth/CurseForge publishing through this
+automation.
 
 ## Full self-test coverage
 
@@ -180,7 +196,9 @@ After the owner-only repository setup above is complete:
    ```
 
    Approve the pending `release` environment deployment when GitHub asks. Do
-   not click GitHub's **Publish release** button yourself.
+   not click GitHub's **Publish release** button yourself. If someone does, the
+   release guard returns it to draft; inspect that guard run and then start the
+   normal Release workflow.
 5. Confirm that the workflow rebuilt/self-tested all 36 targets, attached all
    36 JARs plus `SHA256SUMS`, published the same target artifacts to Modrinth
    and CurseForge, and only then changed the GitHub Release from draft to
