@@ -103,9 +103,10 @@ Configure these values in the upstream repository:
    release maintainer to approve deployments, and restrict it to protected
    branches and tags. The credential-consuming workflow jobs are bound to this
    environment.
-2. Add `MODRINTH_TOKEN` as a `release` environment secret. Grant only the Modrinth scope
-   needed to create versions (`VERSION_CREATE`); the token owner must also be
-   allowed to upload versions to the project.
+2. Add `MODRINTH_TOKEN` as a `release` environment secret. Grant the Modrinth
+   `USER_READ` scope used to identify the publisher and the `VERSION_CREATE`
+   scope needed to create versions; the token owner must also be allowed to
+   upload versions to the project.
 3. Add `MODRINTH_PROJECT_ID` preferably as a repository variable using the
    stable eight-character project ID, not the mutable slug. A `release`
    environment secret is accepted as a fallback.

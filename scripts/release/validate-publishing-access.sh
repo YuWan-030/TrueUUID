@@ -22,10 +22,10 @@ curseforge_project_id=$1
 
 user_agent="YuWan-030/TrueUUID publishing access check (https://github.com/YuWan-030/TrueUUID)"
 
-# Modrinth exposes the account represented by a personal access token. Report
-# that server-provided identity before probing VERSION_CREATE so a maintainer
-# can catch a valid token belonging to the wrong publisher without revealing
-# any credential material.
+# Modrinth exposes the account represented by a personal access token through
+# the USER_READ-scoped endpoint. Report that server-provided identity before
+# probing VERSION_CREATE so a maintainer can catch a valid token belonging to
+# the wrong publisher without revealing any credential material.
 if ! modrinth_user_response=$(curl --silent --show-error \
     --proto '=https' \
     --tlsv1.2 \
@@ -44,7 +44,8 @@ if [[ "$modrinth_user_status" != 200 ]] || ! jq -e '
     (.username | type == "string" and length > 0) and
     (.id | type == "string" and length > 0)
 ' <<<"$modrinth_user_body" >/dev/null; then
-    echo "Modrinth rejected MODRINTH_TOKEN during publisher identity lookup (HTTP ${modrinth_user_status})." >&2
+    echo "Modrinth rejected MODRINTH_TOKEN during the USER_READ publisher identity lookup (HTTP ${modrinth_user_status})." >&2
+    echo "Create a current PAT with both USER_READ and VERSION_CREATE scopes." >&2
     exit 77
 fi
 modrinth_username=$(jq -r '.username' <<<"$modrinth_user_body")

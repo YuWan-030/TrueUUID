@@ -187,11 +187,15 @@ jobs:
           jq -e --arg tag "$RELEASE_TAG" \
             '.tag_name == $tag and .draft == true and .prerelease == false' \
             <<<"$release_json" >/dev/null
-          jq '{body, draft: true, prerelease: false}' \
+          jq '{tag_name, target_commitish, name, body,
+               draft: true, prerelease: false}' \
             <<<"$release_json" > github-release-write-probe.json
-          gh api --method PATCH \
+          updated=$(gh api --method PATCH \
             "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            --input github-release-write-probe.json >/dev/null
+            --input github-release-write-probe.json)
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == true and .prerelease == false' \
+            <<<"$updated" >/dev/null
           echo "Publishing requested by @${GITHUB_ACTOR}; GitHub Release writes use the repository-scoped github-actions[bot] token."
       - id: distribution
         name: Identify Modrinth publisher and validate distribution access
