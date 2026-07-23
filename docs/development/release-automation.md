@@ -69,7 +69,8 @@ cannot silently break draft discovery again.
 3. GitHub verifies the tag signature.
 4. `release_version`, `mod_version`, and the tag version agree, and every
    declared Forge, Fabric, and NeoForge target has `"release": true`.
-5. An idempotent no-change draft update verifies GitHub Release write access;
+5. A temporary probe-asset upload and immediate deletion verifies GitHub
+   Release write access without changing the draft metadata;
    the release log identifies the authenticated Modrinth username, and
    non-creating permission probes verify Modrinth `VERSION_CREATE`, the
    CurseForge upload token, and CurseForge project upload access. CurseForge's
@@ -128,9 +129,9 @@ steps.
 Publishing access is checked only inside the guarded `Release` workflow; there
 is no separate credential-check workflow that can drift from the real release
 path. Immediately after validating the draft, Release identifies the initiating
-GitHub actor and authenticated Modrinth username, PATCHes the draft with its
-existing body and flags to prove GitHub write access without a semantic change,
-and probes both distribution services. All checks run before the 36-target
+GitHub actor and authenticated Modrinth username, uploads and immediately
+deletes a uniquely named probe asset to prove GitHub Release write access, and
+probes both distribution services. All checks run before the 36-target
 self-test. Modrinth and CurseForge are probed with complete metadata but
 deliberately no file; both upload APIs must authorize the request and then
 reject it for the missing required file. The probe never creates a version or
