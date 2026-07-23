@@ -68,6 +68,21 @@ grep -Fq 'The draft body must exactly match' .github/workflows/release.yml || {
     exit 65
 }
 
+for immutable_tag_contract in \
+    'tag_commit: ${{ steps.release.outputs.tag_commit }}' \
+    'tag_object: ${{ steps.release.outputs.tag_object }}' \
+    'Verify the signed tag still identifies the tested commit'; do
+    grep -Fq "$immutable_tag_contract" .github/workflows/release.yml || {
+        echo "release.yml is missing immutable signed-tag binding: ${immutable_tag_contract}" >&2
+        exit 65
+    }
+done
+[[ "$(grep -Fc 'ref: ${{ needs.metadata.outputs.tag_commit }}' \
+    .github/workflows/release.yml)" -ge 4 ]] || {
+    echo "release jobs must check out the immutable tested commit, not a movable tag name" >&2
+    exit 65
+}
+
 for publishing_name_contract in \
     'loader_name: (.loader | loader_name)' \
     'name: TrueUUID ${{ needs.metadata.outputs.version }} for ${{ matrix.loader_name }} ${{ matrix.game_version }}'; do
