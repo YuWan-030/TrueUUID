@@ -29,6 +29,20 @@ jq -e '
     exit 65
 }
 
+# Release jobs consume --approved stdout as JSON. Exercise that interface here
+# so a human-readable validation message cannot break artifact collection or
+# either external publisher after the expensive self-test matrix completes.
+first_approved_target=$(jq -r '.targets[] | select(.release == true) | .id' \
+    release/targets.json | head -n 1)
+approved_target_json=$(./scripts/release/validate-targets.sh --approved \
+    "$first_approved_target")
+jq -se --arg id "$first_approved_target" \
+    'length == 1 and .[0].id == $id and .[0].release == true' \
+    <<<"$approved_target_json" >/dev/null || {
+    echo "validate-targets.sh --approved must emit exactly one target JSON object" >&2
+    exit 65
+}
+
 ./scripts/release/validate-changelog.sh "$changelog"
 
 echo "Verified complete ${version} release configuration for $(jq '.targets | length' release/targets.json) targets."

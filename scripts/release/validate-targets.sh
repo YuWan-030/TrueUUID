@@ -82,11 +82,15 @@ while IFS=$'\t' read -r target_id standalone; do
     fi
 done < <(jq -r '.targets[] | [.id, (.standalone // false)] | @tsv' "$targets_file")
 
-python3 scripts/ci/validate-source-sharing.py
-
 if [[ $# -eq 0 ]]; then
+    python3 scripts/ci/validate-source-sharing.py
     exit 0
 fi
+
+# In --approved mode stdout is a machine-readable API: callers capture it and
+# pass it directly to jq. Keep human validation diagnostics on stderr so they
+# can never corrupt the target JSON.
+python3 scripts/ci/validate-source-sharing.py >&2
 
 target_id=$2
 jq -ce --arg id "$target_id" '
