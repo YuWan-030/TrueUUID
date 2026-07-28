@@ -8,7 +8,10 @@ import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Forge 60 seam: the overlay event became a standalone record-event bus. */
+/**
+ * Forge 59 record-event seam. AddGuiOverlayLayersEvent is no longer an
+ * IModBusEvent here, so it must be registered on its own typed event bus.
+ */
 @Mod.EventBusSubscriber(modid = Trueuuid.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class TrueuuidClientOverlay {
     @SubscribeEvent

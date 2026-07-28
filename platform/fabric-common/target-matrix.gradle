@@ -71,6 +71,10 @@ dependencies {
 }
 
 tasks.named('processResources', ProcessResources).configure {
+    def authorNames = mod_authors.split(/\s*,\s*/).findAll { !it.isBlank() }
+    if (authorNames.isEmpty()) {
+        throw new GradleException('mod_authors must contain at least one author')
+    }
     def replaceProperties = [
             minecraft_version : target.minecraftVersion,
             loader_version    : target.loaderVersion,
@@ -80,7 +84,9 @@ tasks.named('processResources', ProcessResources).configure {
             mod_name          : mod_name,
             mod_license       : mod_license,
             mod_version       : mod_version,
-            mod_authors       : mod_authors,
+            // Keep the source template valid JSON for Loom while expanding
+            // its one quoted placeholder into separate JSON string entries.
+            mod_authors_json_items: authorNames.join('\", \"'),
             mod_description   : mod_description
     ]
     inputs.properties(replaceProperties)

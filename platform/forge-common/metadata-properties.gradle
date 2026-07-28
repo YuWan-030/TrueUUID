@@ -1,0 +1,15 @@
+// One source of truth for Forge metadata expanded from gradle.properties.
+ext.trueuuidModMetadata = [
+        mod_id: providers.gradleProperty('mod_id').get(),
+        mod_name: providers.gradleProperty('mod_name').get(),
+        mod_license: providers.gradleProperty('mod_license').get(),
+        mod_version: project.version.toString(),
+        mod_authors: providers.gradleProperty('mod_authors').get(),
+        mod_description: providers.gradleProperty('mod_description').get()
+]
+
+// Keep incremental builds honest when presentation metadata changes without a
+// source or version change.
+tasks.withType(ProcessResources).configureEach {
+    inputs.properties(trueuuidModMetadata)
+}

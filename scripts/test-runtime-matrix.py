@@ -44,6 +44,13 @@ SCENARIO_MARKERS = {
     "known-deny": re.compile(r"TRUEUUID_ACCEPTANCE result=known_deny(?:\s|$)"),
 }
 SCENARIO_EXECUTION_ORDER = ("migrate", "premium", "offline", "known-deny")
+# A login that dies inside the netty codec never reaches a TrueUUID result
+# marker, and the client just sits on its disconnect screen until the marker
+# deadline expires. Vanilla reports the codec failure immediately, so fail the
+# scenario then instead of waiting out the timeout with a stranded window.
+# TrueUUID's own denials (known-deny, migration rejection) disconnect with a
+# translatable reason and never take this path.
+PROTOCOL_FAILURE_RE = re.compile(r"lost connection: Internal Exception")
 TERMINAL_RESULT_RE = re.compile(
     r"TRUEUUID_ACCEPTANCE result=(premium_join|offline_fallback|migration_complete|known_deny"
     r"|migration_failed|migration_rejected|migration_timeout)(?:\s|$)"
@@ -499,6 +506,8 @@ class RuntimeMatrix:
                 if event.sequence > server_baseline and marker.search(event.line):
                     return True, ""
                 if event.sequence > server_baseline:
+                    if PROTOCOL_FAILURE_RE.search(event.line):
+                        return False, f"login protocol failure: {event.line.strip()}"
                     terminal = TERMINAL_RESULT_RE.search(event.line)
                     if terminal is not None:
                         return False, (

@@ -1,0 +1,155 @@
+/*
+ * Shared Forge 1.21.x target build. Per-version modules declare only the
+ * dependency coordinates, exact compatibility range, and named source era.
+ */
+def target = project.ext.forgeTarget
+def required = ['minecraftVersion', 'minecraftVersionRange', 'forgeVersion',
+                'forgeVersionRange', 'sourceEra', 'hudLayer']
+required.each { key ->
+    if (!target.containsKey(key)) {
+        throw new GradleException("forgeTarget.${key} is required")
+    }
+}
+if (!(target.sourceEra in ['eventbus6', 'eventbus7', 'record'])) {
+    throw new GradleException("Unsupported Forge source era: ${target.sourceEra}")
+}
+if (!(target.hudLayer in ['mixin', 'eventbus6', 'eventbus7', 'eventbus7-standalone'])) {
+    throw new GradleException("Unsupported Forge HUD layer: ${target.hudLayer}")
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+base.archivesName = 'trueuuid'
+apply from: "${rootDir}/platform/forge-common/metadata-properties.gradle"
+
+def forgeCommon = "${rootDir}/platform/forge-common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/forgelike-common/src/main"
+def loginMatrix = "${rootDir}/platform/forge-common/src/login-matrix"
+def preRecordMatrix = "${rootDir}/platform/forge-common/src/pre-record-matrix"
+def forge52To55 = "${rootDir}/platform/forge-common/src/forge52-55"
+def modernMatrix = "${rootDir}/platform/forge-common/src/modern-matrix"
+def recordMatrix = "${rootDir}/platform/forge-common/src/record-matrix"
+
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
+sourceSets.main.resources.srcDir "${forgeCommon}/resources"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+
+if (target.sourceEra == 'eventbus6') {
+    sourceSets.main.java.srcDir "${loginMatrix}/java"
+    sourceSets.main.java.srcDir "${preRecordMatrix}/java"
+    sourceSets.main.java.srcDir "${forge52To55}/java"
+    sourceSets.test.java.srcDir "${rootDir}/platform/forge-common/src/forge52-55-test/java"
+} else {
+    sourceSets.main.java.srcDir "${modernMatrix}/java"
+    sourceSets.test.java.srcDir "${rootDir}/platform/forge-common/src/modern-matrix-test/java"
+    if (target.sourceEra == 'eventbus7') {
+        sourceSets.main.java.srcDir "${loginMatrix}/java"
+    } else {
+        sourceSets.main.java.srcDir "${recordMatrix}/java"
+        def recordEraSources = [
+                'cn/alini/trueuuid/server/ForgeGameProfiles.java',
+                'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin.java',
+                'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin.java'
+        ]
+        // Forge 59 moved AddGuiOverlayLayersEvent out of the mod bus. Keep
+        // that registration difference in the record-era seam, not in the
+        // common HUD/presentation implementation.
+        if (target.hudLayer == 'eventbus7-standalone') {
+            recordEraSources.add('cn/alini/trueuuid/TrueuuidClientOverlay.java')
+        }
+        tasks.named('compileJava', JavaCompile).configure {
+            source = files(
+                    fileTree("${forgeCommon}/java") { exclude recordEraSources },
+                    fileTree("${forgeLikeCommon}/java"),
+                    fileTree("${modernMatrix}/java") { exclude recordEraSources },
+                    fileTree("${recordMatrix}/java"))
+        }
+    }
+}
+
+if (target.hudLayer == 'eventbus6') {
+    sourceSets.main.java.srcDir "${rootDir}/platform/forge-common/src/layered-draw/java"
+} else if (target.hudLayer == 'mixin' && target.sourceEra == 'eventbus7') {
+    sourceSets.main.java.exclude 'cn/alini/trueuuid/TrueuuidClientOverlay.java'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+minecraft {
+    mappings channel: 'official', version: target.minecraftVersion
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods { trueuuid { source sourceSets.main } }
+        }
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            workingDirectory project.file('run/server')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+            args '--nogui'
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, 'trueuuid.refmap.json'
+    config 'trueuuid.mixins.json'
+}
+
+sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs) { include '**/*.class' }
+    from(layout.buildDirectory.dir('tmp/compileJava')) { include 'trueuuid.refmap.json' }
+    into(mainClassesDir)
+}
+tasks.named('classes') { dependsOn mergeSharedProtocolClasses }
+
+repositories { mavenCentral() }
+// Forge 51 declares jopt-simple 6.0-alpha-3 alongside Minecraft's 5.0.4.
+// Gradle otherwise selects 6.0-alpha-3 (automatic module ``joptsimple``), but
+// ModLauncher requires the 5.0.4 automatic module name ``jopt.simple``.
+if (target.minecraftVersion == '1.21') {
+    configurations.configureEach {
+        resolutionStrategy.force 'net.sf.jopt-simple:jopt-simple:5.0.4'
+    }
+}
+dependencies {
+    minecraft "net.minecraftforge:forge:${target.minecraftVersion}-${target.forgeVersion}"
+    compileOnly project(':shared:protocol')
+    testImplementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    filesMatching('META-INF/mods.toml') {
+        expand trueuuidModMetadata + [minecraft_version: target.minecraftVersion,
+                minecraft_version_range: target.minecraftVersionRange,
+                forge_version_range: target.forgeVersionRange]
+    }
+}
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-forge-${target.minecraftVersion}.jar"
+    manifest { attributes('MixinConfigs': 'trueuuid.mixins.json') }
+}
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn tasks.named('classes')
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }

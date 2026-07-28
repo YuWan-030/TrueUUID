@@ -101,6 +101,74 @@ if [[ "$modrinth_status" != 400 ]]; then
 fi
 echo "Verified Modrinth VERSION_CREATE and project upload access without creating a version."
 
+# Verify that Modrinth can represent every exact target before any publisher
+# job is allowed to create a version. A newly added Minecraft patch or loader
+# must not produce a partial cross-platform release.
+if ! modrinth_game_versions=$(curl --silent --show-error \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --header "User-Agent: ${user_agent}" \
+    --write-out $'\n%{http_code}' \
+    https://api.modrinth.com/v2/tag/game_version); then
+    echo "Modrinth game-version lookup could not reach the API" >&2
+    exit 69
+fi
+modrinth_game_versions_status=${modrinth_game_versions##*$'\n'}
+modrinth_game_versions_body=${modrinth_game_versions%$'\n'*}
+if [[ "$modrinth_game_versions_status" != 200 ]] ||
+    ! jq -e 'type == "array" and length > 0' <<<"$modrinth_game_versions_body" >/dev/null; then
+    echo "Modrinth game-version lookup failed (HTTP ${modrinth_game_versions_status})." >&2
+    exit 77
+fi
+
+if ! modrinth_loaders=$(curl --silent --show-error \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --header "User-Agent: ${user_agent}" \
+    --write-out $'\n%{http_code}' \
+    https://api.modrinth.com/v2/tag/loader); then
+    echo "Modrinth loader lookup could not reach the API" >&2
+    exit 69
+fi
+modrinth_loaders_status=${modrinth_loaders##*$'\n'}
+modrinth_loaders_body=${modrinth_loaders%$'\n'*}
+if [[ "$modrinth_loaders_status" != 200 ]] ||
+    ! jq -e 'type == "array" and length > 0' <<<"$modrinth_loaders_body" >/dev/null; then
+    echo "Modrinth loader lookup failed (HTTP ${modrinth_loaders_status})." >&2
+    exit 77
+fi
+
+missing_modrinth_versions=()
+while IFS= read -r expected_version; do
+    if ! jq -e --arg version "$expected_version" '
+        any(.[]; .version == $version)
+    ' <<<"$modrinth_game_versions_body" >/dev/null; then
+        missing_modrinth_versions+=("$expected_version")
+    fi
+done < <(jq -r '[.targets[] | select(.release == true) | .game_version] | unique[]' release/targets.json)
+
+missing_modrinth_loaders=()
+while IFS= read -r expected_loader; do
+    if ! jq -e --arg loader "$expected_loader" '
+        any(.[]; .name == $loader)
+    ' <<<"$modrinth_loaders_body" >/dev/null; then
+        missing_modrinth_loaders+=("$expected_loader")
+    fi
+done < <(jq -r '[.targets[] | select(.release == true) | .loader] | unique[]' release/targets.json)
+
+if ((${#missing_modrinth_versions[@]} || ${#missing_modrinth_loaders[@]})); then
+    ((${#missing_modrinth_versions[@]} == 0)) ||
+        echo "Modrinth lacks manifest game versions: ${missing_modrinth_versions[*]}" >&2
+    ((${#missing_modrinth_loaders[@]} == 0)) ||
+        echo "Modrinth lacks manifest loader identifiers: ${missing_modrinth_loaders[*]}" >&2
+    exit 77
+fi
+echo "Verified Modrinth metadata for every release-approved loader and Minecraft version."
+
 # The CurseForge upload API requires its publisher token even for this read.
 # This catches missing, malformed, expired, and revoked upload tokens before the
 # project-specific no-file authorization probe below.
@@ -148,6 +216,36 @@ if [[ "$curseforge_game_versions_status" != 200 ]] ||
     echo "CurseForge game-version lookup failed (HTTP ${curseforge_game_versions_status})." >&2
     exit 77
 fi
+
+# Fail before building or uploading anything if CurseForge cannot represent an
+# exact manifest target. This is especially important when a release adds new
+# Minecraft patches or a loader that was not present in an older release.
+missing_curseforge_versions=()
+while IFS= read -r expected_version; do
+    if ! jq -e --arg version "$expected_version" '
+        any(.[]; .name == $version)
+    ' <<<"$curseforge_game_versions_body" >/dev/null; then
+        missing_curseforge_versions+=("$expected_version")
+    fi
+done < <(jq -r '[.targets[] | select(.release == true) | .game_version] | unique[]' release/targets.json)
+
+missing_curseforge_loaders=()
+while IFS=$'\t' read -r loader expected_name; do
+    if ! jq -e --arg name "$expected_name" '
+        any(.[]; ((.name // "") | ascii_downcase) == ($name | ascii_downcase))
+    ' <<<"$curseforge_game_versions_body" >/dev/null; then
+        missing_curseforge_loaders+=("$loader")
+    fi
+done < <(printf '%s\n' $'forge\tForge' $'fabric\tFabric' $'neoforge\tNeoForge')
+
+if ((${#missing_curseforge_versions[@]} || ${#missing_curseforge_loaders[@]})); then
+    ((${#missing_curseforge_versions[@]} == 0)) ||
+        echo "CurseForge lacks manifest game versions: ${missing_curseforge_versions[*]}" >&2
+    ((${#missing_curseforge_loaders[@]} == 0)) ||
+        echo "CurseForge lacks manifest loader identifiers: ${missing_curseforge_loaders[*]}" >&2
+    exit 77
+fi
+echo "Verified CurseForge metadata for every release-approved loader and Minecraft version."
 
 curseforge_minecraft_type_id=$(jq -r '
     [.[] | select(.slug == "minecraft-1-20") | .id][0] // empty

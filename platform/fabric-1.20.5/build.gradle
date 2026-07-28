@@ -1,0 +1,15 @@
+plugins {
+    id 'fabric-loom' version '1.13.6'
+}
+
+ext.fabricTarget = [
+        minecraftVersion: '1.20.5',
+        yarnMappings: '1.20.5+build.1',
+        loaderVersion: '0.19.3',
+        fabricApiVersion: '0.97.8+1.20.5',
+        javaVersion: 21,
+        sessionJoinEra: 'session-uuid',
+        playNetworkingEra: 'play-payloads'
+]
+
+apply from: "${rootDir}/platform/fabric-common/target-matrix.gradle"

@@ -84,7 +84,7 @@ actual_names=$(find "$work_dir" -maxdepth 1 -type f -name 'trueuuid-*.jar' \
 
 manifest_names=$(awk '
     NF == 2 && $1 ~ /^[0-9a-f]{64}$/ &&
-      $2 ~ /^trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+\.[0-9]+\.jar$/ {
+      $2 ~ /^trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar$/ {
         print $2
         next
     }

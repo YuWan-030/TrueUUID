@@ -1,0 +1,105 @@
+/* Shared NeoGradle 7 configuration for pre-ModDev-bundle NeoForge targets. */
+def target = project.ext.neoforgeTarget
+['minecraftVersion', 'minecraftVersionRange', 'neoForgeVersion', 'javaVersion', 'sourceEra'].each { key ->
+    if (!target.containsKey(key)) throw new GradleException("neoforgeTarget.${key} is required")
+}
+if (!(target.sourceEra in ['20.3', '20.5'])) {
+    throw new GradleException("Unsupported NeoGradle source era: ${target.sourceEra}")
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer).named('main')
+def adapterMain = "${rootDir}/platform/neoforge-common/src/main"
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+base.archivesName = 'trueuuid'
+repositories { mavenCentral() }
+
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
+sourceSets.test.java.srcDir "${rootDir}/platform/neoforge-common/src/test/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+java.toolchain.languageVersion = JavaLanguageVersion.of(target.javaVersion as int)
+
+if (target.sourceEra == '20.3') {
+    sourceSets.main.resources.srcDir "${rootDir}/platform/neoforge-common/src/legacy-20.3/resources"
+} else {
+    ext.neoforgeMetadata = [
+            loaderRange: "[${target.neoForgeVersion},)",
+            minecraftRange: target.minecraftVersionRange,
+            javafmlRange: '[3,)'
+    ]
+    apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
+}
+
+runs {
+    client { modSource sourceSets.main }
+    server { modSource sourceSets.main; programArgument '--nogui' }
+}
+dependencies {
+    implementation "net.neoforged:neoforge:${target.neoForgeVersion}"
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs) { include '**/*.class' }
+    into(mainClassesDir)
+}
+tasks.named('classes') { dependsOn mergeSharedProtocolClasses }
+
+if (target.sourceEra == '20.3') {
+    tasks.named('processResources', ProcessResources).configure {
+        def metadata = [
+                mod_id: providers.gradleProperty('mod_id').get(),
+                mod_name: providers.gradleProperty('mod_name').get(),
+                mod_license: providers.gradleProperty('mod_license').get(),
+                mod_version: project.version.toString(),
+                mod_authors: providers.gradleProperty('mod_authors').get(),
+                mod_description: providers.gradleProperty('mod_description').get(),
+                neoforge_version_range: "[${target.neoForgeVersion},)",
+                minecraft_version_range: target.minecraftVersionRange
+        ]
+        inputs.properties(metadata)
+        filesMatching('META-INF/mods.toml') {
+            expand(metadata)
+        }
+    }
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    def seams = ['cn/alini/trueuuid/mixin/server/ServerLoginMixin.java']
+    def eraRoots = []
+    if (target.sourceEra == '20.3') {
+        // NeoForge 20.2 and 20.3 patch ServerboundCustomQueryAnswerPacket to
+        // carry their own SimpleQueryPayload; 20.4 dropped that wrapper. Both
+        // the answer factory and the server login seam must come from the
+        // matching era, or the client's answer fails to cast at the wire.
+        seams.addAll(['cn/alini/trueuuid/net/AuthAnswerPackets.java',
+                      'cn/alini/trueuuid/TrueuuidClientOverlay.java',
+                      'cn/alini/trueuuid/config/TrueuuidConfig.java'])
+        eraRoots.add(fileTree("${rootDir}/platform/neoforge-common/src/login-20.2-20.3/java"))
+        eraRoots.add(fileTree("${rootDir}/platform/neoforge-common/src/overlay-20.2-20.4/java"))
+        eraRoots.add(fileTree("${rootDir}/platform/neoforge-common/src/config-20.2-20.4/java"))
+    } else {
+        eraRoots.add(fileTree("${rootDir}/platform/neoforge-common/src/login-20.4-20.6/java"))
+    }
+    source = files([
+            fileTree("${adapterMain}/java") { exclude seams },
+            fileTree("${rootDir}/platform/forgelike-common/src/main/java"),
+            fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java")
+    ] + eraRoots)
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge-${target.minecraftVersion}.jar"
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
+apply from: "${rootDir}/platform/neoforge-common/verify-login-wire.gradle"

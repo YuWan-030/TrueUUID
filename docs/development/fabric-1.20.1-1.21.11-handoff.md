@@ -6,9 +6,9 @@ matrix before editing. Do not rely on commit IDs or old session branches.
 
 ## Completed exact-target baseline
 
-The exact Fabric compile-patch expansion is implemented. Fabric 1.20.1,
-1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8,
-1.21.10, and 1.21.11 all build, pass release-JAR verification, reach
+The exact Fabric compile-patch expansion is implemented. Fabric has one thin
+module for every released Minecraft patch from 1.20.1 through 1.21.11. The
+original twelve 1.2.0 targets all build, pass release-JAR verification, reach
 server/client bootstrap markers, and pass the four-case installed-JAR runtime
 matrix: premium, offline fallback, confirmed migration, and known-name offline
 denial. Yggdrasil, timeout/grace, negative migration, admin-command,
@@ -20,7 +20,7 @@ named `legacy-1.20`, `session-profile`, `session-uuid`, `play-buffers`, and
 transition or the 1.20.2 session API transition back into runtime version
 checks.
 
-The latest exact-target Fabric evidence is the twelve-target Fabric portion of
+The historical 1.2.0 Fabric evidence is the twelve-target Fabric portion of
 `build/runtime-acceptance/20260722T114302Z/summary.tsv`. All 48 Fabric
 target/scenario pairs were rebuilt and passed fresh against the consolidated
 shared-runtime worktree. The later singleplayer/Premium-(LAN) presentation
@@ -56,15 +56,21 @@ patch in that range.
 |---|---:|---|
 | `fabric-1.20.1` | 1.20.1 | 1.20.1 only |
 | `fabric-1.20.2` | 1.20.2 | 1.20.2 only |
-| `fabric-1.20.4` | 1.20.4 | 1.20.3, 1.20.4 |
-| `fabric-1.20.6` | 1.20.6 | 1.20.5, 1.20.6 |
-| `fabric-1.21.1` | 1.21.1 | 1.21, 1.21.1 |
-| `fabric-1.21.3` | 1.21.3 | 1.21.2, 1.21.3 |
+| `fabric-1.20.3` | 1.20.3 | 1.20.3 only |
+| `fabric-1.20.4` | 1.20.4 | 1.20.4 only |
+| `fabric-1.20.5` | 1.20.5 | 1.20.5 only |
+| `fabric-1.20.6` | 1.20.6 | 1.20.6 only |
+| `fabric-1.21` | 1.21 | 1.21 only |
+| `fabric-1.21.1` | 1.21.1 | 1.21.1 only |
+| `fabric-1.21.2` | 1.21.2 | 1.21.2 only |
+| `fabric-1.21.3` | 1.21.3 | 1.21.3 only |
 | `fabric-1.21.4` | 1.21.4 | 1.21.4 only |
 | `fabric-1.21.5` | 1.21.5 | 1.21.5 only |
 | `fabric-1.21.6` | 1.21.6 | 1.21.6 only |
-| `fabric-1.21.8` | 1.21.8 | 1.21.7, 1.21.8 |
-| `fabric-1.21.10` | 1.21.10 | 1.21.9, 1.21.10 |
+| `fabric-1.21.7` | 1.21.7 | 1.21.7 only |
+| `fabric-1.21.8` | 1.21.8 | 1.21.8 only |
+| `fabric-1.21.9` | 1.21.9 | 1.21.9 only |
+| `fabric-1.21.10` | 1.21.10 | 1.21.10 only |
 | `fabric-1.21.11` | 1.21.11 | 1.21.11 only |
 
 Protocol equality makes a widened range a candidate, never proof. If Fabric
@@ -126,19 +132,19 @@ Known seam layout:
 
 1. Completed on 2026-07-22: `fabric-1.20.2`, `fabric-1.20.4`, and
    `fabric-1.20.6` are manifest-integrated and core accepted on their exact
-   compile patches. Adjacent 1.20.3 and 1.20.5 remain unproven.
+   compile patches. Exact 1.20.3 and 1.20.5 modules now select the matching
+   shared API-era roots.
 2. Completed on 2026-07-22: `fabric-1.21.1`, `fabric-1.21.3`, `fabric-1.21.4`,
    and `fabric-1.21.5` reuse the bean-profile, numeric-permission, identifier
    factory, typed-payload, and 4D HUD roots.
 3. Completed on 2026-07-22: `fabric-1.21.6` and `fabric-1.21.8` select the 2D
    HUD root; `fabric-1.21.10` additionally selects authlib-record and relocated
    session-service roots; `fabric-1.21.11` adds named permission checks.
-4. Every exact module is integrated into `settings.gradle`,
-   `release/targets.json`, CI/self-test, runtime selection, and release-JAR
-   verification and is approved for the version-bound 1.2.0 release.
-5. Every exact compile patch passed core runtime acceptance. Candidate adjacent
-   patch ranges remain gated; the extended feature matrix remains the next
-   evidence-expansion target.
+4. The 1.2.1 expansion adds exact 1.20.3, 1.20.5, 1.21, 1.21.2, 1.21.7, and
+   1.21.9 modules. `release/targets.json` now drives root settings, aggregate
+   builds, CI/self-test, runtime selection, and publishing.
+5. Metadata remains exact-patch; the extended feature matrix remains the next
+   evidence-expansion target after core acceptance.
 
 Keep commits reviewable and signed: one API-era scaffold or source-sharing move
 per commit, then its focused tests and documentation. Preserve archive history;
@@ -153,10 +159,8 @@ rollback, admin commands, addon status/callbacks, localized feedback/HUD, and
 skin refresh. Record these as expanded evidence without retroactively claiming
 that they were part of the 1.2.0 core matrix.
 
-After the extended matrix, test candidate adjacent patches one by one using the
-same production JAR. Only widen Fabric metadata after both the matching client
-and server pass on that exact patch. The current exact-target evidence must not
-be presented as support for 1.20.3, 1.20.5, 1.21, 1.21.2, 1.21.7, or 1.21.9.
+Keep exact-patch artifacts unless a future consolidation is backed by the same
+client/server evidence on every patch in a proposed widened range.
 
 ## Validation and acceptance
 

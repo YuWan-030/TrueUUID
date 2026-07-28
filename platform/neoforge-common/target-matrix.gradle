@@ -1,0 +1,92 @@
+/* Shared ModDevGradle configuration for exact NeoForge patch targets. */
+def target = project.ext.neoforgeTarget
+['minecraftVersion', 'minecraftVersionRange', 'neoForgeVersion', 'sourceEra'].each { key ->
+    if (!target.containsKey(key)) throw new GradleException("neoforgeTarget.${key} is required")
+}
+if (!(target.sourceEra in ['pre21', 'modern', 'gui2d', 'record'])) {
+    throw new GradleException("Unsupported NeoForge source era: ${target.sourceEra}")
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer).named('main')
+def adapterMain = "${rootDir}/platform/neoforge-common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge-common/src/test"
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+ext.neoforgeMetadata = [
+        loaderRange: "[${target.neoForgeVersion},)",
+        minecraftRange: target.minecraftVersionRange,
+        javafmlRange: target.javafmlRange ?: '[4,)'
+]
+apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
+
+base.archivesName = 'trueuuid'
+repositories { mavenCentral() }
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forgelike-common/src/pause-pose/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common-assets/src/main/resources"
+java.toolchain.languageVersion = JavaLanguageVersion.of(target.javaVersion ?: 21)
+
+neoForge {
+    version = target.neoForgeVersion
+    runs {
+        client { client(); systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid' }
+        server { server(); programArgument '--nogui'; systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid' }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
+    }
+    mods { trueuuid { sourceSet(sourceSets.main); sourceSet(sharedProtocolMain.get()) } }
+}
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+if (target.sourceEra == 'record') {
+    sourceSets.test.java.srcDir "${rootDir}/platform/neoforge-common/src/record-matrix-test/java"
+    sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+    sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+}
+
+dependencies {
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+if (target.sourceEra == 'pre21') {
+    def seams = ['cn/alini/trueuuid/mixin/server/ServerLoginMixin.java']
+    tasks.named('compileJava', JavaCompile).configure {
+        source = files(fileTree("${adapterMain}/java") { exclude seams },
+                fileTree("${rootDir}/platform/forgelike-common/src/main/java"),
+                fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java"),
+                fileTree("${rootDir}/platform/neoforge-common/src/login-20.4-20.6/java"))
+    }
+} else if (target.sourceEra in ['gui2d', 'record']) {
+    def guiSeams = ['cn/alini/trueuuid/client/ClientAccountStatus.java',
+                    'cn/alini/trueuuid/TrueuuidClientOverlay.java']
+    def recordSeams = ['cn/alini/trueuuid/server/NeoGameProfiles.java',
+                       'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
+                       'cn/alini/trueuuid/mixin/client/ClientHandshakeMixin.java']
+    def excluded = target.sourceEra == 'record' ? guiSeams + recordSeams : guiSeams
+    tasks.named('compileJava', JavaCompile).configure {
+        def roots = [
+                fileTree("${adapterMain}/java") { exclude excluded },
+                fileTree("${rootDir}/platform/forgelike-common/src/main/java"),
+                fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java"),
+                fileTree("${rootDir}/platform/neoforge-common/src/gui-matrix-2d/java"),
+                fileTree("${rootDir}/platform/neoforge-common/src/overlay-21.6-21.10/java")
+        ]
+        if (target.sourceEra == 'record') {
+            roots.add(fileTree("${rootDir}/platform/neoforge-common/src/record-matrix/java"))
+        }
+        source = files(roots)
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge-${target.minecraftVersion}.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
+apply from: "${rootDir}/platform/neoforge-common/verify-login-wire.gradle"

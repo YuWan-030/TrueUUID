@@ -19,7 +19,6 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
-import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,19 +58,21 @@ abstract class ServerLoginMixin {
     @Unique private String trueuuid$pendingIp;
     @Unique private String trueuuid$pendingEndpoint;
 
-    @Inject(method = "handleHello", at = @At("TAIL"))
-    private void trueuuid$begin(ServerboundHelloPacket packet, CallbackInfo callback) {
+    // Install the authentication gate before vanilla exposes VERIFYING to the
+    // server tick. Waiting for handleHello TAIL permits a native-login race.
+    @Inject(method = "startClientVerification", at = @At("HEAD"))
+    private void trueuuid$begin(GameProfile profile, CallbackInfo callback) {
         MinecraftServer server = trueuuid$server();
         Connection connection = trueuuid$connection();
-        if (server.usesAuthentication() || authenticatedProfile == null) return;
-        if (AdapterRuntime.isMigrationPending(authenticatedProfile.name())) {
+        if (server.usesAuthentication() || profile == null) return;
+        if (AdapterRuntime.isMigrationPending(profile.name())) {
             disconnect(Component.translatable("trueuuid.disconnect.migration_pending"));
             return;
         }
         trueuuid$transaction = trueuuid$newTransaction();
         byte[] query = trueuuid$attempt.begin(trueuuid$transaction, UUID.randomUUID().toString().replace("-", ""),
                 System.currentTimeMillis());
-        cn.alini.trueuuid.Trueuuid.acceptance("phase=auth_query_sent player={}", authenticatedProfile.name());
+        cn.alini.trueuuid.Trueuuid.acceptance("phase=auth_query_sent player={}", profile.name());
         connection.send(new ClientboundCustomQueryPacket(trueuuid$transaction,
                 new AuthPayload(AuthWireCodec.decodeQuery(query))));
     }

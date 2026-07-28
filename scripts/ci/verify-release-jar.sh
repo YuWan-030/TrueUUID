@@ -9,7 +9,14 @@ fi
 target_id=$1
 output_dir=$2
 version=$(sed -n 's/^mod_version=//p' gradle.properties)
+expected_name=$(sed -n 's/^mod_name=//p' gradle.properties)
+expected_license=$(sed -n 's/^mod_license=//p' gradle.properties)
+expected_authors=$(sed -n 's/^mod_authors=//p' gradle.properties)
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid mod_version" >&2; exit 65; }
+[[ -n "$expected_name" && -n "$expected_license" && -n "$expected_authors" ]] || {
+    echo "canonical mod presentation metadata is incomplete" >&2
+    exit 65
+}
 
 ./scripts/release/validate-targets.sh
 target=$(jq -ce --arg id "$target_id" '.targets[] | select(.id == $id)' release/targets.json)
@@ -66,16 +73,38 @@ fi
 
 case "$loader" in
     fabric)
-        embedded_version=$(unzip -p "$artifact" "$metadata" | jq -er '.version')
+        embedded_metadata=$(unzip -p "$artifact" "$metadata")
+        embedded_version=$(jq -er '.version' <<<"$embedded_metadata")
+        embedded_name=$(jq -er '.name' <<<"$embedded_metadata")
+        embedded_license=$(jq -er '.license' <<<"$embedded_metadata")
+        embedded_authors=$(jq -er '.authors | join(", ")' <<<"$embedded_metadata")
         ;;
     forge|neoforge)
-        embedded_version=$(unzip -p "$artifact" "$metadata" |
-            sed -nE 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' |
-            head -n 1)
+        embedded_metadata=$(unzip -p "$artifact" "$metadata")
+        embedded_version=$(sed -nE 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+            <<<"$embedded_metadata" | head -n 1)
+        embedded_name=$(sed -nE 's/^[[:space:]]*displayName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+            <<<"$embedded_metadata" | head -n 1)
+        embedded_license=$(sed -nE 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+            <<<"$embedded_metadata" | head -n 1)
+        embedded_authors=$(sed -nE 's/^[[:space:]]*authors[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+            <<<"$embedded_metadata" | head -n 1)
         ;;
 esac
 [[ "$embedded_version" == "$version" ]] || {
     echo "metadata version mismatch in $artifact: expected $version, found ${embedded_version:-<missing>}" >&2
+    exit 65
+}
+[[ "$embedded_name" == "$expected_name" ]] || {
+    echo "metadata name mismatch in $artifact: expected $expected_name, found ${embedded_name:-<missing>}" >&2
+    exit 65
+}
+[[ "$embedded_license" == "$expected_license" ]] || {
+    echo "metadata license mismatch in $artifact: expected $expected_license, found ${embedded_license:-<missing>}" >&2
+    exit 65
+}
+[[ "$embedded_authors" == "$expected_authors" ]] || {
+    echo "metadata authors mismatch in $artifact: expected $expected_authors, found ${embedded_authors:-<missing>}" >&2
     exit 65
 }
 

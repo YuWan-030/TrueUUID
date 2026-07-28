@@ -19,7 +19,6 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
-import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import net.neoforged.neoforge.network.custom.payload.SimpleQueryPayload;
@@ -38,6 +37,13 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Login seam for the NeoForge 20.2 and 20.3 wire format. Both patch
+ * {@code ServerboundCustomQueryAnswerPacket} to carry their own
+ * {@code SimpleQueryPayload}; 20.4 dropped that wrapper for the vanilla
+ * payload, so those eras use {@code login-20.4-20.6} instead. Like that seam,
+ * {@code onDisconnect} still takes a {@code Component}.
+ */
 @Mixin(ServerLoginPacketListenerImpl.class)
 abstract class ServerLoginMixin {
     @Unique private static final SecureRandom TRUEUUID$TRANSACTIONS = new SecureRandom();
@@ -57,18 +63,21 @@ abstract class ServerLoginMixin {
     @Unique private String trueuuid$pendingIp;
     @Unique private String trueuuid$pendingEndpoint;
 
-    @Inject(method = "handleHello", at = @At("TAIL"))
-    private void trueuuid$begin(ServerboundHelloPacket packet, CallbackInfo callback) {
+    // Install the authentication gate before vanilla exposes VERIFYING to the
+    // server tick. Waiting for handleHello TAIL permits a native-login race.
+    @Inject(method = "startClientVerification", at = @At("HEAD"))
+    private void trueuuid$begin(GameProfile profile, CallbackInfo callback) {
         MinecraftServer server = trueuuid$server();
         Connection connection = trueuuid$connection();
-        if (server.usesAuthentication() || authenticatedProfile == null) return;
-        if (AdapterRuntime.isMigrationPending(authenticatedProfile.getName())) {
+        if (server.usesAuthentication() || profile == null) return;
+        if (AdapterRuntime.isMigrationPending(profile.getName())) {
             disconnect(Component.translatable("trueuuid.disconnect.migration_pending"));
             return;
         }
         trueuuid$transaction = trueuuid$newTransaction();
         byte[] query = trueuuid$attempt.begin(trueuuid$transaction, UUID.randomUUID().toString().replace("-", ""),
                 System.currentTimeMillis());
+        cn.alini.trueuuid.Trueuuid.acceptance("phase=auth_query_sent player={}", profile.getName());
         connection.send(new ClientboundCustomQueryPacket(trueuuid$transaction,
                 new AuthPayload(AuthWireCodec.decodeQuery(query))));
     }

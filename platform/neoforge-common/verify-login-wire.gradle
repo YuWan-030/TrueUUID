@@ -1,0 +1,70 @@
+/*
+ * Guards the NeoForge login-answer wire format against era-seam drift.
+ *
+ * NeoForge 20.2 and 20.3 patch ServerboundCustomQueryAnswerPacket to carry
+ * their own SimpleQueryPayload; 20.4 dropped that wrapper for the vanilla
+ * payload. Two things must agree with the loader, and neither is checked by
+ * compilation or by release-JAR verification:
+ *
+ *   1. net/AuthAnswerPackets must build the payload the loader expects.
+ *   2. On a wrapper loader, NeoForge itself decodes the answer, so
+ *      ServerboundCustomQueryAnswerMixin must NOT be registered. On a vanilla
+ *      payload loader it must be, or the answer is never decoded.
+ *
+ * Getting either wrong still builds and still ships; it fails only at the wire
+ * during login. neoforge-1.20.3 shipped both halves wrong until its runtime
+ * matrix caught them, one after the other. This check turns that into a build
+ * failure instead of an hours-long acceptance run.
+ */
+def wrapperType = 'net/neoforged/neoforge/network/custom/payload/SimpleQueryPayload'
+def answerMixin = 'server.ServerboundCustomQueryAnswerMixin'
+
+def verifyLoginWireEra = tasks.register('verifyLoginWireEra') {
+    dependsOn tasks.named('compileJava'), tasks.named('processResources')
+    def compiledAnswerFactory = layout.buildDirectory
+            .file('classes/java/main/cn/alini/trueuuid/net/AuthAnswerPackets.class')
+    def mixinConfig = layout.buildDirectory.file('resources/main/trueuuid.mixins.json')
+    def loaderClasspath = configurations.named('compileClasspath')
+    inputs.files(loaderClasspath)
+    doLast {
+        def compiled = compiledAnswerFactory.get().asFile
+        // The 1.20.1 anchor recompiles the Forge tree and owns no such factory.
+        if (!compiled.isFile()) return
+
+        def loaderHasWrapper = loaderClasspath.get().files.any { entry ->
+            if (!entry.isFile() || !entry.name.endsWith('.jar')) return false
+            new java.util.zip.ZipFile(entry).withCloseable { archive ->
+                archive.getEntry("${wrapperType}.class") != null
+            }
+        }
+        // Class files record referenced types as UTF-8 constants, so a plain
+        // byte search answers "was the wrapper seam compiled?" without pulling
+        // in a bytecode library.
+        def compiledUsesWrapper = new String(compiled.bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains(wrapperType)
+        def era = loaderHasWrapper ? 'login-20.2-20.3' : 'login-20.4-20.6 (or the modern shared seam)'
+
+        if (loaderHasWrapper != compiledUsesWrapper) {
+            throw new GradleException("This NeoForge loader " +
+                    (loaderHasWrapper ? "wraps login answers in SimpleQueryPayload"
+                            : "expects the vanilla login answer payload") +
+                    ", but the compiled AuthAnswerPackets does not. Select the ${era} source root.")
+        }
+
+        def registered = new groovy.json.JsonSlurper()
+                .parse(mixinConfig.get().asFile).mixins ?: []
+        def declaresAnswerMixin = registered.contains(answerMixin)
+        if (loaderHasWrapper && declaresAnswerMixin) {
+            throw new GradleException("This NeoForge loader decodes the login answer itself, so " +
+                    "${answerMixin} must not be registered in trueuuid.mixins.json.")
+        }
+        if (!loaderHasWrapper && !declaresAnswerMixin) {
+            throw new GradleException("This NeoForge loader uses the vanilla login answer payload, so " +
+                    "${answerMixin} must be registered in trueuuid.mixins.json.")
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn verifyLoginWireEra
+}

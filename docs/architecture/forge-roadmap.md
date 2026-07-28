@@ -6,18 +6,22 @@ metadata-range presence alone is not a support claim.
 
 ## Current Forge targets
 
-Version 1.2.0 declares twelve exact Forge targets for Minecraft 1.20.1, 1.20.2,
-1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and
-1.21.11. On 2026-07-22 every target passed the installed-JAR premium,
-offline-fallback, confirmed-migration, and known-name-denial scenarios. Omitted
-patches and the wider Yggdrasil/timeout/grace/negative-migration/UI evidence
-remain limited exactly as recorded in the target matrix.
+Version 1.2.1 declares sixteen exact Forge targets for Minecraft 1.20.1,
+1.20.2, 1.20.3, 1.20.4, 1.20.6, 1.21, 1.21.1, 1.21.3, 1.21.4, 1.21.5,
+1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, and 1.21.11. Forge did not publish
+a loader for 1.20.5 or 1.21.2. All sixteen passed the installed-JAR premium,
+offline-fallback, confirmed-migration, and known-name-denial matrix on
+2026-07-28, after every 1.20.2 and later target moved its authentication gate
+to `startClientVerification`. Only `forge-1.20.1` keeps the older
+`handleHello` hook, because 1.20.1 has no such method. The target matrix
+records the evidence directories, alongside the wider Yggdrasil, timeout,
+grace, negative-migration, and visual evidence that remains limited there.
 
 Forge 1.21.11 requires ForgeGradle 7 and Gradle 9.5, so it is an intentional
 standalone build island with its own wrapper. It is nevertheless a first-class
 manifest target: build, Verify, Full Self-Test, runtime acceptance, packaging,
 and publishing scripts select that wrapper explicitly. Run
-`scripts/ci/build-all-targets.sh` for the complete 36-target repository build,
+`scripts/ci/build-all-targets.sh` for the complete 52-target repository build,
 or `scripts/ci/build-target.sh forge-1.21.11` for this target alone.
 
 ## Shared protocol and adapter boundary
@@ -59,7 +63,7 @@ thread. The player's access token never leaves the client.
 ## Release and compatibility rules
 
 All changes land through `main`; loader/version names identify modules rather
-than permanent branches. Version 1.2.0 uses one signed tag, `v1.2.0`, and one
+than permanent branches. Version 1.2.1 uses one signed tag, `v1.2.1`, and one
 draft GitHub Release containing every approved loader/version artifact. Older
 target-specific tags remain historical and are not the current release model.
 

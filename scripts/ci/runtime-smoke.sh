@@ -9,7 +9,7 @@ fi
 target_id=$1
 role=$2
 output_dir=$3
-[[ "$target_id" =~ ^(forge|neoforge|fabric)-[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+[[ "$target_id" =~ ^(forge|neoforge|fabric)-[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
     echo "invalid runtime smoke target: $target_id" >&2
     exit 64
 }

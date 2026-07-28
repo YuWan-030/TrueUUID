@@ -73,7 +73,10 @@ tasks.named('compileJava', JavaCompile).configure {
             fileTree("${forgeCommon}/java") { exclude recordEraSources + identifierEraSources },
             fileTree("${forgeLikeCommon}/java"),
             fileTree("${modernMatrix}/java") { exclude recordEraSources + identifierEraSources },
-            fileTree("${recordMatrix}/java"),
+            // The record-era root carries its own TrueuuidClientOverlay for
+            // Forge 59/60. 1.21.11 renamed ResourceLocation to Identifier, so
+            // this target keeps the local copy and excludes the shared one.
+            fileTree("${recordMatrix}/java") { exclude identifierEraSources },
             fileTree(shared),
             fileTree(sharedPresentation),
             fileTree(acceptanceHooks),
@@ -125,9 +128,17 @@ dependencies {
 }
 
 tasks.named('processResources', ProcessResources).configure {
-    inputs.property 'mod_version', project.version
+    def metadata = [
+            mod_id: repositoryProperties.getProperty('mod_id'),
+            mod_name: repositoryProperties.getProperty('mod_name'),
+            mod_license: repositoryProperties.getProperty('mod_license'),
+            mod_version: project.version.toString(),
+            mod_authors: repositoryProperties.getProperty('mod_authors'),
+            mod_description: repositoryProperties.getProperty('mod_description')
+    ]
+    inputs.properties(metadata + [forge_version_range: forgeVersionRange])
     filesMatching('META-INF/mods.toml') {
-        expand mod_version: project.version, forge_version_range: forgeVersionRange
+        expand metadata + [forge_version_range: forgeVersionRange]
     }
 }
 

@@ -93,6 +93,27 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
             ).group(1),
         )
 
+    def test_login_codec_failure_fails_fast_but_intended_denials_do_not(self) -> None:
+        # neoforge-1.20.3 shipped a login answer the loader could not decode.
+        # The client then sat on its disconnect screen until the marker
+        # deadline expired, stranding a window.
+        self.assertIsNotNone(
+            matrix.PROTOCOL_FAILURE_RE.search(
+                "com.mojang.authlib.GameProfile@503f47be[id=76bcf6ba,name=FixGOD] "
+                "(/127.0.0.1:57864) lost connection: Internal Exception: "
+                "io.netty.handler.codec.DecoderException: java.lang.IllegalArgumentException: "
+                "unknown TrueUUID protocol header"
+            )
+        )
+        # known-deny and migration rejection disconnect on purpose, with a
+        # translatable reason. Those must still run to their result marker.
+        for intended in (
+            "(/127.0.0.1:57864) lost connection: This name is already bound to a "
+            "verified premium account. Offline fallback is not allowed.",
+            "(/127.0.0.1:57864) lost connection: Disconnected",
+        ):
+            self.assertIsNone(matrix.PROTOCOL_FAILURE_RE.search(intended))
+
     def test_resume_reuses_only_complete_target_passes(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:
             summary = Path(raw_tmp) / "summary.tsv"

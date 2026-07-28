@@ -91,3 +91,4 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('test') {
     useJUnitPlatform()
 }
+apply from: "${rootDir}/platform/neoforge-common/verify-login-wire.gradle"

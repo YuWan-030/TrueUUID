@@ -105,7 +105,9 @@ metadata=$(jq -cn \
     environment: "client_and_server"
   }')
 
-curl --fail --silent --show-error \
+jar_sha512=$(sha512sum "$jar")
+jar_sha512=${jar_sha512%% *}
+publish_response=$(curl --silent --show-error \
   --proto '=https' \
   --tlsv1.2 \
   --connect-timeout 10 \
@@ -114,6 +116,35 @@ curl --fail --silent --show-error \
   --header "Authorization: ${MODRINTH_TOKEN}" \
   --form-string "data=${metadata}" \
   --form "file=@${jar}" \
-  https://api.modrinth.com/v2/version >/dev/null
+  --write-out $'\n%{http_code}' \
+  https://api.modrinth.com/v2/version)
+publish_status=${publish_response##*$'\n'}
+publish_body=${publish_response%$'\n'*}
+
+if [[ "$publish_status" != 200 ]]; then
+  echo "Modrinth publish failed with HTTP ${publish_status}" >&2
+  jq -r '.description // .error // "No structured API error returned."' \
+    <<<"$publish_body" >&2 2>/dev/null || true
+  exit 69
+fi
+if ! jq -e \
+  --arg project_id "$MODRINTH_PROJECT_ID" \
+  --arg version_number "$version_number" \
+  --arg display_name "$display_name" \
+  --arg loader "$loader" \
+  --arg minecraft_version "$minecraft_version" \
+  --arg sha512 "$jar_sha512" \
+  --rawfile changelog "$changelog_file" \
+  '.project_id == $project_id and
+   .version_number == $version_number and
+   .name == $display_name and
+   .changelog == $changelog and
+   (.loaders | index($loader)) != null and
+   (.game_versions | index($minecraft_version)) != null and
+   any(.files[]; .primary == true and .hashes.sha512 == $sha512)' \
+  <<<"$publish_body" >/dev/null; then
+  echo "Modrinth returned a version that does not match the requested target artifact." >&2
+  exit 73
+fi
 
 echo "Published ${target_id} to Modrinth."

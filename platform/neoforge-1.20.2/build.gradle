@@ -28,8 +28,16 @@ version = providers.gradleProperty('mod_version').get()
 // This era predates the neoforge.mods.toml rename: its metadata file is
 // META-INF/mods.toml with javafml "[1,)" (verified against the 20.2.93
 // universal jar's own manifest, 2026-07-16). The shared
-// platform/neoforge-common/metadata.gradle expands neoforge.mods.toml, so it
-// is not applied here; this module owns its metadata expansion below.
+// META-INF/mods.toml. The shared metadata helper selects that legacy filename
+// without adding the modern neoforge.mods.toml resource.
+ext.neoforgeMetadata = [
+        loaderRange: "[${neoForgeVersion},)",
+        minecraftRange: '[1.20.2,1.20.3)',
+        javafmlRange: '[1,)',
+        file: 'META-INF/mods.toml',
+        legacy: true
+]
+apply from: "${rootDir}/platform/neoforge-common/metadata.gradle"
 
 base { archivesName = 'trueuuid' }
 
@@ -40,17 +48,18 @@ repositories { mavenCentral() }
 // module. Pointing this module at the unmodified shared source (2026-07-16)
 // failed to compile exactly four files; NetIds was fixed in the shared source
 // itself (ResourceLocation.tryParse is present across 1.20.2-1.21.11) and the
-// other three are excluded here, each replaced by a local copy whose only
-// change is the era seam named in its comment:
+// other three are excluded here, each replaced from a named shared era root
+// rather than a module-local copy. neoforge-1.20.3 selects the same roots:
 // - TrueuuidClientOverlay: RegisterGuiLayersEvent is 1.21+; 20.2 uses the
 //   pre-1.21 RegisterGuiOverlaysEvent + Mod.EventBusSubscriber form.
-// - mixin/server/ServerLoginMixin: onDisconnect takes Component before 1.21
-//   (DisconnectionDetails does not exist yet), and NeoForge 20.2 wraps login
-//   answers in SimpleQueryPayload.
-// - net/AuthAnswerPackets: NeoForge 20.2 requires SimpleQueryPayload on the
-//   client-to-server login wire; later versions accept the vanilla payload.
+//   (overlay-20.2-20.4)
+// - mixin/server/ServerLoginMixin and net/AuthAnswerPackets: NeoForge 20.2 and
+//   20.3 wrap login answers in their own SimpleQueryPayload on the
+//   client-to-server wire, and onDisconnect takes Component before 1.21
+//   (DisconnectionDetails does not exist yet). NeoForge 20.4 dropped the
+//   wrapper for the vanilla payload. (login-20.2-20.3)
 // - config/TrueuuidConfig: FML 1.x registers configs on ModLoadingContext,
-//   not ModContainer.
+//   not ModContainer. (config-20.2-20.4)
 def preModernSources = [
         'cn/alini/trueuuid/TrueuuidClientOverlay.java',
         'cn/alini/trueuuid/mixin/server/ServerLoginMixin.java',
@@ -96,20 +105,6 @@ tasks.named('classes') {
     dependsOn mergeSharedProtocolClasses
 }
 
-tasks.named('processResources', ProcessResources).configure {
-    filesMatching('META-INF/mods.toml') {
-        expand(
-                mod_id: providers.gradleProperty('mod_id').getOrElse('trueuuid'),
-                mod_license: providers.gradleProperty('mod_license').getOrElse('GNU LGPL 3.0'),
-                mod_version: project.version,
-                mod_authors: providers.gradleProperty('mod_authors').getOrElse('YuWan-030, wish131400, F1xGOD'),
-                mod_description: providers.gradleProperty('mod_description').getOrElse(''),
-                neoforge_version_range: "[${neoForgeVersion},)",
-                minecraft_version_range: '[1.20.2,1.20.3)'
-        )
-    }
-}
-
 // Same mechanism as neoforge-1.21.8's modernGuiSources: compile the shared
 // tree minus the era seams, plus this module's local replacements (which live
 // at the same relative paths, so a plain source-set exclude would drop both).
@@ -119,7 +114,7 @@ tasks.named('compileJava', JavaCompile).configure {
             fileTree("${rootDir}/platform/forgelike-common/src/pause-pose/java"),
             fileTree("${rootDir}/platform/neoforge-common/src/overlay-20.2-20.4/java"),
             fileTree("${rootDir}/platform/neoforge-common/src/config-20.2-20.4/java"),
-            fileTree('src/main/java'))
+            fileTree("${rootDir}/platform/neoforge-common/src/login-20.2-20.3/java"))
 }
 
 tasks.named('jar', Jar).configure {
@@ -128,3 +123,4 @@ tasks.named('jar', Jar).configure {
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.named('test') { useJUnitPlatform() }
+apply from: "${rootDir}/platform/neoforge-common/verify-login-wire.gradle"

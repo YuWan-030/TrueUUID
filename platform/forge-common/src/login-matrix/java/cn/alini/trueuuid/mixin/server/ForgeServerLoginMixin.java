@@ -18,7 +18,6 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
 import net.minecraft.network.protocol.login.ServerboundCustomQueryAnswerPacket;
-import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
@@ -52,17 +51,20 @@ abstract class ForgeServerLoginMixin {
     @Unique private String trueuuid$pendingIp;
     @Unique private String trueuuid$pendingEndpoint;
 
-    @Inject(method = "handleHello", at = @At("TAIL"))
-    private void trueuuid$requestAssertion(ServerboundHelloPacket packet, CallbackInfo callback) {
-        if (server.usesAuthentication() || authenticatedProfile == null) return;
-        if (ForgeAdapterRuntime.isMigrationPending(authenticatedProfile.getName())) {
+    // Start the gate before vanilla changes the listener state to VERIFYING.
+    // A handleHello TAIL hook leaves a cross-thread race where the server tick
+    // can finish login before the TrueUUID flow becomes active.
+    @Inject(method = "startClientVerification", at = @At("HEAD"))
+    private void trueuuid$requestAssertion(GameProfile profile, CallbackInfo callback) {
+        if (server.usesAuthentication() || profile == null) return;
+        if (ForgeAdapterRuntime.isMigrationPending(profile.getName())) {
             disconnect(Component.translatable("trueuuid.disconnect.migration_pending"));
             return;
         }
         trueuuid$transaction = trueuuid$newTransaction();
         byte[] wire = trueuuid$flow.start(trueuuid$transaction, UUID.randomUUID().toString().replace("-", ""), System.currentTimeMillis());
-        Trueuuid.LOGGER.info("TrueUUID authentication challenge sent: player={}", authenticatedProfile.getName());
-        Trueuuid.acceptance("phase=auth_query_sent player={}", authenticatedProfile.getName());
+        Trueuuid.LOGGER.info("TrueUUID authentication challenge sent: player={}", profile.getName());
+        Trueuuid.acceptance("phase=auth_query_sent player={}", profile.getName());
         connection.send(new ClientboundCustomQueryPacket(trueuuid$transaction,
                 new ForgeAuthPayload(AuthWireCodec.decodeQuery(wire))));
     }

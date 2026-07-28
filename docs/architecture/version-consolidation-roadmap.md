@@ -6,13 +6,17 @@ patches. The live target inventory and evidence are in
 
 ## Current state
 
-The release manifest contains 36 exact compile targets: 12 Forge, 12 Fabric,
-and 12 NeoForge. All 36 passed the four-case core runtime matrix on 2026-07-22.
-Metadata remains conservative and does not implicitly claim omitted patches.
+The 1.2.1 release manifest contains 52 exact compile targets: 16 Forge, 18
+Fabric, and 18 NeoForge. Fabric and NeoForge cover every Minecraft patch from
+1.20.1 through 1.21.11. Forge covers every patch in that line for which Forge
+published a loader; Forge has no 1.20.5 or 1.21.2 loader.
 
-The exact Fabric compile-patch expansion is complete. Adjacent candidate patches
-still require their own matching client/server evidence before any metadata
-range is widened. Follow the canonical [Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md).
+The exact compile-patch expansion is complete. Each artifact remains bound to
+one loader and one Minecraft version; protocol clusters below are architectural
+context, not a reason to widen metadata. A shared protocol version is exactly
+why the 1.2.1 modules stay separate: 1.20.5 and 1.20.6 share protocol 766 yet
+still need their own Yarn mappings, Fabric API, and NeoForge pins. Follow the
+canonical [Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md).
 Forge 1.21.11 remains a separate Gradle 9.5 build island, but its own wrapper is
 integrated into the manifest, CI, release workflow, and runtime harness.
 

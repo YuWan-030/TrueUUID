@@ -9,26 +9,26 @@ TrueUUID has one repository version and one complete target inventory:
   one `release_version`. Its validator rejects a manifest that omits a module,
   invents one, or carries approvals across a version change.
 - `./scripts/ci/build-all-targets.sh` builds all targets. The root Gradle build
-  owns 35 modules; the script then invokes the standalone Forge 1.21.11 Gradle
+  owns 51 target modules; the script then invokes the standalone Forge 1.21.11 Gradle
   9.5 wrapper. `.github/workflows/verify.yml` builds and tests all targets on
   every push and pull request.
 - `.github/workflows/self-test.yml` builds and structurally verifies every JAR,
   then boots a localhost development server and headless client for every
   target.
 
-The current release inventory is 36 targets: twelve Forge, twelve Fabric, and
-twelve NeoForge. Forge 1.21.11 is a standalone build island whose own wrapper
+The current release inventory is 52 targets: sixteen Forge, eighteen Fabric,
+and eighteen NeoForge. Forge 1.21.11 is a standalone build island whose own wrapper
 is selected by manifest-driven scripts and workflows. CI coverage is separate
-from release approval. Version 1.2.0 approves all 36 targets; a future target with
+from release approval. Version 1.2.1 approves all 52 targets; a future target with
 `"release": false` would still be built and self-tested but would never be
 attached to a GitHub Release or sent to a distribution service.
 
 Public JARs use the unambiguous all-hyphen pattern
 `trueuuid-{mod-version}-{loader}-{minecraft-version}.jar`, for example
-`trueuuid-1.2.0-fabric-1.21.11.jar`. Modrinth and CurseForge use the matching
-human-readable display name `TrueUUID 1.2.0 for Fabric 1.21.11`; stable API
+`trueuuid-1.2.1-fabric-1.21.11.jar`. Modrinth and CurseForge use the matching
+human-readable display name `TrueUUID 1.2.1 for Fabric 1.21.11`; stable API
 version identifiers remain machine-oriented, such as
-`1.2.0+fabric-1.21.11`.
+`1.2.1+fabric-1.21.11`.
 
 Every matrix job installs the target's declared JDK for the Java toolchain and
 JDK 21 as the Gradle launcher. The launcher must be 21 even for Java 17 targets
@@ -76,7 +76,7 @@ cannot silently break draft discovery again.
    CurseForge upload token, and CurseForge project upload access. CurseForge's
    upload API does not expose the token owner's username, so the workflow does
    not invent one.
-6. The full self-test passes for all 36 declared targets.
+6. The full self-test passes for all 52 declared targets.
 
 After those gates pass, the workflow freezes the draft body, collects only
 approved JARs, verifies their per-target checksums, creates one aggregate
@@ -91,7 +91,7 @@ a nonempty `## 中文` section. Start from
 always the primary section and Chinese is the translation; do not put Chinese
 release notes before the English source text.
 
-Compiling and booting alone do not approve a target. Version 1.2.0 approval is
+Compiling and booting alone do not approve a target. Version 1.2.1 approval is
 based on the recorded four-case installed-JAR matrix, aggregate builds, unit
 tests, structural JAR checks, and explicit maintainer approval. The target
 matrix keeps the remaining extended runtime evidence limitations visible.
@@ -120,7 +120,7 @@ Configure these values in the upstream repository:
 The 2026-07-22 audit found the three credentials configured as repository
 secrets, but no `release` environment, repository ruleset, or classic `main`
 branch protection. Those owner-only settings must be completed before creating
-`v1.2.0`; a write-level collaborator cannot configure them through the API.
+`v1.2.1`; a write-level collaborator cannot configure them through the API.
 
 No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
@@ -131,7 +131,7 @@ is no separate credential-check workflow that can drift from the real release
 path. Immediately after validating the draft, Release identifies the initiating
 GitHub actor and authenticated Modrinth username, uploads and immediately
 deletes a uniquely named probe asset to prove GitHub Release write access, and
-probes both distribution services. All checks run before the 36-target
+probes both distribution services. All checks run before the 52-target
 self-test. Modrinth and CurseForge are probed with complete metadata but
 deliberately no file; both upload APIs must authorize the request and then
 reject it for the missing required file. The probe never creates a version or
@@ -159,7 +159,7 @@ each target, the workflow:
    Mixin configuration, and era-correct loader metadata, rejects duplicate or
    test classes, packaged development scripts, and matrix-only acceptance
    hooks, and records `SHA256SUMS`.
-3. For Forge 1.20.1, Forge 1.20.2, Forge 1.20.4, and NeoForge 1.20.1, additionally requires a
+3. For Forge 1.20.1, Forge 1.20.2, Forge 1.20.3, Forge 1.20.4, and NeoForge 1.20.1, additionally requires a
    nonempty refmap, a `MixinConfigs` manifest entry, SRG method references, and
    SRG-renamed shadow fields.
 4. Boots an offline-mode server on `127.0.0.1` and requires both the TrueUUID
@@ -177,9 +177,9 @@ harness separately recorded the four core login scenarios. Allowed Yggdrasil,
 disconnect/grace, negative migration, commands, callbacks, HUD presentation,
 and skin refresh retain the evidence limitations shown in the target matrix.
 
-## Publishing version 1.2.0
+## Publishing version 1.2.1
 
-All 36 exact targets are approved for 1.2.0 in `release/targets.json`. They
+All 52 exact targets are approved for 1.2.1 in `release/targets.json`. They
 passed the installed-JAR premium, offline fallback, confirmed migration, and
 known-name denial matrix on 2026-07-22. Allowed Yggdrasil,
 timeouts/disconnects, reconnect grace, negative/rollback migration paths,
@@ -194,20 +194,20 @@ After the owner-only repository setup above is complete:
 2. From a clean, up-to-date `main`, create and push a signed annotated tag:
 
    ```bash
-   git tag -s v1.2.0 -m 'TrueUUID 1.2.0'
-   git push origin v1.2.0
+   git tag -s v1.2.1 -m 'v1.2.1-TrueUUID'
+   git push origin v1.2.1
    ```
 
 3. Create the required draft GitHub Release from the checked-in bilingual
    changelog:
 
    ```bash
-   gh release create v1.2.0 \
+   gh release create v1.2.1 \
      --repo YuWan-030/TrueUUID \
      --verify-tag \
      --draft \
-     --title 'TrueUUID 1.2.0' \
-     --notes-file docs/development/release-changelog-1.2.0.md
+     --title 'v1.2.1-TrueUUID' \
+     --notes-file docs/development/release-changelog-1.2.1.md
    ```
 
 4. Start the guarded release workflow from `main`:
@@ -216,26 +216,26 @@ After the owner-only repository setup above is complete:
    gh workflow run release.yml \
      --repo YuWan-030/TrueUUID \
      --ref main \
-     -f tag=v1.2.0
+     -f tag=v1.2.1
    ```
 
    Approve the pending `release` environment deployment when GitHub asks. Do
    not click GitHub's **Publish release** button yourself. If someone does, the
    release guard returns it to draft; inspect that guard run and then start the
    normal Release workflow.
-5. Confirm that the workflow rebuilt/self-tested all 36 targets, attached all
-   36 JARs plus `SHA256SUMS`, published the same target artifacts to Modrinth
+5. Confirm that the workflow rebuilt/self-tested all 52 targets, attached all
+   52 JARs plus `SHA256SUMS`, published the same target artifacts to Modrinth
    and CurseForge, and only then changed the GitHub Release from draft to
    public.
 
 ### Adding independent developer signatures
 
 Do not place developers' personal private GPG keys in repository or environment
-secrets. After the Release workflow attaches the 36 JARs and `SHA256SUMS`, each
+secrets. After the Release workflow attaches the 52 JARs and `SHA256SUMS`, each
 developer can add an independent signature with one command:
 
 ```bash
-./scripts/release/sign-release-assets.sh v1.2.0 YOUR_FULL_GPG_FINGERPRINT
+./scripts/release/sign-release-assets.sh v1.2.1 YOUR_FULL_GPG_FINGERPRINT
 ```
 
 The helper identifies the developer by the account authenticated in `gh`,
@@ -248,7 +248,7 @@ key. It works for draft releases visible to the authenticated maintainer and
 for published releases.
 
 Three developers therefore create three small detached signatures rather than
-108 per-JAR files. A signature over the exact `SHA256SUMS` binds all 36 JARs.
+156 per-JAR files. A signature over the exact `SHA256SUMS` binds all 52 JARs.
 Anyone who imports the signer's public key can verify an endorsement with:
 
 ```bash
@@ -275,8 +275,8 @@ so the correct recovery depends on whether external state was created:
   the existing file and confirming byte equality. A same-name byte mismatch
   fails closed.
 - If validation or self-test fails before any external upload, fix the code,
-  increment the patch version (for example, `1.2.1`), and create a new signed
-  tag and draft. Re-creating `v1.2.0` is acceptable only if it never left the
+  increment the patch version (for example, `1.2.2`), and create a new signed
+  tag and draft. Re-creating `v1.2.1` is acceptable only if it never left the
   draft/preflight stage and no GitHub asset, Modrinth version, or CurseForge
   file was created. A new version is still the safer and clearer choice.
 - If any Modrinth or CurseForge upload exists, never move or re-create that

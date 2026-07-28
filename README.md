@@ -12,9 +12,10 @@ The same TrueUUID JAR must be installed on the client and server. Always choose
 the JAR made for your exact Minecraft version and loader.
 
 > [!IMPORTANT]
-> Version 1.2.0 publishes only the 36 exact targets approved in the
-> [target matrix](docs/architecture/target-matrix.md). Omitted Minecraft
-> patches are not implicitly supported.
+> Version 1.2.1 declares 52 exact targets in the
+> [target matrix](docs/architecture/target-matrix.md): every Minecraft patch
+> from 1.20.1 through 1.21.11 on Fabric and NeoForge, plus every Forge patch
+> for which Forge exists. Forge never published 1.20.5 or 1.21.2.
 
 ## Quick start
 
@@ -48,11 +49,12 @@ internet. It deliberately binds to localhost and uses offline mode for testing.
 - Supports configured Yggdrasil/authlib-injector services on adapters that list
   that feature in the target matrix.
 
-All 36 currently declared adapters include offline-to-verified data migration,
-admin commands, and the addon API. Every exact target passed the premium,
+All 52 currently declared adapters include offline-to-verified data migration,
+admin commands, and the addon API, and every one of them passed the premium,
 offline fallback, confirmed migration, and known-name denial installed-JAR
-matrix. Consult the target matrix instead of assuming every implemented feature
-or an omitted adjacent Minecraft patch was exercised.
+matrix on the exact login path it ships. Consult the target matrix instead of
+assuming every implemented feature or an omitted adjacent Minecraft patch was
+exercised.
 
 ## How login verification works
 
@@ -192,28 +194,33 @@ TARGET=neoforge-1.21.11
 The Prism-ready JAR is then:
 
 ```text
-platform/neoforge-1.21.11/build/libs/trueuuid-1.2.0-neoforge-1.21.11.jar
+platform/neoforge-1.21.11/build/libs/trueuuid-1.2.1-neoforge-1.21.11.jar
 ```
 
 Change `TARGET` to any ID in `release/targets.json`, for example:
 
 ```text
 forge-1.20.1
+forge-1.20.3
+forge-1.21
 forge-1.21.6
+forge-1.21.7
 forge-1.21.8
+forge-1.21.9
 fabric-1.20.1
-fabric-1.20.2
-fabric-1.20.4
-fabric-1.20.6
-fabric-1.21.1
-fabric-1.21.3
-fabric-1.21.4
-fabric-1.21.5
-fabric-1.21.6
-fabric-1.21.8
-fabric-1.21.10
+fabric-1.20.5
+fabric-1.21
+fabric-1.21.2
+fabric-1.21.7
+fabric-1.21.9
 fabric-1.21.11
+neoforge-1.20.3
 neoforge-1.20.4
+neoforge-1.20.5
+neoforge-1.21
+neoforge-1.21.2
+neoforge-1.21.7
+neoforge-1.21.9
 neoforge-1.21.11
 ```
 

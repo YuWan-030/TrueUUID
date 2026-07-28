@@ -11,6 +11,7 @@ def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').get()
+apply from: "${rootDir}/platform/forge-common/metadata-properties.gradle"
 
 base {
     archivesName = 'trueuuid'
@@ -110,12 +111,11 @@ tasks.named('processResources', ProcessResources).configure {
             packFormat           : target.packFormat
     ])
     filesMatching(['META-INF/mods.toml', 'trueuuid.mixins.json', 'pack.mcmeta']) {
-        expand minecraft_version_range: target.minecraftVersionRange,
+        expand trueuuidModMetadata + [minecraft_version_range: target.minecraftVersionRange,
                 forge_version_range: target.forgeVersionRange,
                 forge_loader_range: target.forgeLoaderRange,
                 java_compatibility: target.javaCompatibility,
-                pack_format: target.packFormat,
-                mod_version: project.version
+                pack_format: target.packFormat]
     }
 }
 

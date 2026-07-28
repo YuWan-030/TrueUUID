@@ -28,6 +28,7 @@ def forgeVersionRange = '[54,55)'
 
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').get()
+apply from: "${rootDir}/platform/forge-common/metadata-properties.gradle"
 
 base {
     archivesName = 'trueuuid'
@@ -116,7 +117,7 @@ dependencies {
 
 tasks.named('processResources', ProcessResources).configure {
     filesMatching('META-INF/mods.toml') {
-        expand minecraft_version: minecraftVersion, forge_version_range: forgeVersionRange, mod_version: project.version
+        expand trueuuidModMetadata + [minecraft_version: minecraftVersion, forge_version_range: forgeVersionRange]
     }
 }
 

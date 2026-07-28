@@ -304,7 +304,7 @@ jobs:
           [[ "$RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
           for asset in release-assets/*; do
             name=$(basename "$asset")
-            [[ "$name" =~ ^(SHA256SUMS|trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+\.[0-9]+\.jar)$ ]]
+            [[ "$name" =~ ^(SHA256SUMS|trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar)$ ]]
             while IFS= read -r asset_id; do
               [[ "$asset_id" =~ ^[1-9][0-9]*$ ]]
               gh api --method DELETE \
