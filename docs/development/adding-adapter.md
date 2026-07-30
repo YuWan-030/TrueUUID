@@ -19,7 +19,7 @@ a security-safe implementation template.
 
 ## 2. Add a self-contained platform module
 
-Create `platform/<loader>-<minecraft-version>` only when it has a working
+Create `platform/<loader>/<minecraft-version>` only when it has a working
 Gradle build. Its responsibilities are limited to:
 
 - loader entrypoint, configuration, commands, lifecycle hooks, and resources;
@@ -57,7 +57,9 @@ The adapter must retain these properties:
 Paper/Spigot are not ordinary adapters: they cannot replace the login UUID
 before player-data loading. Treat them as a separate, signed assertion bridge
 design, normally with a compatible client mod and proxy, before claiming
-support.
+support. Follow
+[`docs/architecture/server-plugin-bridge.md`](../architecture/server-plugin-bridge.md)
+for its trust, module, implementation, and acceptance gates.
 
 ## 5. Validate before changing status
 

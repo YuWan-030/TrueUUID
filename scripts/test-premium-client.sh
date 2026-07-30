@@ -283,6 +283,7 @@ game_version=$(jq -r '.game_version' <<<"$meta")
 game_java=$(jq -r '.java' <<<"$meta")
 manifest_loader_version=$(jq -r '.runtime_loader_version' <<<"$meta")
 artifact_tmpl=$(jq -r '.artifact' <<<"$meta")
+target_dir="$root/platform/$loader/$game_version"
 
 mod_version=$(sed -n 's/^mod_version=//p' "$root/gradle.properties" | tr -d '[:space:]')
 [[ -n "$mod_version" ]] || { echo 'Could not read mod_version from gradle.properties.' >&2; exit 70; }
@@ -301,11 +302,11 @@ source_newer_than_artifact() {
         "$root/gradle.properties"
         "$root/shared/protocol/build.gradle"
         "$root/shared/protocol/src"
-        "$root/platform/common-assets/src"
-        "$root/platform/$target/build.gradle"
-        "$root/platform/$target/src"
+        "$root/platform/common/assets/src"
+        "$target_dir/build.gradle"
+        "$target_dir/src"
     )
-    local loader_common="$root/platform/${loader}-common"
+    local loader_common="$root/platform/$loader/common"
     if [[ -d "$loader_common" ]]; then
         # Include loader-wide Gradle composition as well as source roots. A
         # target artifact must be rebuilt when an API-era source selection or
@@ -427,10 +428,10 @@ if [[ "$loader" == "fabric" ]]; then
     fabric_api="${TRUEUUID_FABRIC_API_JAR:-}"
     if [[ -z "$fabric_api" ]]; then
         coord=$(sed -nE "s/^[[:space:]]*fabricApiVersion:[[:space:]]*'([^']+)'.*/\\1/p" \
-            "$root/platform/$target/build.gradle" | head -1)
+            "$target_dir/build.gradle" | head -1)
         if [[ -z "$coord" ]]; then
             coord=$(grep -oE "net\.fabricmc\.fabric-api:fabric-api:[0-9A-Za-z.+-]+" \
-                "$root/platform/$target/build.gradle" | head -1 | awk -F: '{print $3}')
+                "$target_dir/build.gradle" | head -1 | awk -F: '{print $3}')
         fi
         if [[ -n "$coord" ]]; then
             fabric_api=$(find "$HOME/.gradle/caches" -name "fabric-api-$coord.jar" 2>/dev/null | head -1)

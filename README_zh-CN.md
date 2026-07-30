@@ -218,7 +218,7 @@ Windows：
 
 ```powershell
 .\gradlew.bat build
-.\platform\forge-1.21.11\gradlew.bat -p platform/forge-1.21.11 build
+.\platform\forge\1.21.11\gradlew.bat -p platform/forge/1.21.11 build
 ```
 
 macOS/Linux：
@@ -229,7 +229,7 @@ macOS/Linux：
 
 根构建负责 51 个普通模块，第二条 Windows 命令或 Linux/macOS 聚合脚本
 负责独立的 Forge 1.21.11 Gradle 9.5 构建。每个适配器都会将对应目标的构建产物输出到自己的
-`platform/<loader>-<minecraft-version>/build/libs/` 目录。准确的目标状态、
+`platform/<loader>/<minecraft-version>/build/libs/` 目录。准确的目标状态、
 四项核心验收范围和仍待验证的功能见
 [`docs/architecture/target-matrix.md`](docs/architecture/target-matrix.md)。
 

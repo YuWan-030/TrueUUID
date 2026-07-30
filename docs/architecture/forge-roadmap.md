@@ -31,7 +31,7 @@ policy, login state, verified-profile values, known-name and grace stores, and
 migration planning/execution contracts. It has no Minecraft, Forge, authlib,
 Netty, Mixin, or loader imports.
 
-`platform/forge-common` owns the stable Forge behaviour: client and server
+`platform/forge/common` owns the stable Forge behaviour: client and server
 login flows, configuration, lifecycle events, commands, HUD/status API,
 profile conversion, world-path discovery, and Mixin integration. Exact target
 modules recompile it against pinned Forge/Minecraft APIs and select only the

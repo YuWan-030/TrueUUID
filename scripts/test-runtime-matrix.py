@@ -57,6 +57,17 @@ TERMINAL_RESULT_RE = re.compile(
 )
 
 
+def target_module_path(target: str) -> Path:
+    loader, separator, game_version = target.partition("-")
+    if (
+        separator != "-"
+        or loader not in {"fabric", "forge", "neoforge"}
+        or re.fullmatch(r"[0-9]+\.[0-9]+(?:\.[0-9]+)?", game_version) is None
+    ):
+        raise RuntimeError(f"invalid target id: {target!r}")
+    return ROOT / "platform" / loader / game_version
+
+
 @dataclass(frozen=True)
 class ProcessEvent:
     source: "ManagedProcess"
@@ -619,7 +630,7 @@ class RuntimeMatrix:
         env["JAVA_HOME"] = str(build_java)
         env["PATH"] = f"{build_java / 'bin'}:{env.get('PATH', '')}"
         if standalone:
-            module = ROOT / "platform" / target
+            module = target_module_path(target)
             command = [
                 str(module / "gradlew"),
                 "-p",
@@ -1108,7 +1119,7 @@ def offline_uuid(name: str) -> str:
 def test_world_paths(target: str, world_name: str) -> tuple[Path, ...]:
     if not re.fullmatch(r"[A-Za-z0-9._-]+", world_name) or world_name in {".", ".."}:
         raise RuntimeError(f"unsafe test world name: {world_name!r}")
-    target_root = ROOT / "platform" / target
+    target_root = target_module_path(target)
     return (
         target_root / "run" / world_name,
         target_root / "run" / "server" / world_name,

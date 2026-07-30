@@ -22,13 +22,15 @@ target=$(jq -ce --arg id "$target_id" '
 }
 
 build_task=$(jq -r '.build_task' <<<"$target")
+loader=$(jq -r '.loader' <<<"$target")
+game_version=$(jq -r '.game_version' <<<"$target")
 standalone=$(jq -r '.standalone // false' <<<"$target")
+module="$root/platform/$loader/$game_version"
 gradle_flags=(--no-daemon --stacktrace)
 [[ -z "${TRUEUUID_OFFLINE:-}" ]] || gradle_flags+=(--offline)
 [[ "${TRUEUUID_ACCEPTANCE_HOOKS:-}" != 1 ]] || gradle_flags+=(-PtrueuuidAcceptanceHooks=true)
 
 if [[ "$standalone" == true ]]; then
-    module="$root/platform/$target_id"
     [[ -x "$module/gradlew" && -f "$module/settings.gradle" ]] || {
         echo "standalone target has no executable wrapper/settings: $target_id" >&2
         exit 66

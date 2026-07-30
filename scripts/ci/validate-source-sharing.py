@@ -39,8 +39,8 @@ def main() -> int:
         return 1
 
     stale_donors: list[Path] = []
-    marker = "platform/neoforge-1.21.1/src/"
-    for build in sorted(PLATFORM.glob("neoforge-*/build.gradle")):
+    marker = "platform/neoforge/1.21.1/src/"
+    for build in sorted((PLATFORM / "neoforge").glob("*/build.gradle")):
         if marker in build.read_text(encoding="utf-8"):
             stale_donors.append(build)
     if stale_donors:

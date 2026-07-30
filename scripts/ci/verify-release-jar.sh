@@ -12,8 +12,9 @@ version=$(sed -n 's/^mod_version=//p' gradle.properties)
 expected_name=$(sed -n 's/^mod_name=//p' gradle.properties)
 expected_license=$(sed -n 's/^mod_license=//p' gradle.properties)
 expected_authors=$(sed -n 's/^mod_authors=//p' gradle.properties)
+expected_description=$(sed -n 's/^mod_description=//p' gradle.properties)
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid mod_version" >&2; exit 65; }
-[[ -n "$expected_name" && -n "$expected_license" && -n "$expected_authors" ]] || {
+[[ -n "$expected_name" && -n "$expected_license" && -n "$expected_authors" && -n "$expected_description" ]] || {
     echo "canonical mod presentation metadata is incomplete" >&2
     exit 65
 }
@@ -78,6 +79,7 @@ case "$loader" in
         embedded_name=$(jq -er '.name' <<<"$embedded_metadata")
         embedded_license=$(jq -er '.license' <<<"$embedded_metadata")
         embedded_authors=$(jq -er '.authors | join(", ")' <<<"$embedded_metadata")
+        embedded_description=$(jq -er '.description' <<<"$embedded_metadata")
         ;;
     forge|neoforge)
         embedded_metadata=$(unzip -p "$artifact" "$metadata")
@@ -88,6 +90,8 @@ case "$loader" in
         embedded_license=$(sed -nE 's/^[[:space:]]*license[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
             <<<"$embedded_metadata" | head -n 1)
         embedded_authors=$(sed -nE 's/^[[:space:]]*authors[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+            <<<"$embedded_metadata" | head -n 1)
+        embedded_description=$(sed -nE "s/^[[:space:]]*description[[:space:]]*=[[:space:]]*'''(.*)'''[[:space:]]*$/\\1/p" \
             <<<"$embedded_metadata" | head -n 1)
         ;;
 esac
@@ -105,6 +109,10 @@ esac
 }
 [[ "$embedded_authors" == "$expected_authors" ]] || {
     echo "metadata authors mismatch in $artifact: expected $expected_authors, found ${embedded_authors:-<missing>}" >&2
+    exit 65
+}
+[[ "$embedded_description" == "$expected_description" ]] || {
+    echo "metadata description mismatch in $artifact" >&2
     exit 65
 }
 

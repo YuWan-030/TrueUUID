@@ -78,10 +78,13 @@ fi
 # Java 17 or Java 21 toolchain declared by the selected module.
 required_java=21
 target_game_java=$(jq -r '.java' <<<"$target_metadata")
+target_loader=$(jq -r '.loader' <<<"$target_metadata")
+target_game_version=$(jq -r '.game_version' <<<"$target_metadata")
 standalone=$(jq -r '.standalone // false' <<<"$target_metadata")
+target_dir="$root/platform/$target_loader/$target_game_version"
 role_cap="$(tr '[:lower:]' '[:upper:]' <<< "${role:0:1}")${role:1}"
 if [[ "$standalone" == true ]]; then
-    gradle_project="$root/platform/$target"
+    gradle_project="$target_dir"
     gradle_wrapper="$gradle_project/gradlew"
     gradle_task="run${role_cap}"
 else
@@ -117,10 +120,10 @@ if [[ "$role" == "server" ]]; then
     # working directories. Prepare both common locations; the actual run only
     # reads the one its Gradle run config selects.
     run_dirs=(
-        "$root/platform/$target/run"
-        "$root/platform/$target/run/server"
+        "$target_dir/run"
+        "$target_dir/run/server"
         # NeoGradle 7 (used only by NeoForge 1.20.2) defaults to runs/server.
-        "$root/platform/$target/runs/server"
+        "$target_dir/runs/server"
     )
     server_level="${TRUEUUID_SERVER_LEVEL:-trueuuid-ci-world}"
     if [[ ! "$server_level" =~ ^[A-Za-z0-9._-]+$ || "$server_level" == "." || "$server_level" == ".." ]]; then

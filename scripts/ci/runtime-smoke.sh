@@ -21,7 +21,7 @@ case "$role" in
 esac
 
 root=$(pwd)
-[[ -x "$root/gradlew" && -d "$root/platform/$target_id" ]] || {
+[[ -x "$root/gradlew" ]] || {
     echo "runtime smoke must run from the repository root" >&2
     exit 66
 }
@@ -38,7 +38,13 @@ if ! target=$(jq -ce --arg id "$target_id" '
 fi
 
 loader=$(jq -r '.loader' <<<"$target")
+game_version=$(jq -r '.game_version' <<<"$target")
 standalone=$(jq -r '.standalone // false' <<<"$target")
+target_dir="$root/platform/$loader/$game_version"
+[[ -d "$target_dir" ]] || {
+    echo "target module directory is missing: $target_dir" >&2
+    exit 66
+}
 case "$loader" in
     forge) load_pattern='TrueUUID Forge adapter loaded' ;;
     neoforge) load_pattern='TrueUUID NeoForge adapter loaded' ;;
@@ -51,8 +57,8 @@ fi
 
 if [[ "$standalone" == true ]]; then
     task="run${role^}"
-    gradle_wrapper="$root/platform/$target_id/gradlew"
-    gradle_project="$root/platform/$target_id"
+    gradle_wrapper="$target_dir/gradlew"
+    gradle_project="$target_dir"
 else
     task=":platform:${target_id}:run${role^}"
     gradle_wrapper="$root/gradlew"
@@ -67,9 +73,9 @@ disable_fml_early_window() {
     # otherwise healthy CI runners. Disable only that splash window; the smoke
     # still requires Minecraft's real render thread to reach its ready marker.
     for run_dir in \
-        "$root/platform/$target_id/run" \
-        "$root/platform/$target_id/run/client" \
-        "$root/platform/$target_id/runs/client" \
+        "$target_dir/run" \
+        "$target_dir/run/client" \
+        "$target_dir/runs/client" \
         "$root/run"; do
         config_file="$run_dir/config/fml.toml"
         mkdir -p "$(dirname "$config_file")"
@@ -95,9 +101,9 @@ if [[ "$role" == server ]]; then
     # Every launcher working directory a target's runServer may use: the module
     # run root, the split server run dir (Forge/Fabric), and the repo root.
     for run_dir in \
-        "$root/platform/$target_id/run" \
-        "$root/platform/$target_id/run/server" \
-        "$root/platform/$target_id/runs/server" \
+        "$target_dir/run" \
+        "$target_dir/run/server" \
+        "$target_dir/runs/server" \
         "$root/run"; do
         mkdir -p "$run_dir"
         printf 'eula=true\n' > "$run_dir/eula.txt"
@@ -217,7 +223,7 @@ for (( elapsed = 0; elapsed < smoke_timeout; elapsed++ )); do
         failure_reason='the loader early display failed to initialize'
         break
     fi
-    latest_log=$(find "$root/platform/$target_id" "$root/run" \
+    latest_log=$(find "$target_dir" "$root/run" \
         -path '*/logs/latest.log' -type f -newer "$started" -print 2>/dev/null | head -n 1 || true)
     if [[ -n "$latest_log" ]] && grep -Fq "$load_pattern" "$latest_log"; then
         if [[ "$role" == server ]] && grep -Eq 'Done \([0-9.]+s\)!' "$latest_log"; then

@@ -21,7 +21,7 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
     def test_neoforge_uses_canonical_common_runtime_with_completed_join_results(self) -> None:
         shared_runtime = (
             matrix.ROOT
-            / "platform/neoforge-common/src/main/java/"
+            / "platform/neoforge/common/src/main/java/"
             "cn/alini/trueuuid/server/AdapterRuntime.java"
         )
         contents = shared_runtime.read_text(encoding="utf-8")
@@ -31,13 +31,13 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
         for version in ("1.21.10", "1.21.11"):
             local_copy = (
                 matrix.ROOT
-                / f"platform/neoforge-{version}/src/main/java/"
+                / f"platform/neoforge/{version}/src/main/java/"
                 "cn/alini/trueuuid/server/AdapterRuntime.java"
             )
             with self.subTest(version=version):
                 self.assertFalse(local_copy.exists())
-                build = (matrix.ROOT / f"platform/neoforge-{version}/build.gradle").read_text(encoding="utf-8")
-                self.assertIn('def adapterMain = "${rootDir}/platform/neoforge-common/src/main"', build)
+                build = (matrix.ROOT / f"platform/neoforge/{version}/build.gradle").read_text(encoding="utf-8")
+                self.assertIn('def adapterMain = "${rootDir}/platform/neoforge/common/src/main"', build)
 
     def test_busy_preferred_port_selects_the_next_free_port(self) -> None:
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,7 +55,7 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
 
     def test_neoforge_server_mixins_expose_every_terminal_matrix_result(self) -> None:
         sources = sorted(matrix.ROOT.glob(
-            "platform/neoforge-*/src/*/java/cn/alini/trueuuid/mixin/server/ServerLoginMixin.java"
+            "platform/neoforge/*/src/*/java/cn/alini/trueuuid/mixin/server/ServerLoginMixin.java"
         ))
         self.assertTrue(sources)
         required = {
@@ -292,13 +292,19 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
 
     def test_world_name_rejects_paths(self) -> None:
         self.assertEqual(
-            "safe-world",
-            matrix.test_world_paths("forge-1.20.2", "safe-world")[0].name,
+            matrix.ROOT / "platform" / "forge" / "1.20.2" / "run" / "safe-world",
+            matrix.test_world_paths("forge-1.20.2", "safe-world")[0],
         )
         for unsafe in ("../world", "a/b", ".", "..", ""):
             with self.subTest(unsafe=unsafe):
                 with self.assertRaises(RuntimeError):
                     matrix.test_world_paths("forge-1.20.2", unsafe)
+
+    def test_target_module_path_rejects_unknown_layouts(self) -> None:
+        for target in ("paper-1.21.1", "forge", "forge-main", "../forge-1.20.1"):
+            with self.subTest(target=target):
+                with self.assertRaises(RuntimeError):
+                    matrix.target_module_path(target)
 
     def test_migration_seed_only_writes_the_active_world(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:

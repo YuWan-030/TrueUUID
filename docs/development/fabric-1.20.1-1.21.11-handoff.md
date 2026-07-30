@@ -88,8 +88,8 @@ docs/architecture/version-consolidation-roadmap.md
 docs/development/adding-adapter.md
 docs/development/local-runtime-testing.md
 release/targets.json
-platform/fabric-1.20.1/
-platform/fabric-common/
+platform/fabric/1.20.1/
+platform/fabric/common/
 ```
 
 Retrieve current Fabric Loader, Fabric API, Yarn mappings, and Loom compatibility
@@ -100,7 +100,7 @@ Java 21 unless the upstream toolchain proves otherwise.
 
 ## Architecture constraints
 
-- Keep one behavioural Fabric implementation in `platform/fabric-common`.
+- Keep one behavioural Fabric implementation in `platform/fabric/common`.
 - A version module owns only Gradle/metadata and the smallest unavoidable
   Minecraft, Yarn, networking, HUD, command, record, or identifier seam.
 - Prefer source-set composition over copied trees. Add a named API-era source

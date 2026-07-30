@@ -31,5 +31,8 @@ include 'shared:presentation'
 // the root Gradle build.
 def targetManifest = new groovy.json.JsonSlurper().parse(file('release/targets.json'))
 targetManifest.targets.findAll { !(it.standalone ?: false) }.each { target ->
-    include "platform:${target.id}"
+    def projectPath = "platform:${target.id}"
+    include projectPath
+    project(":${projectPath}").projectDir =
+            file("platform/${target.loader}/${target.game_version}")
 }

@@ -108,7 +108,7 @@ for smoke_contract in \
     'release/targets.json' \
     'standalone=$(jq -r' \
     'elif [[ "$loader" == fabric || "$loader" == neoforge ]]' \
-    '"$root/platform/$target_id/runs/server"'; do
+    '"$target_dir/runs/server"'; do
     grep -Fq "$smoke_contract" scripts/ci/runtime-smoke.sh || {
         echo "runtime-smoke.sh is missing manifest/plugin compatibility contract: ${smoke_contract}" >&2
         exit 65

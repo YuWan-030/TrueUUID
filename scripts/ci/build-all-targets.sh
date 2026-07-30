@@ -13,7 +13,9 @@ gradle_flags=(--no-daemon --stacktrace)
 
 # Build islands declare their own wrapper because their loader plugin requires
 # a Gradle version incompatible with the root build (Forge 1.21.11 today).
-while IFS= read -r target_id; do
-    module="$root/platform/$target_id"
+while IFS=$'\t' read -r loader game_version; do
+    module="$root/platform/$loader/$game_version"
     "$module/gradlew" -p "$module" build "${gradle_flags[@]}"
-done < <(jq -r '.targets[] | select(.standalone == true) | .id' release/targets.json)
+done < <(jq -r \
+    '.targets[] | select(.standalone == true) | [.loader, .game_version] | @tsv' \
+    release/targets.json)

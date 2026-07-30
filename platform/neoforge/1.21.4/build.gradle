@@ -1,0 +1,74 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.118'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def adapterMain = "${rootDir}/platform/neoforge/common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge/common/src/test"
+def minecraftVersion = '1.21.4'
+def neoForgeVersion = '21.4.121'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+ext.neoforgeMetadata = [
+        loaderRange: "[${neoForgeVersion},)",
+        minecraftRange: '[1.21.4,1.21.5)'
+]
+apply from: "${rootDir}/platform/neoforge/common/metadata.gradle"
+
+base { archivesName = 'trueuuid' }
+repositories { mavenCentral() }
+
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/common/forgelike/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/common/forgelike/src/pause-pose/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common/assets/src/main/resources"
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
+
+neoForge {
+    version = neoForgeVersion
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
+    }
+    mods {
+        trueuuid {
+            sourceSet(sourceSets.main)
+            sourceSet(sharedProtocolMain.get())
+        }
+    }
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+dependencies {
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge-${minecraftVersion}.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
+apply from: "${rootDir}/platform/neoforge/common/verify-login-wire.gradle"

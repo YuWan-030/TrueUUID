@@ -40,10 +40,10 @@ if [[ "$scope" == "build" || "$scope" == "all" ]]; then
     add "$root/build"
     add "$root/.gradle"
     for d in \
-        "$root"/platform/*/build \
-        "$root"/platform/*/run \
-        "$root"/platform/*/runs \
-        "$root"/platform/*/.gradle \
+        "$root"/platform/{fabric,forge,neoforge}/*/build \
+        "$root"/platform/{fabric,forge,neoforge}/*/run \
+        "$root"/platform/{fabric,forge,neoforge}/*/runs \
+        "$root"/platform/{fabric,forge,neoforge}/*/.gradle \
         "$root"/shared/*/build; do
         add "$d"
     done

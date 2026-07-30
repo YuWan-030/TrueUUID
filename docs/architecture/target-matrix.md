@@ -17,12 +17,16 @@ derives its included modules from it, the aggregate root `build` task derives
 its dependencies from it, and `validate-targets.sh` fails when the manifest and
 the `platform/` modules disagree. Adding a module without a manifest entry, or
 the reverse, is now a validation error rather than a silent gap.
+Physical modules are grouped as `platform/<loader>/<minecraft-version>`, while
+their stable manifest IDs and Gradle coordinates remain `<loader>-<version>`
+and `:platform:<loader>-<version>`.
 
 Mod presentation metadata has one source: `mod_id`, `mod_name`, `mod_license`,
 `mod_authors`, and `mod_description` in `gradle.properties`. Every loader
 expands those into its own metadata file, and `verify-release-jar.sh` rejects
-any production JAR whose embedded name, license, or author list disagrees with
-`gradle.properties`. No adapter carries a hardcoded author or display string.
+any production JAR whose embedded name, license, author list, or description
+disagrees with `gradle.properties`. No adapter carries a hardcoded author,
+description, or display string.
 
 ## Evidence level for 1.2.1
 
@@ -64,18 +68,26 @@ pairs, all fresh `PASS`, nothing reused.
 Fabric is not affected by the relocation: it gates login through the Fabric API
 `ServerLoginConnectionEvents.QUERY_START` synchronizer, which holds login open
 by contract rather than by hook placement. The 12 Fabric targets carried over
-from 1.2.0 and the two 1.20.1 anchors therefore keep their 2026-07-22 evidence;
-no change in 1.2.1 touched the login path they run.
+from 1.2.0 therefore keep their 2026-07-22 evidence; no change in 1.2.1 touched
+the login path they run.
 
-The two 1.20.1 anchors keep the `handleHello` hook, because Minecraft 1.20.1 has
-no `startClientVerification` and sets `READY_TO_ACCEPT` inline. The equivalent
-window therefore remains open on `forge-1.20.1` and `neoforge-1.20.1`, which
-recompiles the same 1.20.1 sources. Closing it there needs a different, narrower
-seam and its own runtime evidence.
+Minecraft 1.20.1 has no `startClientVerification`, so its Forge-like adapters
+use a narrower seam. `handleHello` initializes `gameProfile` and then publishes
+the Forge `NEGOTIATING` state. The TrueUUID hook now runs immediately after
+either of the two possible `gameProfile` writes and before that state
+publication; a strict Mixin `require = 2` makes a changed or missing seam fail
+at startup instead of silently reopening the race.
+
+That 1.20.1 relocation invalidated the two anchors' earlier evidence. On
+2026-07-29, `forge-1.20.1` and `neoforge-1.20.1` repeated all four scenarios
+against rebuilt exact-patch artifacts. The summary is
+`build/runtime-acceptance/20260730T043305Z/summary.tsv`: eight fresh `PASS`
+rows, nothing reused.
 
 Every declared target therefore has four-case installed-JAR evidence for the
-exact login path it ships in 1.2.1: 38 accepted on 2026-07-28 and 14 on
-2026-07-22, the latter running code the release did not change.
+exact login path it ships in the current 1.2.1 worktree: 38 accepted on
+2026-07-28, two on 2026-07-29, and 12 on 2026-07-22, the latter running Fabric
+code the release did not change.
 
 The following remain implemented or unit-tested only, exactly as in 1.2.0:
 extended Yggdrasil/skin-site login, timeout and disconnect cancellation,
@@ -97,14 +109,14 @@ Runtime state values:
   offline fallback, confirmed offline-to-premium migration, and denial of
   offline reuse of a previously verified name.
 - **Core accepted (1.2.1)** — the same four scenarios passed for that exact
-  target on 2026-07-28, after the login-gate relocation and, for NeoForge, the
-  login-wire era fix.
+  target on 2026-07-28 or 2026-07-29, after the applicable login-gate
+  relocation and, for NeoForge 1.20.3, the login-wire era fix.
 No target carries stale evidence: a row keeps its 1.2.0 date only when 1.2.1
 changed nothing in the login path it runs.
 
 | Target ID | Loader version | Java | Runtime state | Release |
 |---|---:|---:|---|---:|
-| `forge-1.20.1` | Forge 47.4.10 | 17 | Core accepted (1.2.0) | true |
+| `forge-1.20.1` | Forge 47.4.10 | 17 | Core accepted (1.2.1) | true |
 | `forge-1.20.2` | Forge 48.1.0 | 17 | Core accepted (1.2.1) | true |
 | `forge-1.20.3` | Forge 49.0.2 | 17 | Core accepted (1.2.1) | true |
 | `forge-1.20.4` | Forge 49.2.8 | 17 | Core accepted (1.2.1) | true |
@@ -138,7 +150,7 @@ changed nothing in the login path it runs.
 | `fabric-1.21.9` | Fabric Loader 0.19.3 | 21 | Core accepted (1.2.1) | true |
 | `fabric-1.21.10` | Fabric Loader 0.19.3 | 21 | Core accepted (1.2.0) | true |
 | `fabric-1.21.11` | Fabric Loader 0.19.3 | 21 | Core accepted (1.2.0) | true |
-| `neoforge-1.20.1` | NeoForge 47.1.106 | 17 | Core accepted (1.2.0) | true |
+| `neoforge-1.20.1` | NeoForge 47.1.106 | 17 | Core accepted (1.2.1) | true |
 | `neoforge-1.20.2` | NeoForge 20.2.93 | 17 | Core accepted (1.2.1) | true |
 | `neoforge-1.20.3` | NeoForge 20.3.8-beta | 17 | Core accepted (1.2.1) | true |
 | `neoforge-1.20.4` | NeoForge 20.4.251 | 17 | Core accepted (1.2.1) | true |
@@ -168,17 +180,17 @@ runtime checks.
 ## Feature parity
 
 The adapters share the same security and behavioural spine wherever their
-loader APIs permit it. “Implemented” is a source/build claim; the “core runtime
-accepted” rows describe the 36 targets that carry the 1.2.0 evidence, subject
-to the login-gate note above.
+loader APIs permit it. “Implemented” is a source/build claim; the “core
+accepted” rows describe all 52 exact targets with the evidence date recorded
+above.
 
 | Feature | Forge targets | Fabric targets | NeoForge targets | Evidence level |
 |---|---|---|---|---|
-| Mojang premium verification | yes | yes | yes | core runtime accepted (1.2.0 set) |
-| Offline fallback policy | yes | yes | yes | core runtime accepted (1.2.0 set) |
-| Persisted known-name denial | yes | yes | yes | core runtime accepted (1.2.0 set) |
-| Confirmed data migration | yes | yes | yes | core runtime accepted (1.2.0 set) |
-| Login gate installed before vanilla can finish login | 1.20.2+ | by API contract | 1.20.2+ | source/build; runtime re-run pending |
+| Mojang premium verification | yes | yes | yes | core runtime accepted on every exact target |
+| Offline fallback policy | yes | yes | yes | core runtime accepted on every exact target |
+| Persisted known-name denial | yes | yes | yes | core runtime accepted on every exact target |
+| Confirmed data migration | yes | yes | yes | core runtime accepted on every exact target |
+| Login gate installed before vanilla can finish login | yes | by API contract | yes | core runtime accepted on every exact target |
 | Localized join feedback and HUD | yes | yes | yes | join observed; visual/API details not asserted on every target |
 | Three-second fading badge and pause-menu lock badge | implemented | implemented | implemented | shared fake-clock tests and full-target build; visual runtime pending |
 | Singleplayer and Premium (LAN) chat/HUD/pause transitions | implemented | implemented | implemented | shared transition/policy tests and full-target build; visual runtime pending |
@@ -198,13 +210,13 @@ under `shared/protocol`; loader-neutral status timing, artwork, layout,
 presentation values, and notification routing live in `shared/presentation`.
 Minecraft profiles, packets, commands, world paths, loader lifecycle, and
 server-thread scheduling stay in platform adapters. Forge targets recompile
-`platform/forge-common` with narrow SRG/official, event-bus, GUI, record, and
+`platform/forge/common` with narrow SRG/official, event-bus, GUI, record, and
 identifier-era seams. NeoForge targets recompile the canonical
-`platform/neoforge-common` core with equally narrow named era roots; its
+`platform/neoforge/common` core with equally narrow named era roots; its
 NeoGradle 7 eras (1.20.2, 1.20.3, 1.20.5) and its ModDevGradle eras share those
 roots and differ only in Gradle plugin and metadata filename. Minecraft seams
-shared by both live in `platform/forgelike-common`. Fabric targets recompile
-`platform/fabric-common` against their pinned Yarn/Fabric APIs, with small
+shared by both live in `platform/common/forgelike`. Fabric targets recompile
+`platform/fabric/common` against their pinned Yarn/Fabric APIs, with small
 source roots for session joining, typed payloads, authlib records, permissions,
 identifiers, and HUD matrix transitions.
 

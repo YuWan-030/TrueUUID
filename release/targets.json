@@ -6,7 +6,7 @@
     {
       "id": "forge-1.20.1",
       "build_task": ":platform:forge-1.20.1:build",
-      "artifact": "platform/forge-1.20.1/build/libs/trueuuid-%VERSION%-forge-1.20.1.jar",
+      "artifact": "platform/forge/1.20.1/build/libs/trueuuid-%VERSION%-forge-1.20.1.jar",
       "loader": "forge",
       "game_version": "1.20.1",
       "runtime_loader_version": "47.4.10",
@@ -18,7 +18,7 @@
     {
       "id": "forge-1.20.2",
       "build_task": ":platform:forge-1.20.2:build",
-      "artifact": "platform/forge-1.20.2/build/libs/trueuuid-%VERSION%-forge-1.20.2.jar",
+      "artifact": "platform/forge/1.20.2/build/libs/trueuuid-%VERSION%-forge-1.20.2.jar",
       "loader": "forge",
       "game_version": "1.20.2",
       "runtime_loader_version": "48.1.0",
@@ -30,7 +30,7 @@
     {
       "id": "forge-1.20.3",
       "build_task": ":platform:forge-1.20.3:build",
-      "artifact": "platform/forge-1.20.3/build/libs/trueuuid-%VERSION%-forge-1.20.3.jar",
+      "artifact": "platform/forge/1.20.3/build/libs/trueuuid-%VERSION%-forge-1.20.3.jar",
       "loader": "forge",
       "game_version": "1.20.3",
       "runtime_loader_version": "49.0.2",
@@ -42,7 +42,7 @@
     {
       "id": "forge-1.20.4",
       "build_task": ":platform:forge-1.20.4:build",
-      "artifact": "platform/forge-1.20.4/build/libs/trueuuid-%VERSION%-forge-1.20.4.jar",
+      "artifact": "platform/forge/1.20.4/build/libs/trueuuid-%VERSION%-forge-1.20.4.jar",
       "loader": "forge",
       "game_version": "1.20.4",
       "runtime_loader_version": "49.2.8",
@@ -54,7 +54,7 @@
     {
       "id": "forge-1.20.6",
       "build_task": ":platform:forge-1.20.6:build",
-      "artifact": "platform/forge-1.20.6/build/libs/trueuuid-%VERSION%-forge-1.20.6.jar",
+      "artifact": "platform/forge/1.20.6/build/libs/trueuuid-%VERSION%-forge-1.20.6.jar",
       "loader": "forge",
       "game_version": "1.20.6",
       "runtime_loader_version": "50.2.9",
@@ -66,7 +66,7 @@
     {
       "id": "forge-1.21",
       "build_task": ":platform:forge-1.21:build",
-      "artifact": "platform/forge-1.21/build/libs/trueuuid-%VERSION%-forge-1.21.jar",
+      "artifact": "platform/forge/1.21/build/libs/trueuuid-%VERSION%-forge-1.21.jar",
       "loader": "forge",
       "game_version": "1.21",
       "runtime_loader_version": "51.0.33",
@@ -78,7 +78,7 @@
     {
       "id": "forge-1.21.1",
       "build_task": ":platform:forge-1.21.1:build",
-      "artifact": "platform/forge-1.21.1/build/libs/trueuuid-%VERSION%-forge-1.21.1.jar",
+      "artifact": "platform/forge/1.21.1/build/libs/trueuuid-%VERSION%-forge-1.21.1.jar",
       "loader": "forge",
       "game_version": "1.21.1",
       "runtime_loader_version": "52.1.0",
@@ -90,7 +90,7 @@
     {
       "id": "forge-1.21.3",
       "build_task": ":platform:forge-1.21.3:build",
-      "artifact": "platform/forge-1.21.3/build/libs/trueuuid-%VERSION%-forge-1.21.3.jar",
+      "artifact": "platform/forge/1.21.3/build/libs/trueuuid-%VERSION%-forge-1.21.3.jar",
       "loader": "forge",
       "game_version": "1.21.3",
       "runtime_loader_version": "53.1.0",
@@ -102,7 +102,7 @@
     {
       "id": "forge-1.21.4",
       "build_task": ":platform:forge-1.21.4:build",
-      "artifact": "platform/forge-1.21.4/build/libs/trueuuid-%VERSION%-forge-1.21.4.jar",
+      "artifact": "platform/forge/1.21.4/build/libs/trueuuid-%VERSION%-forge-1.21.4.jar",
       "loader": "forge",
       "game_version": "1.21.4",
       "runtime_loader_version": "54.1.14",
@@ -114,7 +114,7 @@
     {
       "id": "forge-1.21.5",
       "build_task": ":platform:forge-1.21.5:build",
-      "artifact": "platform/forge-1.21.5/build/libs/trueuuid-%VERSION%-forge-1.21.5.jar",
+      "artifact": "platform/forge/1.21.5/build/libs/trueuuid-%VERSION%-forge-1.21.5.jar",
       "loader": "forge",
       "game_version": "1.21.5",
       "runtime_loader_version": "55.1.10",
@@ -126,7 +126,7 @@
     {
       "id": "forge-1.21.6",
       "build_task": ":platform:forge-1.21.6:build",
-      "artifact": "platform/forge-1.21.6/build/libs/trueuuid-%VERSION%-forge-1.21.6.jar",
+      "artifact": "platform/forge/1.21.6/build/libs/trueuuid-%VERSION%-forge-1.21.6.jar",
       "loader": "forge",
       "game_version": "1.21.6",
       "runtime_loader_version": "56.0.9",
@@ -138,7 +138,7 @@
     {
       "id": "forge-1.21.7",
       "build_task": ":platform:forge-1.21.7:build",
-      "artifact": "platform/forge-1.21.7/build/libs/trueuuid-%VERSION%-forge-1.21.7.jar",
+      "artifact": "platform/forge/1.21.7/build/libs/trueuuid-%VERSION%-forge-1.21.7.jar",
       "loader": "forge",
       "game_version": "1.21.7",
       "runtime_loader_version": "57.0.3",
@@ -150,7 +150,7 @@
     {
       "id": "forge-1.21.8",
       "build_task": ":platform:forge-1.21.8:build",
-      "artifact": "platform/forge-1.21.8/build/libs/trueuuid-%VERSION%-forge-1.21.8.jar",
+      "artifact": "platform/forge/1.21.8/build/libs/trueuuid-%VERSION%-forge-1.21.8.jar",
       "loader": "forge",
       "game_version": "1.21.8",
       "runtime_loader_version": "58.1.0",
@@ -162,7 +162,7 @@
     {
       "id": "forge-1.21.9",
       "build_task": ":platform:forge-1.21.9:build",
-      "artifact": "platform/forge-1.21.9/build/libs/trueuuid-%VERSION%-forge-1.21.9.jar",
+      "artifact": "platform/forge/1.21.9/build/libs/trueuuid-%VERSION%-forge-1.21.9.jar",
       "loader": "forge",
       "game_version": "1.21.9",
       "runtime_loader_version": "59.0.5",
@@ -174,7 +174,7 @@
     {
       "id": "forge-1.21.10",
       "build_task": ":platform:forge-1.21.10:build",
-      "artifact": "platform/forge-1.21.10/build/libs/trueuuid-%VERSION%-forge-1.21.10.jar",
+      "artifact": "platform/forge/1.21.10/build/libs/trueuuid-%VERSION%-forge-1.21.10.jar",
       "loader": "forge",
       "game_version": "1.21.10",
       "runtime_loader_version": "60.1.11",
@@ -187,7 +187,7 @@
       "id": "forge-1.21.11",
       "standalone": true,
       "build_task": "build",
-      "artifact": "platform/forge-1.21.11/build/libs/trueuuid-%VERSION%-forge-1.21.11.jar",
+      "artifact": "platform/forge/1.21.11/build/libs/trueuuid-%VERSION%-forge-1.21.11.jar",
       "loader": "forge",
       "game_version": "1.21.11",
       "runtime_loader_version": "61.1.9",
@@ -199,7 +199,7 @@
     {
       "id": "fabric-1.20.1",
       "build_task": ":platform:fabric-1.20.1:build",
-      "artifact": "platform/fabric-1.20.1/build/libs/trueuuid-%VERSION%-fabric-1.20.1.jar",
+      "artifact": "platform/fabric/1.20.1/build/libs/trueuuid-%VERSION%-fabric-1.20.1.jar",
       "loader": "fabric",
       "game_version": "1.20.1",
       "runtime_loader_version": "0.19.3",
@@ -211,7 +211,7 @@
     {
       "id": "fabric-1.20.2",
       "build_task": ":platform:fabric-1.20.2:build",
-      "artifact": "platform/fabric-1.20.2/build/libs/trueuuid-%VERSION%-fabric-1.20.2.jar",
+      "artifact": "platform/fabric/1.20.2/build/libs/trueuuid-%VERSION%-fabric-1.20.2.jar",
       "loader": "fabric",
       "game_version": "1.20.2",
       "runtime_loader_version": "0.19.3",
@@ -223,7 +223,7 @@
     {
       "id": "fabric-1.20.3",
       "build_task": ":platform:fabric-1.20.3:build",
-      "artifact": "platform/fabric-1.20.3/build/libs/trueuuid-%VERSION%-fabric-1.20.3.jar",
+      "artifact": "platform/fabric/1.20.3/build/libs/trueuuid-%VERSION%-fabric-1.20.3.jar",
       "loader": "fabric",
       "game_version": "1.20.3",
       "runtime_loader_version": "0.19.3",
@@ -235,7 +235,7 @@
     {
       "id": "fabric-1.20.4",
       "build_task": ":platform:fabric-1.20.4:build",
-      "artifact": "platform/fabric-1.20.4/build/libs/trueuuid-%VERSION%-fabric-1.20.4.jar",
+      "artifact": "platform/fabric/1.20.4/build/libs/trueuuid-%VERSION%-fabric-1.20.4.jar",
       "loader": "fabric",
       "game_version": "1.20.4",
       "runtime_loader_version": "0.19.3",
@@ -247,7 +247,7 @@
     {
       "id": "fabric-1.20.5",
       "build_task": ":platform:fabric-1.20.5:build",
-      "artifact": "platform/fabric-1.20.5/build/libs/trueuuid-%VERSION%-fabric-1.20.5.jar",
+      "artifact": "platform/fabric/1.20.5/build/libs/trueuuid-%VERSION%-fabric-1.20.5.jar",
       "loader": "fabric",
       "game_version": "1.20.5",
       "runtime_loader_version": "0.19.3",
@@ -259,7 +259,7 @@
     {
       "id": "fabric-1.20.6",
       "build_task": ":platform:fabric-1.20.6:build",
-      "artifact": "platform/fabric-1.20.6/build/libs/trueuuid-%VERSION%-fabric-1.20.6.jar",
+      "artifact": "platform/fabric/1.20.6/build/libs/trueuuid-%VERSION%-fabric-1.20.6.jar",
       "loader": "fabric",
       "game_version": "1.20.6",
       "runtime_loader_version": "0.19.3",
@@ -271,7 +271,7 @@
     {
       "id": "fabric-1.21",
       "build_task": ":platform:fabric-1.21:build",
-      "artifact": "platform/fabric-1.21/build/libs/trueuuid-%VERSION%-fabric-1.21.jar",
+      "artifact": "platform/fabric/1.21/build/libs/trueuuid-%VERSION%-fabric-1.21.jar",
       "loader": "fabric",
       "game_version": "1.21",
       "runtime_loader_version": "0.19.3",
@@ -283,7 +283,7 @@
     {
       "id": "fabric-1.21.1",
       "build_task": ":platform:fabric-1.21.1:build",
-      "artifact": "platform/fabric-1.21.1/build/libs/trueuuid-%VERSION%-fabric-1.21.1.jar",
+      "artifact": "platform/fabric/1.21.1/build/libs/trueuuid-%VERSION%-fabric-1.21.1.jar",
       "loader": "fabric",
       "game_version": "1.21.1",
       "runtime_loader_version": "0.19.3",
@@ -295,7 +295,7 @@
     {
       "id": "fabric-1.21.2",
       "build_task": ":platform:fabric-1.21.2:build",
-      "artifact": "platform/fabric-1.21.2/build/libs/trueuuid-%VERSION%-fabric-1.21.2.jar",
+      "artifact": "platform/fabric/1.21.2/build/libs/trueuuid-%VERSION%-fabric-1.21.2.jar",
       "loader": "fabric",
       "game_version": "1.21.2",
       "runtime_loader_version": "0.19.3",
@@ -307,7 +307,7 @@
     {
       "id": "fabric-1.21.3",
       "build_task": ":platform:fabric-1.21.3:build",
-      "artifact": "platform/fabric-1.21.3/build/libs/trueuuid-%VERSION%-fabric-1.21.3.jar",
+      "artifact": "platform/fabric/1.21.3/build/libs/trueuuid-%VERSION%-fabric-1.21.3.jar",
       "loader": "fabric",
       "game_version": "1.21.3",
       "runtime_loader_version": "0.19.3",
@@ -319,7 +319,7 @@
     {
       "id": "fabric-1.21.4",
       "build_task": ":platform:fabric-1.21.4:build",
-      "artifact": "platform/fabric-1.21.4/build/libs/trueuuid-%VERSION%-fabric-1.21.4.jar",
+      "artifact": "platform/fabric/1.21.4/build/libs/trueuuid-%VERSION%-fabric-1.21.4.jar",
       "loader": "fabric",
       "game_version": "1.21.4",
       "runtime_loader_version": "0.19.3",
@@ -331,7 +331,7 @@
     {
       "id": "fabric-1.21.5",
       "build_task": ":platform:fabric-1.21.5:build",
-      "artifact": "platform/fabric-1.21.5/build/libs/trueuuid-%VERSION%-fabric-1.21.5.jar",
+      "artifact": "platform/fabric/1.21.5/build/libs/trueuuid-%VERSION%-fabric-1.21.5.jar",
       "loader": "fabric",
       "game_version": "1.21.5",
       "runtime_loader_version": "0.19.3",
@@ -343,7 +343,7 @@
     {
       "id": "fabric-1.21.6",
       "build_task": ":platform:fabric-1.21.6:build",
-      "artifact": "platform/fabric-1.21.6/build/libs/trueuuid-%VERSION%-fabric-1.21.6.jar",
+      "artifact": "platform/fabric/1.21.6/build/libs/trueuuid-%VERSION%-fabric-1.21.6.jar",
       "loader": "fabric",
       "game_version": "1.21.6",
       "runtime_loader_version": "0.19.3",
@@ -355,7 +355,7 @@
     {
       "id": "fabric-1.21.7",
       "build_task": ":platform:fabric-1.21.7:build",
-      "artifact": "platform/fabric-1.21.7/build/libs/trueuuid-%VERSION%-fabric-1.21.7.jar",
+      "artifact": "platform/fabric/1.21.7/build/libs/trueuuid-%VERSION%-fabric-1.21.7.jar",
       "loader": "fabric",
       "game_version": "1.21.7",
       "runtime_loader_version": "0.19.3",
@@ -367,7 +367,7 @@
     {
       "id": "fabric-1.21.8",
       "build_task": ":platform:fabric-1.21.8:build",
-      "artifact": "platform/fabric-1.21.8/build/libs/trueuuid-%VERSION%-fabric-1.21.8.jar",
+      "artifact": "platform/fabric/1.21.8/build/libs/trueuuid-%VERSION%-fabric-1.21.8.jar",
       "loader": "fabric",
       "game_version": "1.21.8",
       "runtime_loader_version": "0.19.3",
@@ -379,7 +379,7 @@
     {
       "id": "fabric-1.21.9",
       "build_task": ":platform:fabric-1.21.9:build",
-      "artifact": "platform/fabric-1.21.9/build/libs/trueuuid-%VERSION%-fabric-1.21.9.jar",
+      "artifact": "platform/fabric/1.21.9/build/libs/trueuuid-%VERSION%-fabric-1.21.9.jar",
       "loader": "fabric",
       "game_version": "1.21.9",
       "runtime_loader_version": "0.19.3",
@@ -391,7 +391,7 @@
     {
       "id": "fabric-1.21.10",
       "build_task": ":platform:fabric-1.21.10:build",
-      "artifact": "platform/fabric-1.21.10/build/libs/trueuuid-%VERSION%-fabric-1.21.10.jar",
+      "artifact": "platform/fabric/1.21.10/build/libs/trueuuid-%VERSION%-fabric-1.21.10.jar",
       "loader": "fabric",
       "game_version": "1.21.10",
       "runtime_loader_version": "0.19.3",
@@ -403,7 +403,7 @@
     {
       "id": "fabric-1.21.11",
       "build_task": ":platform:fabric-1.21.11:build",
-      "artifact": "platform/fabric-1.21.11/build/libs/trueuuid-%VERSION%-fabric-1.21.11.jar",
+      "artifact": "platform/fabric/1.21.11/build/libs/trueuuid-%VERSION%-fabric-1.21.11.jar",
       "loader": "fabric",
       "game_version": "1.21.11",
       "runtime_loader_version": "0.19.3",
@@ -415,7 +415,7 @@
     {
       "id": "neoforge-1.20.1",
       "build_task": ":platform:neoforge-1.20.1:build",
-      "artifact": "platform/neoforge-1.20.1/build/libs/trueuuid-%VERSION%-neoforge-1.20.1.jar",
+      "artifact": "platform/neoforge/1.20.1/build/libs/trueuuid-%VERSION%-neoforge-1.20.1.jar",
       "loader": "neoforge",
       "game_version": "1.20.1",
       "runtime_loader_version": "47.1.106",
@@ -427,7 +427,7 @@
     {
       "id": "neoforge-1.20.2",
       "build_task": ":platform:neoforge-1.20.2:build",
-      "artifact": "platform/neoforge-1.20.2/build/libs/trueuuid-%VERSION%-neoforge-1.20.2.jar",
+      "artifact": "platform/neoforge/1.20.2/build/libs/trueuuid-%VERSION%-neoforge-1.20.2.jar",
       "loader": "neoforge",
       "game_version": "1.20.2",
       "runtime_loader_version": "20.2.93",
@@ -439,7 +439,7 @@
     {
       "id": "neoforge-1.20.3",
       "build_task": ":platform:neoforge-1.20.3:build",
-      "artifact": "platform/neoforge-1.20.3/build/libs/trueuuid-%VERSION%-neoforge-1.20.3.jar",
+      "artifact": "platform/neoforge/1.20.3/build/libs/trueuuid-%VERSION%-neoforge-1.20.3.jar",
       "loader": "neoforge",
       "game_version": "1.20.3",
       "runtime_loader_version": "20.3.8-beta",
@@ -451,7 +451,7 @@
     {
       "id": "neoforge-1.20.4",
       "build_task": ":platform:neoforge-1.20.4:build",
-      "artifact": "platform/neoforge-1.20.4/build/libs/trueuuid-%VERSION%-neoforge-1.20.4.jar",
+      "artifact": "platform/neoforge/1.20.4/build/libs/trueuuid-%VERSION%-neoforge-1.20.4.jar",
       "loader": "neoforge",
       "game_version": "1.20.4",
       "runtime_loader_version": "20.4.251",
@@ -463,7 +463,7 @@
     {
       "id": "neoforge-1.20.5",
       "build_task": ":platform:neoforge-1.20.5:build",
-      "artifact": "platform/neoforge-1.20.5/build/libs/trueuuid-%VERSION%-neoforge-1.20.5.jar",
+      "artifact": "platform/neoforge/1.20.5/build/libs/trueuuid-%VERSION%-neoforge-1.20.5.jar",
       "loader": "neoforge",
       "game_version": "1.20.5",
       "runtime_loader_version": "20.5.21-beta",
@@ -475,7 +475,7 @@
     {
       "id": "neoforge-1.20.6",
       "build_task": ":platform:neoforge-1.20.6:build",
-      "artifact": "platform/neoforge-1.20.6/build/libs/trueuuid-%VERSION%-neoforge-1.20.6.jar",
+      "artifact": "platform/neoforge/1.20.6/build/libs/trueuuid-%VERSION%-neoforge-1.20.6.jar",
       "loader": "neoforge",
       "game_version": "1.20.6",
       "runtime_loader_version": "20.6.139",
@@ -487,7 +487,7 @@
     {
       "id": "neoforge-1.21",
       "build_task": ":platform:neoforge-1.21:build",
-      "artifact": "platform/neoforge-1.21/build/libs/trueuuid-%VERSION%-neoforge-1.21.jar",
+      "artifact": "platform/neoforge/1.21/build/libs/trueuuid-%VERSION%-neoforge-1.21.jar",
       "loader": "neoforge",
       "game_version": "1.21",
       "runtime_loader_version": "21.0.167",
@@ -499,7 +499,7 @@
     {
       "id": "neoforge-1.21.1",
       "build_task": ":platform:neoforge-1.21.1:build",
-      "artifact": "platform/neoforge-1.21.1/build/libs/trueuuid-%VERSION%-neoforge-1.21.1.jar",
+      "artifact": "platform/neoforge/1.21.1/build/libs/trueuuid-%VERSION%-neoforge-1.21.1.jar",
       "loader": "neoforge",
       "game_version": "1.21.1",
       "runtime_loader_version": "21.1.213",
@@ -511,7 +511,7 @@
     {
       "id": "neoforge-1.21.2",
       "build_task": ":platform:neoforge-1.21.2:build",
-      "artifact": "platform/neoforge-1.21.2/build/libs/trueuuid-%VERSION%-neoforge-1.21.2.jar",
+      "artifact": "platform/neoforge/1.21.2/build/libs/trueuuid-%VERSION%-neoforge-1.21.2.jar",
       "loader": "neoforge",
       "game_version": "1.21.2",
       "runtime_loader_version": "21.2.1-beta",
@@ -523,7 +523,7 @@
     {
       "id": "neoforge-1.21.3",
       "build_task": ":platform:neoforge-1.21.3:build",
-      "artifact": "platform/neoforge-1.21.3/build/libs/trueuuid-%VERSION%-neoforge-1.21.3.jar",
+      "artifact": "platform/neoforge/1.21.3/build/libs/trueuuid-%VERSION%-neoforge-1.21.3.jar",
       "loader": "neoforge",
       "game_version": "1.21.3",
       "runtime_loader_version": "21.3.56",
@@ -535,7 +535,7 @@
     {
       "id": "neoforge-1.21.4",
       "build_task": ":platform:neoforge-1.21.4:build",
-      "artifact": "platform/neoforge-1.21.4/build/libs/trueuuid-%VERSION%-neoforge-1.21.4.jar",
+      "artifact": "platform/neoforge/1.21.4/build/libs/trueuuid-%VERSION%-neoforge-1.21.4.jar",
       "loader": "neoforge",
       "game_version": "1.21.4",
       "runtime_loader_version": "21.4.121",
@@ -547,7 +547,7 @@
     {
       "id": "neoforge-1.21.5",
       "build_task": ":platform:neoforge-1.21.5:build",
-      "artifact": "platform/neoforge-1.21.5/build/libs/trueuuid-%VERSION%-neoforge-1.21.5.jar",
+      "artifact": "platform/neoforge/1.21.5/build/libs/trueuuid-%VERSION%-neoforge-1.21.5.jar",
       "loader": "neoforge",
       "game_version": "1.21.5",
       "runtime_loader_version": "21.5.74",
@@ -559,7 +559,7 @@
     {
       "id": "neoforge-1.21.6",
       "build_task": ":platform:neoforge-1.21.6:build",
-      "artifact": "platform/neoforge-1.21.6/build/libs/trueuuid-%VERSION%-neoforge-1.21.6.jar",
+      "artifact": "platform/neoforge/1.21.6/build/libs/trueuuid-%VERSION%-neoforge-1.21.6.jar",
       "loader": "neoforge",
       "game_version": "1.21.6",
       "runtime_loader_version": "21.6.20-beta",
@@ -571,7 +571,7 @@
     {
       "id": "neoforge-1.21.7",
       "build_task": ":platform:neoforge-1.21.7:build",
-      "artifact": "platform/neoforge-1.21.7/build/libs/trueuuid-%VERSION%-neoforge-1.21.7.jar",
+      "artifact": "platform/neoforge/1.21.7/build/libs/trueuuid-%VERSION%-neoforge-1.21.7.jar",
       "loader": "neoforge",
       "game_version": "1.21.7",
       "runtime_loader_version": "21.7.25-beta",
@@ -583,7 +583,7 @@
     {
       "id": "neoforge-1.21.8",
       "build_task": ":platform:neoforge-1.21.8:build",
-      "artifact": "platform/neoforge-1.21.8/build/libs/trueuuid-%VERSION%-neoforge-1.21.8.jar",
+      "artifact": "platform/neoforge/1.21.8/build/libs/trueuuid-%VERSION%-neoforge-1.21.8.jar",
       "loader": "neoforge",
       "game_version": "1.21.8",
       "runtime_loader_version": "21.8.9",
@@ -595,7 +595,7 @@
     {
       "id": "neoforge-1.21.9",
       "build_task": ":platform:neoforge-1.21.9:build",
-      "artifact": "platform/neoforge-1.21.9/build/libs/trueuuid-%VERSION%-neoforge-1.21.9.jar",
+      "artifact": "platform/neoforge/1.21.9/build/libs/trueuuid-%VERSION%-neoforge-1.21.9.jar",
       "loader": "neoforge",
       "game_version": "1.21.9",
       "runtime_loader_version": "21.9.16-beta",
@@ -607,7 +607,7 @@
     {
       "id": "neoforge-1.21.10",
       "build_task": ":platform:neoforge-1.21.10:build",
-      "artifact": "platform/neoforge-1.21.10/build/libs/trueuuid-%VERSION%-neoforge-1.21.10.jar",
+      "artifact": "platform/neoforge/1.21.10/build/libs/trueuuid-%VERSION%-neoforge-1.21.10.jar",
       "loader": "neoforge",
       "game_version": "1.21.10",
       "runtime_loader_version": "21.10.64",
@@ -619,7 +619,7 @@
     {
       "id": "neoforge-1.21.11",
       "build_task": ":platform:neoforge-1.21.11:build",
-      "artifact": "platform/neoforge-1.21.11/build/libs/trueuuid-%VERSION%-neoforge-1.21.11.jar",
+      "artifact": "platform/neoforge/1.21.11/build/libs/trueuuid-%VERSION%-neoforge-1.21.11.jar",
       "loader": "neoforge",
       "game_version": "1.21.11",
       "runtime_loader_version": "21.11.44",

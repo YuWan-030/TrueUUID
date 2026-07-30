@@ -40,8 +40,10 @@ jq -e --arg project_version "$project_version" '
       ($loader | type == "string") and
       (["forge", "fabric", "neoforge"] | index($loader)) != null) and
     (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$")) and
+    (.id == (.loader + "-" + .game_version)) and
     (.id as $id | .loader as $loader | .game_version as $game_version |
-      .artifact == ("platform/" + $id + "/build/libs/trueuuid-%VERSION%-" +
+      .artifact == ("platform/" + $loader + "/" + $game_version +
+        "/build/libs/trueuuid-%VERSION%-" +
         $loader + "-" + $game_version + ".jar")) and
     (.runtime_loader_version | type == "string" and test("^[0-9]+(?:\\.[0-9]+)+(?:-[A-Za-z0-9.-]+)?$")) and
     (.java == 17 or .java == 21) and
@@ -61,16 +63,17 @@ jq -e --arg project_version "$project_version" '
 ' "$targets_file" >/dev/null || { echo "invalid release target manifest" >&2; exit 65; }
 
 manifest_targets=$(jq -r '.targets[].id' "$targets_file" | sort)
-module_targets=$(find platform -mindepth 2 -maxdepth 2 -name build.gradle -printf '%h\n' |
-    sed 's|^platform/||' | sort)
+module_targets=$(find platform/{fabric,forge,neoforge} \
+    -mindepth 2 -maxdepth 2 -name build.gradle -printf '%h\n' |
+    sed -E 's|^platform/([^/]+)/(.+)$|\1-\2|' | sort)
 if [[ "$manifest_targets" != "$module_targets" ]]; then
     echo "release target manifest must list every platform module exactly once" >&2
     diff -u <(printf '%s\n' "$module_targets") <(printf '%s\n' "$manifest_targets") >&2 || true
     exit 65
 fi
 
-while IFS=$'\t' read -r target_id standalone; do
-    module="platform/$target_id"
+while IFS=$'\t' read -r target_id loader game_version standalone; do
+    module="platform/$loader/$game_version"
     if [[ "$standalone" == true ]]; then
         [[ -f "$module/settings.gradle" && -x "$module/gradlew" ]] || {
             echo "standalone target must own executable wrapper and settings: $target_id" >&2
@@ -80,7 +83,9 @@ while IFS=$'\t' read -r target_id standalone; do
         echo "target with its own settings.gradle must declare standalone=true: $target_id" >&2
         exit 65
     fi
-done < <(jq -r '.targets[] | [.id, (.standalone // false)] | @tsv' "$targets_file")
+done < <(jq -r \
+    '.targets[] | [.id, .loader, .game_version, (.standalone // false)] | @tsv' \
+    "$targets_file")
 
 if [[ $# -eq 0 ]]; then
     python3 scripts/ci/validate-source-sharing.py

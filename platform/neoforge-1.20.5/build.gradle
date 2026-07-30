@@ -1,9 +1,0 @@
-plugins {
-    id 'java-library'
-    id 'eclipse'
-    id 'idea'
-    id 'net.neoforged.gradle.userdev' version '7.0.192'
-}
-ext.neoforgeTarget = [minecraftVersion: '1.20.5', minecraftVersionRange: '[1.20.5,1.20.6)',
-        neoForgeVersion: '20.5.21-beta', javaVersion: 21, sourceEra: '20.5']
-apply from: "${rootDir}/platform/neoforge-common/neogradle-target.gradle"

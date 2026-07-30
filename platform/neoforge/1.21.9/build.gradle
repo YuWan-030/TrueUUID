@@ -1,0 +1,10 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.118'
+}
+ext.neoforgeTarget = [minecraftVersion: '1.21.9', minecraftVersionRange: '[1.21.9,1.21.10)',
+        neoForgeVersion: '21.9.16-beta', javafmlRange: '[3,)', sourceEra: 'record']
+apply from: "${rootDir}/platform/neoforge/common/target-matrix.gradle"

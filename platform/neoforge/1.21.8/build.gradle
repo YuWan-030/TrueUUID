@@ -1,0 +1,97 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.118'
+}
+
+evaluationDependsOn(':shared:protocol')
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def adapterMain = "${rootDir}/platform/neoforge/common/src/main"
+def adapterTests = "${rootDir}/platform/neoforge/common/src/test"
+def minecraftVersion = '1.21.8'
+def neoForgeVersion = '21.8.9'
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+// Built against 1.21.8/NeoForge 21.8. Only 1.21.7 (protocol 772, NeoForge
+// 21.7 — beta-only line, latest 21.7.25-beta, checked 2026-07-16) is a
+// wire-level match for this build; 1.21.6 is protocol 771 and gets its own
+// module (neoforge-1.21.6). Widen minecraftRange to "[1.21.7,1.21.9)" only
+// after a two-sided login run passes on 1.21.7 — declared range unchanged
+// until then. See docs/architecture/version-consolidation-roadmap.md and
+// target-matrix.md.
+ext.neoforgeMetadata = [
+        loaderRange: "[${neoForgeVersion},)",
+        minecraftRange: '[1.21.8,1.21.9)'
+]
+apply from: "${rootDir}/platform/neoforge/common/metadata.gradle"
+
+base { archivesName = 'trueuuid' }
+repositories { mavenCentral() }
+
+sourceSets.main.java.srcDir "${adapterMain}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/common/forgelike/src/main/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/common/forgelike/src/pause-pose/java"
+sourceSets.test.java.srcDir "${adapterTests}/java"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common/assets/src/main/resources"
+
+// Minecraft 1.21.6+ replaced the GUI PoseStack with Matrix3x2fStack. Keep
+// that render-only change in this target; login/authentication remains shared.
+def modernGuiSources = [
+        'cn/alini/trueuuid/client/ClientAccountStatus.java',
+        'cn/alini/trueuuid/TrueuuidClientOverlay.java'
+]
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
+
+neoForge {
+    version = neoForgeVersion
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
+    }
+    mods {
+        trueuuid {
+            sourceSet(sourceSets.main)
+            sourceSet(sharedProtocolMain.get())
+        }
+    }
+}
+
+sourceSets.main.output.dir(sharedProtocolMain.get().output)
+
+dependencies {
+    implementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    source = files(fileTree("${adapterMain}/java") { exclude modernGuiSources },
+            fileTree("${rootDir}/platform/common/forgelike/src/main/java"),
+            fileTree("${rootDir}/platform/common/forgelike/src/pause-pose/java"),
+            fileTree("${rootDir}/platform/neoforge/common/src/gui-matrix-2d/java"),
+            fileTree("${rootDir}/platform/neoforge/common/src/overlay-21.6-21.10/java"),
+            fileTree('src/main/java'))
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-neoforge-${minecraftVersion}.jar"
+    from { project(':shared:protocol').sourceSets.main.output }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
+apply from: "${rootDir}/platform/neoforge/common/verify-login-wire.gradle"

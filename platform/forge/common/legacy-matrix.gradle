@@ -1,0 +1,169 @@
+// Shared ForgeGradle wiring for the Minecraft 1.20.2-1.20.6 login API era.
+// Each thin target build supplies only its exact dependency and metadata values.
+apply plugin: 'org.spongepowered.mixin'
+
+evaluationDependsOn(':shared:protocol')
+def target = project.ext.forgeTarget
+def sharedProtocolMain = project(':shared:protocol')
+        .extensions.getByType(org.gradle.api.tasks.SourceSetContainer)
+        .named('main')
+def mainClassesDir = layout.buildDirectory.dir('classes/java/main')
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+apply from: "${rootDir}/platform/forge/common/metadata-properties.gradle"
+
+base {
+    archivesName = 'trueuuid'
+}
+
+def forgeCommon = "${rootDir}/platform/forge/common/src/main"
+def forgeLikeCommon = "${rootDir}/platform/common/forgelike/src/main"
+def legacyMatrix = "${rootDir}/platform/forge/common/src/legacy-matrix"
+def preRecordMatrix = "${rootDir}/platform/forge/common/src/pre-record-matrix"
+def runtimeNames = target.get('officialRuntimeNames') == true ? 'official-runtime' : 'srg-runtime'
+sourceSets.main.java.srcDir "${forgeCommon}/java"
+sourceSets.main.java.srcDir "${forgeLikeCommon}/java"
+sourceSets.main.java.srcDir "${legacyMatrix}/java"
+sourceSets.main.java.srcDir "${preRecordMatrix}/java"
+sourceSets.main.java.srcDir "${rootDir}/platform/forge/common/src/${runtimeNames}/java"
+sourceSets.main.java.exclude 'cn/alini/trueuuid/mixin/client/ForgeClientGuiMixin.java'
+if (target.layeredHud) {
+    sourceSets.main.java.srcDir "${rootDir}/platform/forge/common/src/layered-draw/java"
+} else {
+    sourceSets.main.java.srcDir "${rootDir}/platform/forge/common/src/legacy-overlay/java"
+}
+sourceSets.main.resources.srcDir "${legacyMatrix}/resources"
+sourceSets.main.resources.srcDir "${rootDir}/platform/common/assets/src/main/resources"
+sourceSets.test.java.srcDir "${rootDir}/platform/forge/common/src/legacy-matrix-test/java"
+sourceSets.test.java.srcDir "${rootDir}/platform/forge/common/src/${target.streamCodec ? 'stream-packet-test' : 'legacy-packet-test'}/java"
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(target.javaVersion as int)
+}
+
+minecraft {
+    mappings channel: 'official', version: target.minecraftVersion
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                trueuuid {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+            workingDirectory project.file('run/client')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+        }
+        server {
+            workingDirectory project.file('run/server')
+            property 'forge.enabledGameTestNamespaces', 'trueuuid'
+            args '--nogui'
+        }
+    }
+}
+
+mixin {
+    add sourceSets.main, 'trueuuid.refmap.json'
+    config 'trueuuid.mixins.json'
+}
+
+sourceSets.main.output.resourcesDir = mainClassesDir.get().asFile
+def mergeSharedProtocolClasses = tasks.register('mergeSharedProtocolClasses', Copy) {
+    dependsOn ':shared:protocol:classes', tasks.named('compileJava')
+    from(sharedProtocolMain.get().output.classesDirs)
+    include '**/*.class'
+    from(layout.buildDirectory.dir('tmp/compileJava')) {
+        include 'trueuuid.refmap.json'
+    }
+    into(mainClassesDir)
+}
+tasks.named('classes') {
+    dependsOn mergeSharedProtocolClasses
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${target.minecraftVersion}-${target.forgeVersion}"
+    compileOnly project(':shared:protocol')
+    testImplementation project(':shared:protocol')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    // These values live in each thin target build, not in source files. Track
+    // them explicitly so an incremental build cannot retain another era's
+    // loader range, Java compatibility label, or pack format.
+    inputs.properties([
+            minecraftVersionRange: target.minecraftVersionRange,
+            forgeVersionRange    : target.forgeVersionRange,
+            forgeLoaderRange     : target.forgeLoaderRange,
+            javaCompatibility    : target.javaCompatibility,
+            packFormat           : target.packFormat
+    ])
+    filesMatching(['META-INF/mods.toml', 'trueuuid.mixins.json', 'pack.mcmeta']) {
+        expand trueuuidModMetadata + [minecraft_version_range: target.minecraftVersionRange,
+                forge_version_range: target.forgeVersionRange,
+                forge_loader_range: target.forgeLoaderRange,
+                java_compatibility: target.javaCompatibility,
+                pack_format: target.packFormat]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "trueuuid-${project.version}-forge-${target.minecraftVersion}.jar"
+    // Forge 48-50 production uses SRG names. Keep the generated refmap and
+    // ForgeGradle reobfuscation output as the shipped target artifact.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes('MixinConfigs': 'trueuuid.mixins.json')
+    }
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn tasks.named('classes')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+def loginMixins = [
+        'cn/alini/trueuuid/mixin/client/ForgeClientQueryDecodeMixin',
+        'cn/alini/trueuuid/mixin/client/ForgeClientHandshakeMixin',
+        'cn/alini/trueuuid/mixin/server/ForgeServerAnswerDecodeMixin',
+        'cn/alini/trueuuid/mixin/server/ForgeServerLoginMixin'
+]
+def verifyRuntimeMixinMappings = tasks.register('verifyRuntimeMixinMappings') {
+    dependsOn tasks.named('compileJava')
+    def refmapFile = layout.buildDirectory.file('tmp/compileJava/trueuuid.refmap.json')
+    inputs.file(refmapFile)
+    doLast {
+        def refmap = new groovy.json.JsonSlurper().parse(refmapFile.get().asFile)
+        def mappings = refmap.mappings ?: [:]
+        def present = loginMixins.findAll { mappings.containsKey(it) }
+        if (target.get('officialRuntimeNames') == true && !present.isEmpty()) {
+            throw new GradleException("Official-named Forge runtime must not ship SRG login mappings: ${present}")
+        }
+        if (target.get('officialRuntimeNames') != true && present.size() != loginMixins.size()) {
+            def missing = loginMixins - present
+            throw new GradleException("SRG-named Forge runtime is missing login mappings: ${missing}")
+        }
+    }
+}
+tasks.named('check') {
+    dependsOn verifyRuntimeMixinMappings
+}

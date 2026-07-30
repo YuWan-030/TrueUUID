@@ -194,7 +194,7 @@ TARGET=neoforge-1.21.11
 The Prism-ready JAR is then:
 
 ```text
-platform/neoforge-1.21.11/build/libs/trueuuid-1.2.1-neoforge-1.21.11.jar
+platform/neoforge/1.21.11/build/libs/trueuuid-1.2.1-neoforge-1.21.11.jar
 ```
 
 Change `TARGET` to any ID in `release/targets.json`, for example:
@@ -235,7 +235,7 @@ On Windows PowerShell, with Java 21 selected:
 ```powershell
 .\gradlew.bat :platform:neoforge-1.21.11:build --no-daemon
 # Forge 1.21.11 is the standalone Gradle 9.5 target:
-.\platform\forge-1.21.11\gradlew.bat -p platform/forge-1.21.11 build --no-daemon
+.\platform\forge\1.21.11\gradlew.bat -p platform/forge/1.21.11 build --no-daemon
 ```
 
 To build every target instead:
@@ -247,7 +247,7 @@ To build every target instead:
 Each finished production JAR is written to:
 
 ```text
-platform/<loader>-<minecraft-version>/build/libs/
+platform/<loader>/<minecraft-version>/build/libs/
 ```
 
 For local client/server development runs, see
