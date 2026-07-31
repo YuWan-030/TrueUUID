@@ -26,7 +26,11 @@ loader=$(jq -r '.loader' <<<"$target")
 game_version=$(jq -r '.game_version' <<<"$target")
 standalone=$(jq -r '.standalone // false' <<<"$target")
 module="$root/platform/$loader/$game_version"
-gradle_flags=(--no-daemon --stacktrace)
+# Matrix jobs own one exact target. ForgeGradle resolves Minecraft/userdev
+# artifacts during project configuration, so eagerly configuring every target
+# multiplies remote dependency traffic and lets an unrelated loader break this
+# build. Keep aggregate configuration in build-all-targets.sh only.
+gradle_flags=(--no-daemon --stacktrace --configure-on-demand)
 [[ -z "${TRUEUUID_OFFLINE:-}" ]] || gradle_flags+=(--offline)
 [[ "${TRUEUUID_ACCEPTANCE_HOOKS:-}" != 1 ]] || gradle_flags+=(-PtrueuuidAcceptanceHooks=true)
 

@@ -102,7 +102,17 @@ for workflow in .github/workflows/verify.yml .github/workflows/self-test.yml; do
         echo "$workflow must use the manifest-aware target builder" >&2
         exit 65
     }
+    [[ "$(grep -Fc '      max-parallel: 6' "$workflow")" -eq 3 ]] || {
+        echo "$workflow must bound every loader matrix to six concurrent targets" >&2
+        exit 65
+    }
 done
+
+grep -Fq 'gradle_flags=(--no-daemon --stacktrace --configure-on-demand)' \
+    scripts/ci/build-target.sh || {
+    echo "build-target.sh must isolate the requested target during Gradle configuration" >&2
+    exit 65
+}
 
 for smoke_contract in \
     'release/targets.json' \
