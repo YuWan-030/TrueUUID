@@ -40,7 +40,7 @@
   "trueuuid.disconnect.migration_failed": "离线玩家数据继承失败，已取消进入以避免数据错乱。\n\n玩家：%1$s\n离线 UUID：%2$s\n当前 UUID：%3$s\n\n原因：%4$s",
   "trueuuid.command.reload.success": "[TrueUUID] 配置已从磁盘重载。",
   "trueuuid.command.reload.failure": "[TrueUUID] 重载配置失败：%s",
-  "trueuuid.command.mojang.reachable": "[TrueUUID] Mojang 会话服务器可访问，响应码：%s",
+  "trueuuid.command.mojang.reachable": "[TrueUUID] Mojang 会话服务器可访问（仅为合成探测，未测试正版登录），响应码：%s",
   "trueuuid.command.mojang.unexpected": "[TrueUUID] Mojang 会话服务器响应异常，响应码：%s",
   "trueuuid.command.mojang.connect_failed": "[TrueUUID] 无法连接到 Mojang 会话服务器：%s",
   "trueuuid.command.cleanup.not_found": "[TrueUUID] 未找到 %s 的重复离线 UUID 数据。",

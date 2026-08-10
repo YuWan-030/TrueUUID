@@ -41,16 +41,14 @@ public final class SafeSessionVerifier implements SessionVerifier {
         String endpoint = Objects.requireNonNullElse(request.clientEndpoint(), "");
         return requests.submit(username, request.clientIp(), request.serverId() + "\u0000" + endpoint, () -> {
             try {
-                String query = "username=" + encode(username) + "&serverId=" + encode(request.serverId())
-                        + (request.clientIp() == null || request.clientIp().isBlank() ? "" : "&ip=" + encode(request.clientIp()));
                 URI target;
                 java.util.List<java.net.InetAddress> approvedAddresses;
                 if (endpoint.isBlank()) {
-                    target = withQuery(MOJANG_HAS_JOINED, query);
+                    target = withQuery(MOJANG_HAS_JOINED, request);
                     approvedAddresses = null;
                 } else {
                     EndpointPolicy.ApprovedEndpoint approved = endpointPolicy.get().approveClientEndpoint(endpoint);
-                    target = withQuery(approved.uri(), query);
+                    target = withQuery(approved.uri(), request);
                     approvedAddresses = approved.addresses();
                 }
                 // A successful join assertion may take a short time to reach
@@ -75,8 +73,15 @@ public final class SafeSessionVerifier implements SessionVerifier {
         });
     }
 
-    private static URI withQuery(URI base, String query) throws Exception {
-        return new URI("https", null, base.getHost(), base.getPort(), base.getPath(), query, null);
+    static URI withQuery(URI base, Request request) throws Exception {
+        // The IP parameter is optional and deliberately omitted. The address
+        // seen by this server can belong to a proxy or differ from the address
+        // used by the client's joinServer request because of split routing.
+        String query = "username=" + encode(request.username()) + "&serverId=" + encode(request.serverId());
+        URI endpoint = new URI("https", null, base.getHost(), base.getPort(), base.getPath(), null, null);
+        // query is already form-encoded. Parse the complete URI so '%' is not
+        // escaped a second time by URI's component constructor.
+        return new URI(endpoint.toASCIIString() + "?" + query);
     }
 
     private static String encode(String value) { return URLEncoder.encode(Objects.requireNonNullElse(value, ""), StandardCharsets.UTF_8); }

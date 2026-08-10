@@ -38,7 +38,7 @@
   "trueuuid.disconnect.migration_failed": "Offline player data migration failed. Joining was cancelled to avoid data corruption.\n\nPlayer: %1$s\nOffline UUID: %2$s\nCurrent UUID: %3$s\n\nReason: %4$s",
   "trueuuid.command.reload.success": "[TrueUUID] Config reloaded from disk.",
   "trueuuid.command.reload.failure": "[TrueUUID] Config reload failed: %s",
-  "trueuuid.command.mojang.reachable": "[TrueUUID] Mojang Session Server is reachable, response code: %s",
+  "trueuuid.command.mojang.reachable": "[TrueUUID] Mojang Session Server is reachable (synthetic probe only; premium login was not tested), response code: %s",
   "trueuuid.command.mojang.unexpected": "[TrueUUID] Mojang Session Server returned an unexpected response code: %s",
   "trueuuid.command.mojang.connect_failed": "[TrueUUID] Unable to connect to Mojang Session Server: %s",
   "trueuuid.command.cleanup.not_found": "[TrueUUID] No duplicate offline UUID data found for %s.",
