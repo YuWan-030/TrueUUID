@@ -24,7 +24,8 @@ TrueUUID has one repository version and one complete target inventory:
 - `.github/workflows/self-test.yml` builds and structurally verifies every JAR,
   then boots a localhost development server and headless client for every
   target.
-- Both workflows also expose a user-facing `Spigot 1.20.1` job. Verify rebuilds
+- Both workflows also expose a user-facing `Spigot / 1.20.1 (JDK 17)` job,
+  matching the native loader/version/JDK naming convention. Verify rebuilds
   the pinned BuildTools 200 server boundary, runs the exact descriptor and
   cross-loader tests, and inspects the production-shaped plugin JAR. Full
   Self-Test additionally installs that JAR with ProtocolLib 5.1.0 into exact
@@ -41,6 +42,14 @@ from release approval. The recorded 1.2.1 native results remain historical
 evidence, but all target approvals were reset for 1.3.0 and the version-wide
 publication veto prevents artifacts from being attached to a GitHub Release or
 sent to a distribution service.
+
+Candidate server-plugin CI entries live separately in
+`ci/server-plugin-targets.json`. The strict validator exports the same matrix
+to Verify and Full Self-Test and dispatches each target's build, archive check,
+and installed-server smoke through one shared entry point. Adding another
+exact Spigot version or the first Paper version therefore extends the matrix
+without copying a workflow job; the new adapter still needs its own pinned,
+fail-closed implementation and runtime evidence.
 
 Public JARs use the unambiguous all-hyphen pattern
 `trueuuid-{mod-version}-{loader}-{minecraft-version}.jar`, for example

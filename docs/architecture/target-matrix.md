@@ -19,12 +19,13 @@ Fabric and NeoForge now carry one exact module for every Minecraft patch from
 which Forge published a loader. Forge never published a 1.20.5 or 1.21.2
 loader, so those two Forge targets do not exist upstream and are not omissions.
 
-Spigot 1.20.1 has a separate `Spigot 1.20.1` job in both Verify and Full
-Self-Test. It rebuilds the pinned boundary, inspects the plugin JAR, installs it
-on exact Spigot 3871, and verifies one-signal clean shutdown. This is a CI
-candidate gate, not a declared target or support claim: its artifact remains
-marked `UNSUPPORTED-CANDIDATE`, is uploaded outside the `release-*` namespace,
-and cannot be published by the guarded Release workflow.
+Spigot 1.20.1 has a `Spigot / 1.20.1 (JDK 17)` matrix job in both Verify and
+Full Self-Test. `ci/server-plugin-targets.json` supplies the shared candidate
+matrix, while exact target scripts rebuild the pinned boundary, inspect the
+plugin JAR, install it on Spigot 3871, and verify one-signal clean shutdown.
+This is a CI candidate gate, not a declared target or support claim: its
+artifact remains marked `UNSUPPORTED-CANDIDATE`, is uploaded outside the
+`release-*` namespace, and cannot be published by the guarded Release workflow.
 
 `release/targets.json` is the single target inventory. Root `settings.gradle`
 derives its included modules from it, the aggregate root `build` task derives

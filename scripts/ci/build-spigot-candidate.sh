@@ -2,6 +2,11 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+expected_target='spigot-1.20.1'
+[[ "${TRUEUUID_SERVER_PLUGIN_TARGET:-$expected_target}" == "$expected_target" ]] || {
+    echo "This exact builder only supports $expected_target." >&2
+    exit 65
+}
 work_root="$repo_root/build/spigot-candidate"
 buildtools_jar="$work_root/BuildTools-200.jar"
 buildtools_url='https://hub.spigotmc.org/jenkins/job/BuildTools/200/artifact/target/BuildTools.jar'

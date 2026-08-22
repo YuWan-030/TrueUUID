@@ -7,6 +7,11 @@ if [[ $# -ne 1 ]]; then
 fi
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+expected_target='spigot-1.20.1'
+[[ "${TRUEUUID_SERVER_PLUGIN_TARGET:-$expected_target}" == "$expected_target" ]] || {
+    echo "This exact plugin verifier only supports $expected_target." >&2
+    exit 65
+}
 output_dir=$1
 version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | tr -d '[:space:]')
 artifact="$repo_root/plugin/spigot/1.20.1/build/libs/trueuuid-spigot-1.20.1-candidate.jar"

@@ -6,6 +6,7 @@ mapfile -t workflow_files < <(find .github/workflows -maxdepth 1 -type f \( -nam
     echo "no GitHub Actions workflows found" >&2
     exit 66
 }
+./scripts/ci/validate-server-plugin-targets.sh >/dev/null
 
 while IFS= read -r action_ref; do
     [[ -n "$action_ref" ]] || continue
@@ -79,29 +80,31 @@ grep -Fq './scripts/release/validate-release-config.sh --development' \
     exit 65
 }
 
-for spigot_verify_contract in \
-    'spigot:' \
-    'name: Spigot 1.20.1' \
-    './scripts/ci/build-spigot-candidate.sh' \
-    './scripts/ci/verify-spigot-plugin-jar.sh'; do
-    grep -Fq "$spigot_verify_contract" .github/workflows/verify.yml || {
-        echo "verify.yml is missing Spigot verification contract: ${spigot_verify_contract}" >&2
-        exit 65
-    }
+for workflow in .github/workflows/verify.yml .github/workflows/self-test.yml; do
+    for server_matrix_contract in \
+        'server_plugins: ${{ steps.targets.outputs.server_plugins }}' \
+        './scripts/ci/validate-server-plugin-targets.sh' \
+        'ci/server-plugin-targets.json' \
+        'server-plugin:' \
+        'name: ${{ matrix.platform_name }} / ${{ matrix.game_version }} (JDK ${{ matrix.java }})' \
+        'matrix: ${{ fromJSON(needs.matrix.outputs.server_plugins) }}' \
+        './scripts/ci/run-server-plugin-target.sh'; do
+        grep -Fq "$server_matrix_contract" "$workflow" || {
+            echo "$workflow is missing server-plugin matrix contract: ${server_matrix_contract}" >&2
+            exit 65
+        }
+    done
 done
 if grep -Fq 'Unsupported Spigot 1.20.1 candidate' .github/workflows/verify.yml; then
-    echo 'verify.yml must use the user-facing Spigot 1.20.1 job name' >&2
+    echo 'verify.yml must use the standard platform/version/JDK job name' >&2
     exit 65
 fi
-for spigot_self_test_contract in \
-    'name: Spigot 1.20.1' \
-    './scripts/ci/build-spigot-candidate.sh' \
-    './scripts/ci/verify-spigot-plugin-jar.sh' \
-    './scripts/ci/runtime-smoke-spigot.sh' \
-    'name: tested-spigot-1.20.1' \
-    'name: self-test-logs-spigot-1.20.1'; do
-    grep -Fq "$spigot_self_test_contract" .github/workflows/self-test.yml || {
-        echo "self-test.yml is missing Spigot runtime contract: ${spigot_self_test_contract}" >&2
+for server_self_test_contract in \
+    'name: ${{ matrix.artifact_name }}' \
+    'name: self-test-logs-${{ matrix.target }}' \
+    '"${{ matrix.target }}" smoke'; do
+    grep -Fq "$server_self_test_contract" .github/workflows/self-test.yml || {
+        echo "self-test.yml is missing server-plugin runtime contract: ${server_self_test_contract}" >&2
         exit 65
     }
 done

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "id": "spigot-1.20.1",
+      "platform": "spigot",
+      "platform_name": "Spigot",
+      "game_version": "1.20.1",
+      "java": 17,
+      "module": ":plugin:spigot:1.20.1",
+      "artifact_name": "tested-spigot-1.20.1",
+      "support_status": "unsupported-candidate",
+      "publish": false,
+      "build_script": "scripts/ci/build-spigot-candidate.sh",
+      "verify_script": "scripts/ci/verify-spigot-plugin-jar.sh",
+      "smoke_script": "scripts/ci/runtime-smoke-spigot.sh"
+    }
+  ]
+}

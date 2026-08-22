@@ -159,8 +159,14 @@ disconnect cases. Keep the Spigot artifact working and independently tested.
 
 ## Automated CI design
 
-The first two tiers are now implemented and intentionally use the neutral
-GitHub Actions job name `Spigot 1.20.1`:
+The first two tiers are now implemented and use the same GitHub Actions naming
+as native loaders: `Spigot / 1.20.1 (JDK 17)`.
+
+`ci/server-plugin-targets.json` is a strict, non-release candidate inventory
+shared by Verify and Full Self-Test. Its dispatcher makes another exact Spigot
+version or a later Paper adapter a matrix entry rather than a copied workflow
+job. The target-specific build/verification scripts remain version-pinned so
+matrix reuse cannot silently become broad NMS compatibility.
 
 - Verify rebuilds the pinned server boundary, runs the exact descriptor and
   cross-loader test suites, and rejects a malformed or incorrectly

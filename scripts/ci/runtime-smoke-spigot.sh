@@ -7,6 +7,11 @@ if [[ $# -ne 1 ]]; then
 fi
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+expected_target='spigot-1.20.1'
+[[ "${TRUEUUID_SERVER_PLUGIN_TARGET:-$expected_target}" == "$expected_target" ]] || {
+    echo "This exact runtime smoke only supports $expected_target." >&2
+    exit 65
+}
 output_dir=$1
 runner="$repo_root/scripts/run-spigot-candidate.sh"
 work_root="$repo_root/build/spigot-candidate"

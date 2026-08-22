@@ -37,6 +37,7 @@ jobs:
       forge: ${{ steps.targets.outputs.forge }}
       neoforge: ${{ steps.targets.outputs.neoforge }}
       fabric: ${{ steps.targets.outputs.fabric }}
+      server_plugins: ${{ steps.targets.outputs.server_plugins }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +55,13 @@ jobs:
             jq -e '.include | length > 0' <<<"$matrix" >/dev/null
             echo "${loader}=$matrix" >> "$GITHUB_OUTPUT"
           done
+          ./scripts/ci/validate-server-plugin-targets.sh
+          server_plugins=$(jq -c '{include: [.targets[] |
+            {target: .id, platform_name: .platform_name,
+             game_version: .game_version, java: (.java | tostring)}]}' \
+            ci/server-plugin-targets.json)
+          jq -e '.include | length > 0' <<<"$server_plugins" >/dev/null
+          echo "server_plugins=$server_plugins" >> "$GITHUB_OUTPUT"
 
   forge:
     name: Forge / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
@@ -136,26 +144,33 @@ jobs:
       - name: Build and test
         run: ./scripts/ci/build-target.sh "${{ matrix.target }}"
 
-  spigot:
-    name: Spigot 1.20.1
+  server-plugin:
+    name: ${{ matrix.platform_name }} / ${{ matrix.game_version }} (JDK ${{ matrix.java }})
+    needs: matrix
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.matrix.outputs.server_plugins) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Java 17 for exact Spigot runtime work
+      - name: Install target JDK ${{ matrix.java }} for the exact server runtime
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ matrix.java }}
       - name: Install the JDK 21 Gradle launcher
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
-      - name: Build and test against exact Spigot 1.20.1
-        run: ./scripts/ci/build-spigot-candidate.sh
+      - name: Build and test against the exact server
+        run: ./scripts/ci/run-server-plugin-target.sh "${{ matrix.target }}" build
       - name: Inspect the production-shaped plugin JAR
-        run: ./scripts/ci/verify-spigot-plugin-jar.sh build/spigot-candidate/verified-plugin
+        run: >-
+          ./scripts/ci/run-server-plugin-target.sh "${{ matrix.target }}" verify
+          "build/server-plugin-ci/${{ matrix.target }}/verified-plugin"
