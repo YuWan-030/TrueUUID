@@ -87,8 +87,8 @@ public final class TrueuuidConfig {
             b.push("auth");
 
             timeoutMs = b.defineInRange("timeoutMs", 30_000L, 1_000L, 600_000L);
-            allowOfflineOnTimeout = b.comment("false: kick on timeout. true: allow offline fallback on timeout. / false: 超时踢出。true: 超时允许离线兜底。").define("allowOfflineOnTimeout", false);
-            allowOfflineOnFailure = b.comment("false: kick on authentication failure. true: allow offline fallback on authentication failure. / false: 鉴权失败时踢出。true: 鉴权失败时允许离线兜底。").define("allowOfflineOnFailure", true);
+            allowOfflineOnTimeout = b.comment("Legacy compatibility key; timeout always denies. / 旧版兼容配置；超时始终拒绝。").define("allowOfflineOnTimeout", false);
+            allowOfflineOnFailure = b.comment("Allow only the exact explicit no-session response to request offline admission. / 仅允许精确的无会话响应请求离线身份。").define("allowOfflineOnFailure", true);
 
             timeoutKickMessage = b.comment("Translation key for authentication timeout. Non-trueuuid values fall back to the localized default. / 鉴权超时翻译键。非 trueuuid 值会回退到本地化默认文案。")
                     .define("timeoutKickMessage", "trueuuid.disconnect.timeout");

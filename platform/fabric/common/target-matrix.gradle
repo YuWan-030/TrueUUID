@@ -66,6 +66,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${target.fabricApiVersion}"
 
     implementation project(':shared:protocol')
+    compileOnly 'net.luckperms:api:5.5'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

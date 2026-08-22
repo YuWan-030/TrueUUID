@@ -23,7 +23,8 @@ abstract class ForgeServerAnswerDecodeMixin {
         // consume its presence flag before decoding the TrueUUID wire payload.
         try {
             if (!data.readBoolean()) {
-                throw new IllegalArgumentException("Missing TrueUUID authentication answer");
+                callback.setReturnValue(null);
+                return;
             }
             callback.setReturnValue(new ForgeAuthAnswerPayload(data));
         } catch (RuntimeException exception) {

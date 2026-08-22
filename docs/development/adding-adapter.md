@@ -54,10 +54,13 @@ The adapter must retain these properties:
 - login work is cancelled on timeout or disconnect;
 - migration is confirmed, backed up, transactional, and rolls back on failure.
 
-Paper/Spigot are not ordinary adapters: they cannot replace the login UUID
-before player-data loading. Treat them as a separate, signed assertion bridge
-design, normally with a compatible client mod and proxy, before claiming
-support. Follow
+Paper/Spigot are not ordinary adapters. Normal Bukkit plugin messaging cannot
+initiate TrueUUID proof during login. Paper offers a mutable pre-login profile
+on supported versions, while Spigot needs a proven packet/profile seam, but
+neither API alone makes a client call `joinServer`. Treat plugins as a separate
+dual-mode pre-login design: client-assisted queries for supported TrueUUID
+clients and selective vanilla encryption/session proof for clients without the
+mod. Follow
 [`docs/architecture/server-plugin-bridge.md`](../architecture/server-plugin-bridge.md)
 for its trust, module, implementation, and acceptance gates.
 

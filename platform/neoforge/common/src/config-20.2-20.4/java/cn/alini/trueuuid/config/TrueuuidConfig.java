@@ -43,7 +43,7 @@ public final class TrueuuidConfig {
         builder.push("auth");
         TIMEOUT_MS = builder.comment("Server-side wait for the client's TrueUUID answer and session verification, in milliseconds.")
                 .defineInRange("timeoutMs", 30_000L, 1_000L, 600_000L);
-        ALLOW_OFFLINE_ON_TIMEOUT = builder.comment("false: kick when authentication times out. true: apply the offline fallback policy on timeout instead.")
+        ALLOW_OFFLINE_ON_TIMEOUT = builder.comment("Legacy compatibility key; current secure login seams always deny timeout.")
                 .define("allowOfflineOnTimeout", false);
         YGGDRASIL_HOSTS = builder.comment("Allowed Yggdrasil hasJoined hosts. Empty rejects every client-provided endpoint.")
                 .defineListAllowEmpty(List.of("yggdrasil", "apiRootWhitelist"), List::of, value -> value instanceof String);
@@ -72,7 +72,7 @@ public final class TrueuuidConfig {
                         "Size of the account-status badge, scaling the padlock and label together.",
                         "Whole numbers (1.0, 2.0) keep Minecraft's bitmap font perfectly crisp; values in between are slightly soft.")
                 .defineInRange("overlayScale", 1.0D, 0.5D, 4.0D);
-        ALLOW_OFFLINE_ON_FAILURE = builder.comment("Allow an offline fallback when the client has no valid premium session or session verification fails.")
+        ALLOW_OFFLINE_ON_FAILURE = builder.comment("Allow only the exact explicit no-session response to request offline admission.")
                 .define("allowOfflineOnFailure", true);
         KNOWN_PREMIUM_DENY_OFFLINE = builder.comment("Deny offline fallback for a name that has previously completed a verified premium login.")
                 .define("knownPremiumDenyOffline", true);

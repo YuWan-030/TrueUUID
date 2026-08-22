@@ -5,8 +5,10 @@ import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeQueryTracker;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
+import cn.alini.trueuuid.protocol.ClientModRequirement;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.MigrationTransaction;
+import cn.alini.trueuuid.protocol.OfflineClientResponse;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import cn.alini.trueuuid.server.ForgeLoginFlow;
@@ -81,17 +83,6 @@ abstract class ForgeServerLoginMixin {
         if (migration) {
             Trueuuid.acceptance("result=migration_timeout player={}", playerName == null ? "<unknown>" : playerName);
             disconnect(Component.translatable("trueuuid.disconnect.migration_confirm_timeout"));
-        } else if (TrueuuidConfig.allowOfflineOnTimeout() && authenticatedProfile != null) {
-            // The offline policy still applies: a timeout must not hand a
-            // previously verified name to a client that never answered.
-            if (ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
-                Trueuuid.LOGGER.warn("TrueUUID authentication timed out; offline fallback accepted: player={}", playerName);
-                ForgeAdapterRuntime.recordOfflineFallback(authenticatedProfile);
-                trueuuid$completeNativeLogin(authenticatedProfile);
-            } else {
-                Trueuuid.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", playerName);
-                disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
-            }
         } else {
             disconnect(Component.translatable("trueuuid.disconnect.timeout"));
         }
@@ -100,9 +91,15 @@ abstract class ForgeServerLoginMixin {
 
     @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
     private void trueuuid$checkAssertion(ServerboundCustomQueryAnswerPacket packet, CallbackInfo callback) {
-        if (packet.transactionId() != trueuuid$transaction || !(packet.payload() instanceof ForgeAuthAnswerPayload answer)
-                || authenticatedProfile == null) return;
+        if (packet.transactionId() != trueuuid$transaction || authenticatedProfile == null) return;
         callback.cancel();
+        if (packet.payload() == null) {
+            Trueuuid.acceptance("result=client_mod_missing player={}", authenticatedProfile.getName());
+            disconnect(Component.literal(ClientModRequirement.MISSING_CLIENT_MESSAGE));
+            trueuuid$closeFlow();
+            return;
+        }
+        if (!(packet.payload() instanceof ForgeAuthAnswerPayload answer)) return;
         Trueuuid.debug("TrueUUID received authentication response: player={}", authenticatedProfile.getName());
         Trueuuid.acceptance("phase=auth_answer_received player={} migrationPhase={}",
                 authenticatedProfile.getName(), trueuuid$flow.phase() == LoginStateMachine.Phase.AWAITING_MIGRATION);
@@ -112,11 +109,9 @@ abstract class ForgeServerLoginMixin {
             trueuuid$handleMigrationAnswer(packet, answer, ip);
             return;
         }
-        if (!answer.message().joined()) {
+        if (OfflineClientResponse.isExplicit(answer.message())) {
             String playerName = authenticatedProfile.getName();
-            if (trueuuid$acceptGraceLogin(playerName, ip)) {
-                // fall through: grace accepted the reconnect as premium
-            } else if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
+            if (!ForgeAdapterRuntime.canUseOfflineFallback(playerName)) {
                 Trueuuid.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", playerName);
                 Trueuuid.acceptance("result=known_deny player={}", playerName);
                 disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
@@ -125,6 +120,11 @@ abstract class ForgeServerLoginMixin {
                 ForgeAdapterRuntime.recordOfflineFallback(authenticatedProfile);
                 trueuuid$completeNativeLogin(authenticatedProfile);
             }
+            trueuuid$closeFlow();
+            return;
+        }
+        if (!answer.message().joined()) {
+            disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
             trueuuid$closeFlow();
             return;
         }
@@ -145,7 +145,6 @@ abstract class ForgeServerLoginMixin {
                             return;
                         }
                         if (lookup.profile().isEmpty()) {
-                            if (trueuuid$acceptGraceLogin(authenticatedProfile.getName(), ip)) return;
                             Trueuuid.LOGGER.warn("TrueUUID premium verification denied: player={}", authenticatedProfile.getName());
                             disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
                             return;
@@ -165,17 +164,6 @@ abstract class ForgeServerLoginMixin {
                         if (trueuuid$flow.phase() != LoginStateMachine.Phase.AWAITING_MIGRATION) trueuuid$closeFlow();
                     }
                 }));
-    }
-
-    /** One same-name, same-IP reconnect inside the grace window keeps the verified identity. */
-    @Unique private boolean trueuuid$acceptGraceLogin(String playerName, String ip) {
-        java.util.Optional<UUID> grace = ForgeAdapterRuntime.tryGraceLogin(playerName, ip);
-        if (grace.isEmpty()) return false;
-        Trueuuid.LOGGER.info("TrueUUID recent same-IP grace login: player={}, uuid={}", playerName, grace.get());
-        authenticatedProfile = new GameProfile(grace.get(), playerName);
-        ForgeAdapterRuntime.recordGraceLogin(authenticatedProfile);
-        trueuuid$completeNativeLogin(authenticatedProfile);
-        return true;
     }
 
     @Inject(method = "onDisconnect", at = @At("HEAD"))

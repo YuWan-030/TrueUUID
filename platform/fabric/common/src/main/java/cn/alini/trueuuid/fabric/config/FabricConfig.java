@@ -108,7 +108,7 @@ public final class FabricConfig {
         }
     }
 
-    /** Allow an offline fallback when the client has no valid premium session or session verification fails. */
+    /** Allow only the exact explicit no-session response to request offline admission. */
     public static boolean allowOfflineOnFailure() { return allowOfflineOnFailure; }
 
     /** Deny offline fallback for a name that has previously completed a verified premium login. */
@@ -120,7 +120,7 @@ public final class FabricConfig {
     /** Server-side wait for the client's TrueUUID answer and session verification, in milliseconds. */
     public static long timeoutMs() { return timeoutMs; }
 
-    /** false: kick when authentication times out. true: apply the offline fallback policy on timeout instead. */
+    /** Legacy compatibility key. Current secure login seams always deny timeout. */
     public static boolean allowOfflineOnTimeout() { return allowOfflineOnTimeout; }
 
     /** Explicit allowlist for client-supplied Yggdrasil hasJoined endpoints. */

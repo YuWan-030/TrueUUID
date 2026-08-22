@@ -93,6 +93,7 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${target.minecraftVersion}-${target.forgeVersion}"
     compileOnly project(':shared:protocol')
+    compileOnly 'net.luckperms:api:5.5'
     testImplementation project(':shared:protocol')
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

@@ -4,6 +4,7 @@ import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.MigrationTransaction;
+import cn.alini.trueuuid.protocol.OfflineClientResponse;
 import cn.alini.trueuuid.protocol.SessionVerifier;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 
@@ -15,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
  * native packet/profile effects; this class never receives Minecraft objects.
  */
 public final class LoginAttempt {
-    public enum Result { IGNORE, DENY, TIMEOUT, VERIFIED }
+    public enum Result { IGNORE, OFFLINE_REQUESTED, DENY, TIMEOUT, VERIFIED }
     public record Outcome(Result result, Optional<VerifiedProfile> profile) {}
 
     private final LoginStateMachine state = new LoginStateMachine();
@@ -32,7 +33,10 @@ public final class LoginAttempt {
         AuthMessages.Answer answer = AuthWireCodec.decodeAnswer(wire);
         return switch (state.acceptAnswer(transactionId, answer)) {
             case IGNORE -> CompletableFuture.completedFuture(new Outcome(Result.IGNORE, Optional.empty()));
-            case DENY -> CompletableFuture.completedFuture(new Outcome(Result.DENY, Optional.empty()));
+            case DENY -> CompletableFuture.completedFuture(new Outcome(
+                    OfflineClientResponse.isExplicit(answer)
+                            ? Result.OFFLINE_REQUESTED : Result.DENY,
+                    Optional.empty()));
             case MIGRATE -> CompletableFuture.completedFuture(new Outcome(Result.DENY, Optional.empty()));
             case VERIFY -> {
                 work = verifier.verify(new SessionVerifier.Request(username, nonce, clientIp,

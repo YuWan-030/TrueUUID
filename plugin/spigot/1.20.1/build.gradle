@@ -1,0 +1,123 @@
+plugins {
+    id 'java'
+}
+
+group = 'cn.alini'
+version = providers.gradleProperty('mod_version').get()
+
+evaluationDependsOn(':shared:protocol')
+evaluationDependsOn(':shared:server-core')
+evaluationDependsOn(':plugin:bukkit-common')
+def sharedProtocolMain = project(':shared:protocol').extensions
+        .getByType(org.gradle.api.tasks.SourceSetContainer).named('main')
+def sharedServerCoreMain = project(':shared:server-core').extensions
+        .getByType(org.gradle.api.tasks.SourceSetContainer).named('main')
+def bukkitCommonMain = project(':plugin:bukkit-common').extensions
+        .getByType(org.gradle.api.tasks.SourceSetContainer).named('main')
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+}
+
+def protocolLibVersion = '5.1.0'
+def protocolLibSha256 = '562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769'
+def protocolLibJar = layout.buildDirectory.file("pinned/ProtocolLib-${protocolLibVersion}.jar")
+
+tasks.register('fetchProtocolLib') {
+    outputs.file(protocolLibJar)
+    doLast {
+        File destination = protocolLibJar.get().asFile
+        destination.parentFile.mkdirs()
+        if (!destination.exists()) {
+            new URL("https://github.com/dmulloy2/ProtocolLib/releases/download/${protocolLibVersion}/ProtocolLib.jar")
+                    .withInputStream { input -> destination.withOutputStream { output -> output << input } }
+        }
+        String actual = java.security.MessageDigest.getInstance('SHA-256')
+                .digest(destination.bytes).encodeHex().toString()
+        if (actual != protocolLibSha256) {
+            destination.delete()
+            throw new GradleException("ProtocolLib ${protocolLibVersion} checksum mismatch: ${actual}")
+        }
+    }
+}
+
+dependencies {
+    implementation project(':plugin:bukkit-common')
+    implementation project(':shared:protocol')
+    implementation project(':shared:server-core')
+    compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    compileOnly files(protocolLibJar)
+    testImplementation 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    testImplementation files(protocolLibJar)
+    testImplementation 'org.ow2.asm:asm:9.7.1'
+    testImplementation 'org.ow2.asm:asm-tree:9.7.1'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn tasks.named('fetchProtocolLib')
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    dependsOn tasks.named('fetchProtocolLib')
+    useJUnitPlatform {
+        excludeTags 'exact-runtime', 'cross-loader-runtime'
+    }
+}
+
+tasks.register('exactRuntimeCompatibilityTest', Test) {
+    dependsOn tasks.named('testClasses'), tasks.named('fetchProtocolLib')
+    useJUnitPlatform {
+        includeTags 'exact-runtime'
+    }
+    def runtimeJar = providers.gradleProperty('spigotRuntimeJar')
+    doFirst {
+        if (!runtimeJar.isPresent() || !file(runtimeJar.get()).isFile()) {
+            throw new GradleException('exactRuntimeCompatibilityTest requires -PspigotRuntimeJar=/path/to/exact-inner-spigot.jar')
+        }
+    }
+    systemProperty 'trueuuid.spigotRuntimeJar', runtimeJar.orElse('').get()
+    systemProperty 'trueuuid.protocolLibRuntimeJar', protocolLibJar.get().asFile.absolutePath
+}
+
+tasks.register('crossLoaderCompatibilityTest', Test) {
+    dependsOn tasks.named('testClasses'), tasks.named('jar'), ':platform:fabric-1.20.1:remapJar'
+    useJUnitPlatform {
+        includeTags 'cross-loader-runtime'
+    }
+    systemProperty 'trueuuid.spigotCandidateJar', tasks.named('jar', Jar)
+            .flatMap { it.archiveFile }.get().asFile.absolutePath
+    systemProperty 'trueuuid.fabric1201Jar', file(
+            "${rootDir}/platform/fabric/1.20.1/build/libs/trueuuid-${mod_version}-fabric-1.20.1.jar").absolutePath
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    filesMatching('plugin.yml') {
+        expand(candidateVersion: project.version)
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn ':shared:protocol:classes', ':shared:server-core:classes', ':plugin:bukkit-common:classes'
+    archiveFileName = 'trueuuid-spigot-1.20.1-candidate.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from sharedProtocolMain.get().output
+    from sharedServerCoreMain.get().output
+    from bukkitCommonMain.get().output
+    manifest {
+        attributes(
+                'Implementation-Title': 'TrueUUID Spigot 1.20.1 Candidate',
+                'Implementation-Version': project.version,
+                'TrueUUID-Support-Status': 'UNSUPPORTED-CANDIDATE',
+                'ProtocolLib-Version': protocolLibVersion,
+                'ProtocolLib-SHA-256': protocolLibSha256,
+                'Spigot-Implementation-Version': '3871-Spigot-d2eba2c-3f9263b')
+    }
+}

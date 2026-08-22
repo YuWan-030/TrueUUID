@@ -18,10 +18,11 @@ project_version=$(sed -n 's/^mod_version=//p' gradle.properties)
 }
 
 jq -e --arg project_version "$project_version" '
-  ((keys | sort) == (["curseforge_project_id", "release_version", "schema_version", "targets"] | sort)) and
-  .schema_version == 4 and
+  ((keys | sort) == (["curseforge_project_id", "release_ready", "release_version", "schema_version", "targets"] | sort)) and
+  .schema_version == 5 and
   (.release_version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")) and
   .release_version == $project_version and
+  (.release_ready | type == "boolean") and
   (.curseforge_project_id | type == "number" and floor == . and . > 0) and
   (.targets | type == "array" and length > 0) and
   ([.targets[].id] | length == (unique | length)) and

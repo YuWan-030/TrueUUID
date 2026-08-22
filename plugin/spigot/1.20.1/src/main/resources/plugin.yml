@@ -1,0 +1,37 @@
+name: TrueUUID
+main: cn.alini.trueuuid.spigot.v1_20_1.TrueuuidSpigotPlugin
+version: '${candidateVersion}'
+api-version: '1.20'
+load: STARTUP
+depend: [ProtocolLib]
+description: Unsupported secure dual-mode Spigot 1.20.1 candidate
+softdepend: [LuckPerms]
+commands:
+  trueuuid:
+    description: Inspect and administer TrueUUID identity state
+    usage: /trueuuid status
+permissions:
+  trueuuid.command.status.other:
+    default: op
+  trueuuid.command.health:
+    default: op
+  trueuuid.command.policy:
+    default: op
+  trueuuid.command.identity.inspect:
+    default: op
+  trueuuid.command.identity.alias:
+    default: op
+  trueuuid.command.identity.collision:
+    default: op
+  trueuuid.command.identity.block:
+    default: op
+  trueuuid.command.identity.release:
+    default: op
+  trueuuid.command.migrate:
+    default: op
+  trueuuid.command.cleanup:
+    default: op
+  trueuuid.command.reload:
+    default: op
+  trueuuid.notify:
+    default: op

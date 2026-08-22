@@ -68,6 +68,37 @@ grep -Fq 'The draft body must exactly match' .github/workflows/release.yml || {
     exit 65
 }
 
+grep -Fq './scripts/release/validate-release-config.sh "$version" release-changelog.md' \
+    .github/workflows/release.yml || {
+    echo "release.yml must use publication-enforcing release validation" >&2
+    exit 65
+}
+grep -Fq './scripts/release/validate-release-config.sh --development' \
+    .github/workflows/verify.yml || {
+    echo "verify.yml must validate an explicitly blocked development manifest" >&2
+    exit 65
+}
+
+for spigot_candidate_contract in \
+    'spigot-candidate:' \
+    './scripts/ci/build-spigot-candidate.sh' \
+    'Unsupported Spigot 1.20.1 candidate'; do
+    grep -Fq "$spigot_candidate_contract" .github/workflows/verify.yml || {
+        echo "verify.yml is missing Spigot candidate contract: ${spigot_candidate_contract}" >&2
+        exit 65
+    }
+done
+for pinned_spigot_contract in \
+    "buildtools_sha256='b61fa90158f594ee95bea1a27399eb64d439b4c8ae9345bd4476a02ce49b06ff'" \
+    "protocol_sha256='562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769'" \
+    ':plugin:spigot:1.20.1:exactRuntimeCompatibilityTest' \
+    ':plugin:spigot:1.20.1:crossLoaderCompatibilityTest'; do
+    grep -Fq "$pinned_spigot_contract" scripts/ci/build-spigot-candidate.sh || {
+        echo "Spigot candidate builder is missing pin: ${pinned_spigot_contract}" >&2
+        exit 65
+    }
+done
+
 for immutable_tag_contract in \
     'tag_commit: ${{ steps.release.outputs.tag_commit }}' \
     'tag_object: ${{ steps.release.outputs.tag_object }}' \

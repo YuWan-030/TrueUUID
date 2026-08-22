@@ -6,7 +6,14 @@ wide metadata range is not a support claim.
 
 ## Current verdict
 
-Version 1.2.1 declares 52 exact targets: 16 Forge, 18 Fabric, and 18 NeoForge.
+Version 1.3.0 is the current development line and must not be published yet.
+`release/targets.json` sets `release_ready` and every target-level `release`
+approval to `false`. Historical results remain useful regression evidence, but
+the current source and 1.3.0 artifacts require fresh acceptance. Spigot/Paper
+dual-mode work must pass its own gates before support is declared. Version
+1.2.1 remains permanently withheld; never create or reuse a `v1.2.1` tag.
+
+The worktree declares 52 exact mod targets: 16 Forge, 18 Fabric, and 18 NeoForge.
 Fabric and NeoForge now carry one exact module for every Minecraft patch from
 1.20.1 through 1.21.11. Forge carries one for every patch in that line for
 which Forge published a loader. Forge never published a 1.20.5 or 1.21.2
@@ -84,17 +91,26 @@ against rebuilt exact-patch artifacts. The summary is
 `build/runtime-acceptance/20260730T043305Z/summary.tsv`: eight fresh `PASS`
 rows, nothing reused.
 
-Every declared target therefore has four-case installed-JAR evidence for the
-exact login path it ships in the current 1.2.1 worktree: 38 accepted on
-2026-07-28, two on 2026-07-29, and 12 on 2026-07-22, the latter running Fabric
-code the release did not change.
+Every declared target had four-case installed-JAR evidence for the exact login
+path captured by those historical artifacts: 38 accepted on 2026-07-28, two on
+2026-07-29, and 12 on 2026-07-22.
+
+The current dirty worktree subsequently hardened all shared loader login seams:
+only the exact bounded no-session response may request offline admission;
+timeout, malformed/deceptive response, failed premium verification, and cached
+same-IP grace no longer downgrade authentication. That source change
+invalidates the older installed-JAR runtime evidence for the current artifacts.
+All affected Forge, Fabric, and NeoForge targets require fresh exact-artifact
+runtime acceptance before any new release claim. Version 1.3.0 remains vetoed.
 
 The following remain implemented or unit-tested only, exactly as in 1.2.0:
 extended Yggdrasil/skin-site login, timeout and disconnect cancellation,
-recent-IP grace, migration rejection/timeout/rollback, admin commands, addon
+migration rejection/timeout/rollback, admin commands, addon
 callbacks, HUD and pause-screen presentation, and skin refresh. No visual
 assertion has confirmed the three-second fade, the Singleplayer lock artwork,
 configured corners/scales/offsets, or pause-menu placement on every GUI era.
+Recent-IP grace configuration is retained only for upgrade compatibility; the
+current secure login seams do not use it after silence or proof failure.
 
 ## Declared targets
 
@@ -114,7 +130,12 @@ Runtime state values:
 No target carries stale evidence: a row keeps its 1.2.0 date only when 1.2.1
 changed nothing in the login path it runs.
 
-| Target ID | Loader version | Java | Runtime state | Release |
+The `Historical 1.2.1 approval` column records the target-level approval that
+existed for the withheld native-mod candidate. Current 1.3.0 manifest approvals
+are all false. Spigot and Paper do not appear in this table because the Spigot
+implementation remains an unsupported candidate and Paper is not implemented.
+
+| Target ID | Loader version | Java | Runtime state | Historical 1.2.1 approval |
 |---|---:|---:|---|---:|
 | `forge-1.20.1` | Forge 47.4.10 | 17 | Core accepted (1.2.1) | true |
 | `forge-1.20.2` | Forge 48.1.0 | 17 | Core accepted (1.2.1) | true |
@@ -275,9 +296,10 @@ exists. See [version consolidation](version-consolidation-roadmap.md).
 
 ## Release gate
 
-The 1.2.1 approval covers every exact target in this table and no omitted patch.
-Every `release` flag is `true` and the approval is bound to
-`release_version: 1.2.1`.
+The historical 1.2.1 approval covered every exact target in this table and no
+omitted patch. After the 1.3.0 version change, every current manifest `release`
+flag was reset to `false` and the approval is bound to
+`release_version: 1.3.0`.
 
 All 52 targets carry four-case installed-JAR evidence for the login path they
 ship: `build/runtime-acceptance/20260728T074332Z` for the 16 targets added in

@@ -6,7 +6,7 @@ patches. The live target inventory and evidence are in
 
 ## Current state
 
-The 1.2.1 release manifest contains 52 exact compile targets: 16 Forge, 18
+The withheld 1.2.1 development manifest contains 52 exact compile targets: 16 Forge, 18
 Fabric, and 18 NeoForge. Fabric and NeoForge cover every Minecraft patch from
 1.20.1 through 1.21.11. Forge covers every patch in that line for which Forge
 published a loader; Forge has no 1.20.5 or 1.21.2 loader.

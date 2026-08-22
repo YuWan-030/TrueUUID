@@ -9,7 +9,18 @@ TrueUUID 是适用于离线模式 Minecraft 服务器的账号验证 Mod。它�
 它也支持已配置的 Yggdrasil/authlib-injector 皮肤站账号。当前已验证及计划中的目标状态统一记录在
 [`目标矩阵`](docs/architecture/target-matrix.md)中。
 
-客户端和服务端都必须安装本 Mod。服务端必须设置：
+当前受支持的原生 Mod 模式要求客户端和服务端都安装本 Mod。现有一个尚未
+受支持的 Spigot 1.20.1 候选版本，同时实现了匹配 TrueUUID 客户端的路径和
+无需客户端 Mod 的安全原版混合鉴权路径；在完整真实登录矩阵通过前，它不会
+进入发布目标清单。维护者可参考
+[`首次测试指南`](docs/development/spigot-1.20.1-first-test.md)。
+
+> [!IMPORTANT]
+> 1.3.0 是当前开发版本；在全部验收关卡完成前，发布清单会明确禁止发布。
+> 1.2.1 仍是永久保留、不得复用的历史回归基线。只有在 Spigot/Paper 双模式
+> 的安全测试与真实登录验收全部通过后，才可解除发布禁令。
+
+服务端必须设置：
 
 ```properties
 online-mode=false
@@ -78,7 +89,7 @@ TrueUUID 包含更安全的离线数据迁移流程，用于玩家原本使用�
 
 ## 环境要求
 
-当前 1.2.1 清单包含 52 个精确目标。Fabric 与 NeoForge 覆盖从
+当前 1.3.0 开发清单包含 52 个精确 Mod 目标。Fabric 与 NeoForge 覆盖从
 1.20.1 到 1.21.11 的每一个 Minecraft 正式补丁版本；Forge 覆盖该区间内
 所有实际发布过 Forge 的补丁版本。Forge 上游从未发布 1.20.5 或 1.21.2。
 Forge 1.21.11 使用独立的 Gradle 9.5 构建，但已接入清单、CI、运行验收
@@ -135,7 +146,9 @@ auth.allowOfflineOnTimeout = false
 
 `false`：认证超时后踢出。
 
-`true`：认证超时后允许离线兜底。
+`true`：旧版兼容值；当前安全登录流程仍会在超时后拒绝登录，不会降级为离线兜底。
+
+只有客户端精确返回“本地没有会话”的有界 TrueUUID 响应时，才可以选择已配置的离线路由。超时、畸形或欺骗性响应、认证服务故障以及正版验证失败都会拒绝登录。
 
 ```toml
 auth.allowOfflineOnFailure = true

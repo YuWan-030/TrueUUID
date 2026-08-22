@@ -1,0 +1,41 @@
+authentication:
+  transport: AUTO
+  timeout-ms: 30000
+  maximum-pending-logins: 64
+  custom-endpoint-allowlist: []
+
+admission:
+  # CONSENT_REQUIRED (default): the first accepted identity keeps the base
+  # name. A premium/offline collision is denied with a clear explanation until
+  # an administrator approves one bounded alias transition. No silent rename.
+  # SAFE_PARALLEL automatically gives a colliding offline identity an alias.
+  # PREMIUM_RESERVED denies offline use of every Mojang-existing name.
+  # FIRST_CLAIM permits local premium-name squatting and requires the explicit
+  # risk acknowledgement below. It is never a safe default.
+  mode: CONSENT_REQUIRED
+  offline-client: ALLOW_VANILLA
+  first-claim-risk-accepted: false
+
+aliases:
+  # '.', '+' and '-' are command-friendly invalid Java-account characters.
+  # Comma is deliberately unsupported because many permission, selector,
+  # tab-list and moderation integrations assume this conservative set.
+  # Alphanumeric legacy prefixes remain readable for upgrades.
+  # '-' avoids Floodgate's default '.' namespace. Existing stored aliases do
+  # not change when this setting changes.
+  prefix: "-"
+
+feedback:
+  # Sent privately to the player whose identity was accepted.
+  private-chat: true
+  # Clients with the TrueUUID status channel use the normal badge instead.
+  vanilla-action-bar: true
+  title: false
+  modded-overlay: true
+  vanilla-action-bar-delay-ticks: 20
+
+permissions:
+  # AUTO uses LuckPerms contexts when the backend plugin is present and plain
+  # Bukkit permission checks otherwise. LUCKPERMS requires that plugin and
+  # fails startup if absent. PLATFORM always uses Bukkit permissions only.
+  provider: AUTO

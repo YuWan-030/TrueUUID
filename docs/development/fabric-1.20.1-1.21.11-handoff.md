@@ -152,9 +152,10 @@ do not create permanent per-target branches.
 
 ## Immediate next-session entry point
 
-Do not recreate or reorganize the exact-target modules. Start with the still
-unproven extended runtime cases: allowed and rejected Yggdrasil endpoints,
-timeouts/disconnect cancellation, same-IP grace, migration reject/timeout/
+Do not recreate or reorganize the exact-target modules. The current worktree's
+no-downgrade hardening invalidates the earlier installed-JAR login evidence, so
+repeat the four core cases first. Then continue with allowed and rejected
+Yggdrasil endpoints, timeouts/disconnect cancellation, migration reject/timeout/
 rollback, admin commands, addon status/callbacks, localized feedback/HUD, and
 skin refresh. Record these as expanded evidence without retroactively claiming
 that they were part of the 1.2.0 core matrix.
@@ -172,7 +173,7 @@ For each module, require:
 3. the four automated scenarios with a fresh artifact and world:
    `premium,offline,migrate,known-deny`;
 4. allowed Yggdrasil, rejected host/private address/redirect/oversize/timeout,
-   disconnect cancellation, same-IP grace, migration reject/timeout/rollback,
+   disconnect cancellation, proof-failure/no-session separation, migration reject/timeout/rollback,
    `/trueuuid cleanupuuid`, `/trueuuid migrateuuid`, addon status/callbacks,
    localized feedback/HUD, and skin refresh;
 5. the same checks on every adjacent patch before widening metadata to cover it.

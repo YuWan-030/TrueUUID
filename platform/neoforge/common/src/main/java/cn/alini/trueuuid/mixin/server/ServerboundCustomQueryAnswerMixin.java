@@ -22,7 +22,11 @@ abstract class ServerboundCustomQueryAnswerMixin {
         // The presence flag is not part of the TrueUUID wire format.
         try {
             if (!buffer.readBoolean()) {
-                throw new IllegalArgumentException("Missing TrueUUID authentication answer");
+                // A client without the TrueUUID query handler returns an absent
+                // native payload. Preserve that valid response for the login
+                // controller, which can present a normal disconnect message.
+                callback.setReturnValue(null);
+                return;
             }
             callback.setReturnValue(new AuthAnswerPayload(buffer));
         } catch (RuntimeException exception) {

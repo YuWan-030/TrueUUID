@@ -9,10 +9,10 @@ public final class AuthPolicy {
                         boolean allowOfflineForUnknownOnly) {}
 
     public static Decision decide(Input input) {
-        if (input.knownVerifiedName() && !input.explicitOfflineClient()
-                && (input.localProxy() || input.graceAvailable())) {
-            return Decision.PREMIUM_GRACE;
-        }
+        // Failure, silence, or a deceptive response must not downgrade into
+        // offline admission or a cached premium identity. Only the exact
+        // bounded no-session response may select the offline policy.
+        if (!input.explicitOfflineClient()) return Decision.DENY;
         if (input.knownVerifiedName() && input.denyOfflineForKnown()) return Decision.DENY;
         if (!input.allowOfflineOnFailure()) return Decision.DENY;
         if (!input.allowOfflineForUnknownOnly() || !input.knownVerifiedName()) return Decision.OFFLINE;

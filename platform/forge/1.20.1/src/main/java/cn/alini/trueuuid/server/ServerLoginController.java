@@ -7,6 +7,7 @@ import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
 import cn.alini.trueuuid.protocol.MigrationTransaction;
+import cn.alini.trueuuid.protocol.OfflineClientResponse;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import cn.alini.trueuuid.util.TrueuuidText;
 import com.mojang.authlib.GameProfile;
@@ -162,12 +163,6 @@ public final class ServerLoginController {
             Trueuuid.acceptance("result=migration_timeout player={}", access.profile() == null ? "<unknown>" : access.profile().getName());
             sendDisconnectWithReason(Component.translatable("trueuuid.disconnect.migration_confirm_timeout"));
             reset();
-        } else if (TrueuuidConfig.allowOfflineOnTimeout()) {
-            if (TrueuuidConfig.debug()) {
-                System.out.println("[TrueUUID] 超时允许离线进入");
-            }
-            TrueuuidRuntime.AUTH_STATE.markOfflineFallback(access.connection(), AuthState.FallbackReason.TIMEOUT);
-            reset();
         } else {
             sendDisconnectWithReason(TrueuuidText.configComponent(
                     TrueuuidConfig.timeoutKickMessage(),
@@ -283,7 +278,7 @@ public final class ServerLoginController {
             if (TrueuuidConfig.debug()) {
                 System.out.println("[TrueUUID] 认证失败, 玩家: " + (access.profile() != null ? access.profile().getName() : "<unknown>") + ", ip: " + ip + ", 原因: 客户端拒绝");
             }
-            handleAuthFailure(ip, "客户端拒绝", true);
+            handleAuthFailure(ip, "客户端拒绝", OfflineClientResponse.isExplicit(answer));
             reset(); ci.cancel(); return;
         }
 

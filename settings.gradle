@@ -25,6 +25,13 @@ rootProject.name = 'TrueUUID'
 // acceptance controls its release flag; it does not remove the adapter from CI.
 include 'shared:protocol'
 include 'shared:presentation'
+include 'shared:server-core'
+
+// Unsupported plugin candidates are intentionally outside release/targets.json
+// until their installed-JAR acceptance matrix is complete. They still compile
+// and test explicitly in CI and may not be published by manifest-driven tasks.
+include 'plugin:bukkit-common'
+include 'plugin:spigot:1.20.1'
 
 // release/targets.json is the single target inventory. Standalone build
 // islands own their own wrapper/settings and are deliberately not included in

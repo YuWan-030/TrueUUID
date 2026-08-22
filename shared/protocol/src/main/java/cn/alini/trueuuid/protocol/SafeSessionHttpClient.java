@@ -21,14 +21,14 @@ import java.util.Locale;
 import java.util.Map;
 
 /** HTTPS client which pins the reviewed DNS result, refuses redirects and bounds bodies. */
-public final class SafeSessionHttpClient {
+public final class SafeSessionHttpClient implements SessionHttpTransport {
     public static final int MAX_RESPONSE_BYTES = 1_048_576;
     private static final int CONNECT_TIMEOUT_MS = (int) Duration.ofSeconds(5).toMillis();
     private static final int READ_TIMEOUT_MS = (int) Duration.ofSeconds(5).toMillis();
 
     public record Response(int status, String body) {}
 
-    public Response getTrusted(URI uri) throws IOException {
+    @Override public Response getTrusted(URI uri) throws IOException {
         InetAddress[] addresses = InetAddress.getAllByName(uri.getHost());
         if (addresses.length == 0 || addresses.length > EndpointPolicy.MAX_RESOLVED_ADDRESSES
                 || Arrays.stream(addresses).anyMatch(address -> !EndpointPolicy.isPublic(address))) {
@@ -37,7 +37,7 @@ public final class SafeSessionHttpClient {
         return get(uri, List.of(addresses));
     }
 
-    public Response get(URI uri, List<InetAddress> approvedAddresses) throws IOException {
+    @Override public Response get(URI uri, List<InetAddress> approvedAddresses) throws IOException {
         IOException last = null;
         for (InetAddress address : approvedAddresses) {
             try { return getPinned(uri, address); }

@@ -3,7 +3,9 @@ package cn.alini.trueuuid.fabric.login;
 import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.ClientModRequirement;
 import cn.alini.trueuuid.protocol.LoginStateMachine;
+import cn.alini.trueuuid.protocol.OfflineClientResponse;
 import cn.alini.trueuuid.protocol.MigrationTransaction;
 import cn.alini.trueuuid.protocol.VerifiedProfile;
 import com.mojang.authlib.GameProfile;
@@ -70,7 +72,7 @@ public final class FabricLoginTransaction {
         TrueuuidFabric.acceptance("phase=auth_answer_received understood={} migrationPhase={}",
                 understood, state.phase() == LoginStateMachine.Phase.AWAITING_MIGRATION);
         if (!understood || answer == null) {
-            closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
+            closeWithDisconnect(server, handler, Text.literal(ClientModRequirement.MISSING_CLIENT_MESSAGE));
             return;
         }
         if (state.phase() == LoginStateMachine.Phase.AWAITING_MIGRATION) {
@@ -79,7 +81,11 @@ public final class FabricLoginTransaction {
         }
         LoginStateMachine.AnswerResult result = state.acceptAnswer(TRANSACTION_ID, answer);
         if (result == LoginStateMachine.AnswerResult.DENY) {
-            completeOfflineFallbackOrDeny(server, handler, true);
+            if (OfflineClientResponse.isExplicit(answer)) {
+                completeOfflineFallbackOrDeny(server, handler);
+            } else {
+                closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
+            }
             return;
         }
         if (result != LoginStateMachine.AnswerResult.VERIFY) {
@@ -110,20 +116,12 @@ public final class FabricLoginTransaction {
      * Consults the persistent offline policy before releasing the native
      * offline profile, mirroring the other adapters: a name that has already
      * completed a verified premium login may not be taken by an unverified
-     * client. On authentication failure (not timeout) one same-name, same-IP
-     * reconnect inside the grace window keeps the verified identity instead.
+     * client. Only the exact bounded no-session response reaches this method;
+     * proof failure, malformed data, silence, and timeout deny.
      */
-    private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler, boolean allowGrace) {
+    private void completeOfflineFallbackOrDeny(MinecraftServer server, ServerLoginNetworkHandler handler) {
         GameProfile offlineProfile = ((FabricLoginStateAccess) handler).trueuuid$getProfile();
         String name = offlineProfile == null ? null : FabricGameProfiles.name(offlineProfile);
-        if (allowGrace && name != null) {
-            var grace = FabricAdapterRuntime.tryGraceLogin(name, clientIp(handler));
-            if (grace.isPresent()) {
-                FabricAdapterRuntime.recordGraceLogin(grace.get());
-                completeWithProfile(server, handler, new GameProfile(grace.get(), name));
-                return;
-            }
-        }
         if (!FabricAdapterRuntime.canUseOfflineFallback(name)) {
             TrueuuidFabric.LOGGER.warn("TrueUUID offline fallback denied for previously verified name: player={}", name);
             TrueuuidFabric.acceptance("result=known_deny player={}", name);
@@ -155,11 +153,6 @@ public final class FabricLoginTransaction {
         if (timeout == LoginStateMachine.TimeoutResult.MIGRATION) {
             TrueuuidFabric.acceptance("result=migration_timeout");
             closeWithDisconnect(server, handler, "trueuuid.disconnect.migration_confirm_timeout");
-        } else if (FabricConfig.allowOfflineOnTimeout()) {
-            // The offline policy still applies: a timeout must not hand a
-            // previously verified name to a client that never answered. No
-            // grace either, matching 1.20.1: grace covers failures, not silence.
-            completeOfflineFallbackOrDeny(server, handler, false);
         } else {
             closeWithDisconnect(server, handler, "trueuuid.disconnect.timeout");
         }
@@ -214,7 +207,7 @@ public final class FabricLoginTransaction {
                 return;
             }
         }
-        completeOfflineFallbackOrDeny(server, handler, true);
+        closeWithDisconnect(server, handler, "trueuuid.disconnect.auth_denied");
     }
 
     private void requestMigrationConfirmation(MinecraftServer server, ServerLoginNetworkHandler handler, VerifiedProfile verified,

@@ -1,3 +1,7 @@
+> **WITHHELD — DO NOT PUBLISH:** 1.2.1 is retained only as an internal
+> regression baseline. The next public release must use a new version after the
+> Spigot/Paper security and acceptance gates pass.
+
 ## English
 
 TrueUUID 1.2.1 completes exact-patch coverage across the Minecraft 1.20.1–1.21.11 release line.

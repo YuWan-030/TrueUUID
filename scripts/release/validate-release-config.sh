@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 0 && $# -ne 2 ]]; then
-    echo "usage: $0 [<version> <release-changelog.md>]" >&2
+development=false
+if [[ $# -eq 1 && $1 == "--development" ]]; then
+    development=true
+    shift
+elif [[ $# -ne 0 && $# -ne 2 ]]; then
+    echo "usage: $0 [--development | <version> <release-changelog.md>]" >&2
     exit 64
 fi
 
@@ -20,6 +24,15 @@ changelog=${2:-docs/development/release-changelog-${version}.md}
     echo "release target approval is not bound to version ${version}" >&2
     exit 65
 }
+
+if [[ "$(jq -r '.release_ready' release/targets.json)" != true ]]; then
+    if [[ "$development" == true ]]; then
+        echo "Verified development manifest for ${version}; publication is explicitly blocked."
+        exit 0
+    fi
+    echo "release ${version} is explicitly blocked by release_ready=false" >&2
+    exit 65
+fi
 
 jq -e '
   all(.targets[]; .release == true) and

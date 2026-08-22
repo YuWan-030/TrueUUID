@@ -95,19 +95,6 @@ abstract class ServerLoginMixin {
                 cn.alini.trueuuid.Trueuuid.acceptance("result=migration_timeout player={}",
                         name == null ? "<unknown>" : name);
                 disconnect(Component.translatable("trueuuid.disconnect.migration_confirm_timeout"));
-            } else if (TrueuuidConfig.allowOfflineOnTimeout() && authenticatedProfile != null) {
-                // The offline policy still applies: a timeout must not hand a
-                // previously verified name to a client that never answered.
-                if (AdapterRuntime.canUseOfflineFallback(name)) {
-                    cn.alini.trueuuid.Trueuuid.LOGGER.warn(
-                            "TrueUUID authentication timed out; offline fallback accepted: player={}", name);
-                    AdapterRuntime.recordOfflineFallback(authenticatedProfile);
-                    trueuuid$finishLogin(authenticatedProfile);
-                } else {
-                    cn.alini.trueuuid.Trueuuid.LOGGER.warn(
-                            "TrueUUID offline fallback denied for previously verified name: player={}", name);
-                    disconnect(Component.translatable("trueuuid.disconnect.bound_premium"));
-                }
             } else {
                 disconnect(Component.translatable("trueuuid.disconnect.timeout"));
             }
@@ -172,17 +159,8 @@ abstract class ServerLoginMixin {
                         }
                         LoginAttempt.Outcome outcome = lookup.outcome();
                         if (outcome.result() != LoginAttempt.Result.VERIFIED || outcome.profile().isEmpty()) {
-                            // Match the Forge adapters: an unverified client may keep its
-                            // offline UUID only when the configured policy allows it. One
-                            // same-name, same-IP reconnect inside the grace window keeps
-                            // the verified identity instead.
-                            java.util.Optional<UUID> grace = AdapterRuntime.tryGraceLogin(name, ip);
-                            if (grace.isPresent()) {
-                                cn.alini.trueuuid.Trueuuid.LOGGER.info(
-                                        "TrueUUID recent same-IP grace login: player={}, uuid={}", name, grace.get());
-                                authenticatedProfile = new GameProfile(grace.get(), name);
-                                AdapterRuntime.recordGraceLogin(authenticatedProfile);
-                                trueuuid$finishLogin(authenticatedProfile);
+                            if (outcome.result() != LoginAttempt.Result.OFFLINE_REQUESTED) {
+                                disconnect(Component.translatable("trueuuid.disconnect.auth_denied"));
                             } else if (!AdapterRuntime.canUseOfflineFallback(name)) {
                                 cn.alini.trueuuid.Trueuuid.LOGGER.warn(
                                         "TrueUUID offline fallback denied for previously verified name: player={}", name);

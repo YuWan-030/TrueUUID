@@ -63,9 +63,11 @@ thread. The player's access token never leaves the client.
 ## Release and compatibility rules
 
 All changes land through `main`; loader/version names identify modules rather
-than permanent branches. Version 1.2.1 uses one signed tag, `v1.2.1`, and one
-draft GitHub Release containing every approved loader/version artifact. Older
-target-specific tags remain historical and are not the current release model.
+than permanent branches. Version 1.2.1 is a withheld regression baseline and
+must not receive a release tag. A later approved version uses one signed
+`vX.Y.Z` tag and one draft GitHub Release containing every approved artifact.
+Older target-specific tags remain historical and are not the current release
+model.
 
 Do not widen a Forge JAR's Minecraft range from protocol equality alone. Each
 claimed patch needs its own loader availability check, structural production

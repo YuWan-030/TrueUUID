@@ -37,8 +37,10 @@ lifecycle code.
 Forge 1.21.11 uses its own Gradle 9.5 wrapper because ForgeGradle 7 cannot join
 the root Gradle 8.14 build; manifest-driven scripts and workflows invoke that
 wrapper explicitly.
-Spigot/Paper plugins need an independently designed server adapter plus a
-compatible client mod or proxy protocol because TrueUUID authenticates during a
-bilateral login phase. See the
+Spigot/Paper plugins need an independently designed early-login server adapter.
+The planned dual-mode design supports either a matching TrueUUID client mod or
+a server-driven vanilla encryption/session proof with no client mod; a normal
+Bukkit plugin message is too late for either identity decision. These plugin
+targets are not implemented or supported yet. See the
 [server plugin bridge boundary](../docs/architecture/server-plugin-bridge.md)
 before creating one. Empty directories are not used as support claims.

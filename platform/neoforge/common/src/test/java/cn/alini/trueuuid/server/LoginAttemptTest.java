@@ -42,6 +42,23 @@ class LoginAttemptTest {
     }
 
     @Test
+    void onlyExactNoSessionAnswerRequestsOffline() {
+        LoginAttempt exact = new LoginAttempt();
+        exact.begin(7, "nonce", 10);
+        byte[] offline = AuthWireCodec.encodeAnswer(
+                new AuthMessages.Answer(false, "", false, true));
+        assertEquals(LoginAttempt.Result.OFFLINE_REQUESTED,
+                exact.answer(7, offline, "name", "203.0.113.7", unusedVerifier()).join().result());
+
+        LoginAttempt deceptive = new LoginAttempt();
+        deceptive.begin(8, "nonce", 10);
+        byte[] invalid = AuthWireCodec.encodeAnswer(
+                new AuthMessages.Answer(false, "", false, false));
+        assertEquals(LoginAttempt.Result.DENY,
+                deceptive.answer(8, invalid, "name", "203.0.113.7", unusedVerifier()).join().result());
+    }
+
+    @Test
     void migrationConfirmationCanOnlyFollowVerification() {
         LoginAttempt attempt = new LoginAttempt();
         byte[] answer = AuthWireCodec.encodeAnswer(new AuthMessages.Answer(true, "", false, false));

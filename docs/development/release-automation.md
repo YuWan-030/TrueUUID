@@ -1,13 +1,22 @@
 # Release automation
 
+> **Publication veto:** version 1.3.0 is the current development line. The
+> machine-readable `release_ready=false` value and false per-target approvals
+> in `release/targets.json` make `validate-release-config.sh` and the guarded
+> Release workflow refuse it. Version 1.2.1 remains permanently withheld; do
+> not create or reuse a `v1.2.1` tag or draft.
+
 TrueUUID has one repository version and one complete target inventory:
 
-- `mod_version` in `gradle.properties` is the only version source. Run
-  `./scripts/release/set-version.sh X.Y.Z` to update it; every module fails
+- `mod_version` in `gradle.properties` is the build version source. Run
+  `./scripts/release/set-version.sh X.Y.Z` to update it and the manifest's
+  version binding together. A real version change also resets
+  `release_ready=false` and every per-target approval; every module fails
   configuration if the property is missing.
-- `release/targets.json` lists every platform module and binds its approvals to
-  one `release_version`. Its validator rejects a manifest that omits a module,
-  invents one, or carries approvals across a version change.
+- `release/targets.json` lists every platform module, binds its approvals to
+  one `release_version`, and carries a version-wide `release_ready` veto. Its
+  validator rejects a manifest that omits a module, invents one, or carries
+  approvals across a version change.
 - `./scripts/ci/build-all-targets.sh` builds all targets. The root Gradle build
   owns 51 target modules; the script then invokes the standalone Forge 1.21.11 Gradle
   9.5 wrapper. `.github/workflows/verify.yml` builds and tests all targets on
@@ -16,19 +25,21 @@ TrueUUID has one repository version and one complete target inventory:
   then boots a localhost development server and headless client for every
   target.
 
-The current release inventory is 52 targets: sixteen Forge, eighteen Fabric,
+The current development inventory is 52 targets: sixteen Forge, eighteen Fabric,
 and eighteen NeoForge. Forge 1.21.11 is a standalone build island whose own wrapper
 is selected by manifest-driven scripts and workflows. CI coverage is separate
-from release approval. Version 1.2.1 approves all 52 targets; a future target with
-`"release": false` would still be built and self-tested but would never be
-attached to a GitHub Release or sent to a distribution service.
+from release approval. The recorded 1.2.1 native results remain historical
+evidence, but all target approvals were reset for 1.3.0 and the version-wide
+publication veto prevents artifacts from being attached to a GitHub Release or
+sent to a distribution service.
 
 Public JARs use the unambiguous all-hyphen pattern
 `trueuuid-{mod-version}-{loader}-{minecraft-version}.jar`, for example
-`trueuuid-1.2.1-fabric-1.21.11.jar`. Modrinth and CurseForge use the matching
-human-readable display name `TrueUUID 1.2.1 for Fabric 1.21.11`; stable API
+`trueuuid-1.3.0-fabric-1.21.11.jar`. Modrinth and CurseForge use the matching
+human-readable display name `TrueUUID 1.3.0 for Fabric 1.21.11`; stable API
 version identifiers remain machine-oriented, such as
-`1.2.1+fabric-1.21.11`.
+`1.3.0+fabric-1.21.11`. These examples illustrate naming only; the maintainer
+chooses the actual next version after its gates pass.
 
 Every matrix job installs the target's declared JDK for the Java toolchain and
 JDK 21 as the Gradle launcher. The launcher must be 21 even for Java 17 targets
@@ -67,8 +78,8 @@ cannot silently break draft discovery again.
 2. Its signed annotated tag is exactly `vX.Y.Z`, its version equals
    `mod_version`, and its commit is contained in `main`.
 3. GitHub verifies the tag signature.
-4. `release_version`, `mod_version`, and the tag version agree, and every
-   declared Forge, Fabric, and NeoForge target has `"release": true`.
+4. `release_ready` is true, `release_version`, `mod_version`, and the tag
+   version agree, and every declared target has `"release": true`.
 5. A temporary probe-asset upload and immediate deletion verifies GitHub
    Release write access without changing the draft metadata;
    the release log identifies the authenticated Modrinth username, and
@@ -91,10 +102,11 @@ a nonempty `## 中文` section. Start from
 always the primary section and Chinese is the translation; do not put Chinese
 release notes before the English source text.
 
-Compiling and booting alone do not approve a target. Version 1.2.1 approval is
-based on the recorded four-case installed-JAR matrix, aggregate builds, unit
-tests, structural JAR checks, and explicit maintainer approval. The target
-matrix keeps the remaining extended runtime evidence limitations visible.
+Compiling and booting alone do not approve a target. The target-level 1.2.1
+evidence is based on the recorded four-case installed-JAR matrix, aggregate
+builds, unit tests, structural JAR checks, and explicit maintainer approval;
+it does not override the version-wide publication veto. The target matrix
+keeps the remaining extended runtime evidence limitations visible.
 
 ## Repository setup
 
@@ -120,7 +132,8 @@ Configure these values in the upstream repository:
 The 2026-07-22 audit found the three credentials configured as repository
 secrets, but no `release` environment, repository ruleset, or classic `main`
 branch protection. Those owner-only settings must be completed before creating
-`v1.2.1`; a write-level collaborator cannot configure them through the API.
+any future release tag; a write-level collaborator cannot configure them
+through the API. Do not use the withheld `v1.2.1` version.
 
 No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
@@ -177,65 +190,29 @@ harness separately recorded the four core login scenarios. Allowed Yggdrasil,
 disconnect/grace, negative migration, commands, callbacks, HUD presentation,
 and skin refresh retain the evidence limitations shown in the target matrix.
 
-## Publishing version 1.2.1
+## Withheld version 1.2.1
 
-All 52 exact targets are approved for 1.2.1 in `release/targets.json`. They
-passed the installed-JAR premium, offline fallback, confirmed migration, and
-known-name denial matrix on 2026-07-22. Allowed Yggdrasil,
-timeouts/disconnects, reconnect grace, negative/rollback migration paths,
-admin commands, addon callbacks, HUD presentation, and skin refresh retain the
-more limited evidence levels recorded in the target matrix.
+Do not publish, tag, or create a draft release for 1.2.1. Its exact-target
+builds and installed-JAR results remain a regression baseline, not a release
+instruction. `./scripts/release/validate-release-config.sh` must fail for this
+version; CI uses `--development` only to validate that the manifest is coherent
+while publication remains blocked.
 
-After the owner-only repository setup above is complete:
-
-1. Wait for the pushed `main` commit's entire `Verify` workflow to pass, then
-   run `Full Self-Test` against that exact commit. Do not tag a moving or failed
-   commit.
-2. From a clean, up-to-date `main`, create and push a signed annotated tag:
-
-   ```bash
-   git tag -s v1.2.1 -m 'v1.2.1-TrueUUID'
-   git push origin v1.2.1
-   ```
-
-3. Create the required draft GitHub Release from the checked-in bilingual
-   changelog:
-
-   ```bash
-   gh release create v1.2.1 \
-     --repo YuWan-030/TrueUUID \
-     --verify-tag \
-     --draft \
-     --title 'v1.2.1-TrueUUID' \
-     --notes-file docs/development/release-changelog-1.2.1.md
-   ```
-
-4. Start the guarded release workflow from `main`:
-
-   ```bash
-   gh workflow run release.yml \
-     --repo YuWan-030/TrueUUID \
-     --ref main \
-     -f tag=v1.2.1
-   ```
-
-   Approve the pending `release` environment deployment when GitHub asks. Do
-   not click GitHub's **Publish release** button yourself. If someone does, the
-   release guard returns it to draft; inspect that guard run and then start the
-   normal Release workflow.
-5. Confirm that the workflow rebuilt/self-tested all 52 targets, attached all
-   52 JARs plus `SHA256SUMS`, published the same target artifacts to Modrinth
-   and CurseForge, and only then changed the GitHub Release from draft to
-   public.
+For 1.3.0, keep every target unapproved until its exact current-artifact matrix
+passes, finish the bilingual changelog, and set `release_ready=true` only after
+the complete declared inventory has fresh approval. The next implementation
+sequence is documented in
+[`spigot-paper-1.20.1-handoff.md`](spigot-paper-1.20.1-handoff.md).
 
 ### Adding independent developer signatures
 
 Do not place developers' personal private GPG keys in repository or environment
-secrets. After the Release workflow attaches the 52 JARs and `SHA256SUMS`, each
+secrets. After a future Release workflow attaches its approved JARs and
+`SHA256SUMS`, each
 developer can add an independent signature with one command:
 
 ```bash
-./scripts/release/sign-release-assets.sh v1.2.1 YOUR_FULL_GPG_FINGERPRINT
+./scripts/release/sign-release-assets.sh vX.Y.Z YOUR_FULL_GPG_FINGERPRINT
 ```
 
 The helper identifies the developer by the account authenticated in `gh`,
@@ -275,10 +252,8 @@ so the correct recovery depends on whether external state was created:
   the existing file and confirming byte equality. A same-name byte mismatch
   fails closed.
 - If validation or self-test fails before any external upload, fix the code,
-  increment the patch version (for example, `1.2.2`), and create a new signed
-  tag and draft. Re-creating `v1.2.1` is acceptable only if it never left the
-  draft/preflight stage and no GitHub asset, Modrinth version, or CurseForge
-  file was created. A new version is still the safer and clearer choice.
+  increment the version and create a new signed tag and draft. Never create or
+  reuse the withheld `v1.2.1` tag.
 - If any Modrinth or CurseForge upload exists, never move or re-create that
   version tag for changed code, artifacts, or release notes. Fix the problem,
   increment the patch version, and publish a new signed tag and draft release.

@@ -1,6 +1,7 @@
 {
-  "schema_version": 4,
-  "release_version": "1.2.1",
+  "schema_version": 5,
+  "release_version": "1.3.0",
+  "release_ready": false,
   "curseforge_project_id": 1539688,
   "targets": [
     {
@@ -13,7 +14,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ServerLoginMixin",
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.20.2",
@@ -25,7 +26,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.20.3",
@@ -37,7 +38,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.20.4",
@@ -49,7 +50,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ForgeServerLoginMixin",
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.20.6",
@@ -61,7 +62,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21",
@@ -73,7 +74,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.1",
@@ -85,7 +86,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.3",
@@ -97,7 +98,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.4",
@@ -109,7 +110,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.5",
@@ -121,7 +122,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.6",
@@ -133,7 +134,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.7",
@@ -145,7 +146,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.8",
@@ -157,7 +158,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.9",
@@ -169,7 +170,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.10",
@@ -181,7 +182,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "forge-1.21.11",
@@ -194,7 +195,7 @@
       "java": 21,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.1",
@@ -206,7 +207,7 @@
       "java": 17,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.2",
@@ -218,7 +219,7 @@
       "java": 17,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.3",
@@ -230,7 +231,7 @@
       "java": 17,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.4",
@@ -242,7 +243,7 @@
       "java": 17,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.5",
@@ -254,7 +255,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.20.6",
@@ -266,7 +267,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21",
@@ -278,7 +279,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.1",
@@ -290,7 +291,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.2",
@@ -302,7 +303,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.3",
@@ -314,7 +315,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.4",
@@ -326,7 +327,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.5",
@@ -338,7 +339,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.6",
@@ -350,7 +351,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.7",
@@ -362,7 +363,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.8",
@@ -374,7 +375,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.9",
@@ -386,7 +387,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.10",
@@ -398,7 +399,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "fabric-1.21.11",
@@ -410,7 +411,7 @@
       "java": 21,
       "metadata": "fabric.mod.json",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.1",
@@ -422,7 +423,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": "cn.alini.trueuuid.mixin.server.ServerLoginMixin",
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.2",
@@ -434,7 +435,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.3",
@@ -446,7 +447,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.4",
@@ -458,7 +459,7 @@
       "java": 17,
       "metadata": "META-INF/mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.5",
@@ -470,7 +471,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.20.6",
@@ -482,7 +483,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21",
@@ -494,7 +495,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.1",
@@ -506,7 +507,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.2",
@@ -518,7 +519,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.3",
@@ -530,7 +531,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.4",
@@ -542,7 +543,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.5",
@@ -554,7 +555,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.6",
@@ -566,7 +567,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.7",
@@ -578,7 +579,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.8",
@@ -590,7 +591,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.9",
@@ -602,7 +603,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.10",
@@ -614,7 +615,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     },
     {
       "id": "neoforge-1.21.11",
@@ -626,7 +627,7 @@
       "java": 21,
       "metadata": "META-INF/neoforge.mods.toml",
       "srg_probe": null,
-      "release": true
+      "release": false
     }
   ]
 }

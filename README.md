@@ -8,14 +8,22 @@ TrueUUID adds account verification to modded Minecraft servers that run in
 offline mode. A premium player's access token stays on their own computer; the
 server receives only the login proof needed to verify their UUID and skin.
 
-The same TrueUUID JAR must be installed on the client and server. Always choose
-the JAR made for your exact Minecraft version and loader.
+The currently supported native-mod model requires TrueUUID on both client and
+server. Always choose the JAR made for the exact Minecraft version and loader.
+An unsupported Spigot 1.20.1 candidate now implements both a matching TrueUUID
+client path and a secure vanilla-hybrid path with no client mod. It remains
+outside the release target manifest until its complete real-login matrix
+passes. Maintainers can follow the
+[first-test guide](docs/development/spigot-1.20.1-first-test.md).
 
 > [!IMPORTANT]
-> Version 1.2.1 declares 52 exact targets in the
+> Version 1.3.0 is the current development line and is explicitly blocked from
+> publication while its acceptance gates remain open. The withheld 1.2.1
+> artifacts remain historical regression evidence in the
 > [target matrix](docs/architecture/target-matrix.md): every Minecraft patch
 > from 1.20.1 through 1.21.11 on Fabric and NeoForge, plus every Forge patch
-> for which Forge exists. Forge never published 1.20.5 or 1.21.2.
+> for which Forge exists. The next feature release will add dual-mode
+> Spigot/Paper support only after its security and real-login gates pass.
 
 ## Quick start
 
@@ -112,7 +120,7 @@ The main policy options are:
 
 ```toml
 auth.timeoutMs = 30000
-auth.allowOfflineOnTimeout = false
+auth.allowOfflineOnTimeout = false # legacy key; timeout always denies
 auth.allowOfflineOnFailure = true
 auth.knownPremiumDenyOffline = true
 auth.allowOfflineForUnknownOnly = true
@@ -123,8 +131,17 @@ auth.showJoinTitle = false
 auth.showAccountOverlay = true
 ```
 
-The recommended defaults allow an unknown offline name but stop that name from
-falling back to offline mode after it has completed a verified login.
+Only the exact bounded client response that explicitly reports no local session
+may select the configured offline route. Timeout, malformed/deceptive response,
+authority failure, and failed premium verification always deny; the legacy
+`allowOfflineOnTimeout` key is retained for config-file compatibility but is
+ignored by current login seams.
+
+The unsupported Spigot candidate has the newer admission, alias, command, and
+LuckPerms model. See the
+[identity policy administrator guide](docs/development/identity-policy-admin-guide.md).
+The loader adapters do not yet implement that entire model; the guide states the
+parity gate explicitly.
 
 All three loaders can position the account badge. Forge and NeoForge use TOML;
 Fabric uses the matching keys inside the JSON `auth` object:
@@ -194,7 +211,7 @@ TARGET=neoforge-1.21.11
 The Prism-ready JAR is then:
 
 ```text
-platform/neoforge/1.21.11/build/libs/trueuuid-1.2.1-neoforge-1.21.11.jar
+platform/neoforge/1.21.11/build/libs/trueuuid-1.3.0-neoforge-1.21.11.jar
 ```
 
 Change `TARGET` to any ID in `release/targets.json`, for example:

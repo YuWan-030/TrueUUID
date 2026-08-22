@@ -15,9 +15,14 @@ class AuthPolicyTest {
                 new AuthPolicy.Input(true, true, true, true, true, true, true)));
     }
 
-    @Test void unknownNameMayUseConfiguredFallback() {
+    @Test void explicitOfflineUnknownNameMayUseConfiguredFallback() {
         assertEquals(AuthPolicy.Decision.OFFLINE, AuthPolicy.decide(
-                new AuthPolicy.Input(false, false, false, false, true, true, true)));
+                new AuthPolicy.Input(false, true, false, false, true, true, true)));
+    }
+
+    @Test void proofFailureNeverDowngradesEvenWhenLegacyFallbackBooleanIsEnabled() {
+        assertEquals(AuthPolicy.Decision.DENY, AuthPolicy.decide(
+                new AuthPolicy.Input(false, false, true, true, false, true, false)));
     }
 
     @Test void failureFallbackCanBeDisabled() {
