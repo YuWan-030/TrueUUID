@@ -241,3 +241,51 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 7
+
+  spigot:
+    name: Spigot 1.20.1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - name: Install Java 17 for the exact Spigot runtime
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install the JDK 21 Gradle launcher
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - id: build
+        name: Build, test, and inspect the installed plugin JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/ci/build-spigot-candidate.sh
+          ./scripts/ci/verify-spigot-plugin-jar.sh self-test-output/spigot-1.20.1/plugin
+      - name: Preserve the tested Spigot plugin
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tested-spigot-1.20.1
+          path: self-test-output/spigot-1.20.1/plugin/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+      - name: Boot exact Spigot with the installed plugin and stop cleanly
+        shell: bash
+        run: ./scripts/ci/runtime-smoke-spigot.sh self-test-output/spigot-1.20.1/logs
+      - name: Preserve Spigot runtime diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: self-test-logs-spigot-1.20.1
+          path: self-test-output/spigot-1.20.1/logs/
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7

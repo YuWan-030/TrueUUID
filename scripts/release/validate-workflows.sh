@@ -79,15 +79,40 @@ grep -Fq './scripts/release/validate-release-config.sh --development' \
     exit 65
 }
 
-for spigot_candidate_contract in \
-    'spigot-candidate:' \
+for spigot_verify_contract in \
+    'spigot:' \
+    'name: Spigot 1.20.1' \
     './scripts/ci/build-spigot-candidate.sh' \
-    'Unsupported Spigot 1.20.1 candidate'; do
-    grep -Fq "$spigot_candidate_contract" .github/workflows/verify.yml || {
-        echo "verify.yml is missing Spigot candidate contract: ${spigot_candidate_contract}" >&2
+    './scripts/ci/verify-spigot-plugin-jar.sh'; do
+    grep -Fq "$spigot_verify_contract" .github/workflows/verify.yml || {
+        echo "verify.yml is missing Spigot verification contract: ${spigot_verify_contract}" >&2
         exit 65
     }
 done
+if grep -Fq 'Unsupported Spigot 1.20.1 candidate' .github/workflows/verify.yml; then
+    echo 'verify.yml must use the user-facing Spigot 1.20.1 job name' >&2
+    exit 65
+fi
+for spigot_self_test_contract in \
+    'name: Spigot 1.20.1' \
+    './scripts/ci/build-spigot-candidate.sh' \
+    './scripts/ci/verify-spigot-plugin-jar.sh' \
+    './scripts/ci/runtime-smoke-spigot.sh' \
+    'name: tested-spigot-1.20.1' \
+    'name: self-test-logs-spigot-1.20.1'; do
+    grep -Fq "$spigot_self_test_contract" .github/workflows/self-test.yml || {
+        echo "self-test.yml is missing Spigot runtime contract: ${spigot_self_test_contract}" >&2
+        exit 65
+    }
+done
+grep -Fq 'pattern: release-*' .github/workflows/release.yml || {
+    echo 'release.yml must collect only explicitly release-namespaced artifacts' >&2
+    exit 65
+}
+if grep -Fq 'release-spigot-1.20.1' .github/workflows/self-test.yml; then
+    echo 'unsupported Spigot artifact must not enter the release artifact namespace' >&2
+    exit 65
+fi
 for pinned_spigot_contract in \
     "buildtools_sha256='b61fa90158f594ee95bea1a27399eb64d439b4c8ae9345bd4476a02ce49b06ff'" \
     "protocol_sha256='562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769'" \
@@ -95,6 +120,25 @@ for pinned_spigot_contract in \
     ':plugin:spigot:1.20.1:crossLoaderCompatibilityTest'; do
     grep -Fq "$pinned_spigot_contract" scripts/ci/build-spigot-candidate.sh || {
         echo "Spigot candidate builder is missing pin: ${pinned_spigot_contract}" >&2
+        exit 65
+    }
+done
+for spigot_artifact_contract in \
+    'TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' \
+    'ProtocolLib-Version: 5.1.0' \
+    'Spigot-Implementation-Version: 3871-Spigot-d2eba2c-3f9263b'; do
+    grep -Fq "$spigot_artifact_contract" scripts/ci/verify-spigot-plugin-jar.sh || {
+        echo "Spigot plugin verifier is missing artifact contract: ${spigot_artifact_contract}" >&2
+        exit 65
+    }
+done
+for spigot_smoke_contract in \
+    'server AUTO DENY CONSENT_REQUIRED' \
+    'Secure login bridge enabled: mode=AUTO, offline=DENY, admission=CONSENT_REQUIRED' \
+    'Server exited cleanly.' \
+    'ThreadedAnvilChunkStorage: All dimensions are saved'; do
+    grep -Fq "$spigot_smoke_contract" scripts/ci/runtime-smoke-spigot.sh || {
+        echo "Spigot runtime smoke is missing lifecycle contract: ${spigot_smoke_contract}" >&2
         exit 65
     }
 done

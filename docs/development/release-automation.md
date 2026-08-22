@@ -24,10 +24,19 @@ TrueUUID has one repository version and one complete target inventory:
 - `.github/workflows/self-test.yml` builds and structurally verifies every JAR,
   then boots a localhost development server and headless client for every
   target.
+- Both workflows also expose a user-facing `Spigot 1.20.1` job. Verify rebuilds
+  the pinned BuildTools 200 server boundary, runs the exact descriptor and
+  cross-loader tests, and inspects the production-shaped plugin JAR. Full
+  Self-Test additionally installs that JAR with ProtocolLib 5.1.0 into exact
+  Spigot 3871, reaches the secure bridge ready marker, requests shutdown once,
+  and verifies clean world saving, port release, and world-lock release.
 
-The current development inventory is 52 targets: sixteen Forge, eighteen Fabric,
+The current release inventory is 52 targets: sixteen Forge, eighteen Fabric,
 and eighteen NeoForge. Forge 1.21.11 is a standalone build island whose own wrapper
-is selected by manifest-driven scripts and workflows. CI coverage is separate
+is selected by manifest-driven scripts and workflows. The Spigot job is an
+additional candidate gate, not a 53rd release target. Its tested artifact is
+uploaded as `tested-spigot-1.20.1`, deliberately outside the `release-*`
+artifact namespace consumed by the Release workflow. CI coverage is separate
 from release approval. The recorded 1.2.1 native results remain historical
 evidence, but all target approvals were reset for 1.3.0 and the version-wide
 publication veto prevents artifacts from being attached to a GitHub Release or
@@ -87,7 +96,9 @@ cannot silently break draft discovery again.
    CurseForge upload token, and CurseForge project upload access. CurseForge's
    upload API does not expose the token owner's username, so the workflow does
    not invent one.
-6. The full self-test passes for all 52 declared targets.
+6. The full self-test passes for all 52 declared targets and the additional
+   exact Spigot 1.20.1 candidate job. The Spigot result gates the workflow but
+   is not collected or published as a release artifact.
 
 After those gates pass, the workflow freezes the draft body, collects only
 approved JARs, verifies their per-target checksums, creates one aggregate
@@ -95,6 +106,51 @@ approved JARs, verifies their per-target checksums, creates one aggregate
 publishes each approved JAR to Modrinth and CurseForge. Only after every
 external upload succeeds does it publish the GitHub Release. GitHub, Modrinth,
 and CurseForge therefore receive the same frozen changelog file.
+
+## Server-plugin distribution path
+
+The CI job name describes the platform under test; it is not a support claim.
+The plugin manifest continues to carry
+`TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE`, Spigot remains absent from
+`release/targets.json`, and `release_ready=false` remains authoritative until
+the installed production JAR passes the real-premium and malicious-client
+acceptance gates in
+[`spigot-paper-1.20.1-handoff.md`](spigot-paper-1.20.1-handoff.md).
+
+Once those gates pass, promote one exact server target at a time:
+
+1. Replace the candidate artifact name/status with the supported artifact only
+   in the same change that records fresh runtime evidence.
+2. Add the exact Spigot target to `release/targets.json` and extend its
+   validator, Release loader/display mapping, asset-name allowlist, and
+   publisher selection with Bukkit `plugin.yml` metadata instead of pretending
+   it is a Forge/Fabric/NeoForge mod.
+3. Change Full Self-Test's artifact name from `tested-spigot-1.20.1` to the
+   target's `release-*` name. The Release workflow must continue collecting
+   only approved, checksum-verified manifest targets.
+4. Add a per-platform distribution project identifier and credential probe.
+   Never silently reuse the current mod-project identifier for a plugin
+   project.
+
+Current official distribution capabilities are:
+
+- [Modrinth's loader API](https://docs.modrinth.com/api/operations/loaderlist/)
+  reports Bukkit, Paper, and Spigot loader tags as applicable to plugin/mod
+  projects. The existing version publisher can support the plugin after its
+  loader mapping, project compatibility, and approval metadata are validated.
+- [CurseForge's upload API](https://support.curseforge.com/support/solutions/articles/9000197321)
+  exposes Bukkit as a game dependency and supports automated project file
+  uploads. Configure and probe a Bukkit plugin project ID separately; do not
+  assume the existing mod project ID accepts plugin files.
+- [PaperMC Hangar](https://docs.papermc.io/misc/hangar-publishing/) provides an
+  official Gradle publisher and GitHub Actions flow using a
+  `HANGAR_API_TOKEN` with `create_version`. Add it only with the independent
+  Paper target and its exact Paper runtime evidence.
+- [SpigotMC's documented resource flow](https://www.spigotmc.org/wiki/adding-plugins/)
+  is an account-driven resource upload. Until SpigotMC documents a supported
+  publishing API, use a manual post-release handoff with the already-tested
+  GitHub asset and checksum; do not automate browser login or store forum
+  credentials in Actions.
 
 The changelog must begin with a nonempty `## English` section and then contain
 a nonempty `## 中文` section. Start from

@@ -136,8 +136,8 @@ jobs:
       - name: Build and test
         run: ./scripts/ci/build-target.sh "${{ matrix.target }}"
 
-  spigot-candidate:
-    name: Unsupported Spigot 1.20.1 candidate
+  spigot:
+    name: Spigot 1.20.1
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -155,5 +155,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: gradle
-      - name: Build pinned Spigot and verify the unsupported candidate
+      - name: Build and test against exact Spigot 1.20.1
         run: ./scripts/ci/build-spigot-candidate.sh
+      - name: Inspect the production-shaped plugin JAR
+        run: ./scripts/ci/verify-spigot-plugin-jar.sh build/spigot-candidate/verified-plugin

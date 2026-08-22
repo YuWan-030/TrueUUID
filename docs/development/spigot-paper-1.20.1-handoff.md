@@ -159,6 +159,24 @@ disconnect cases. Keep the Spigot artifact working and independently tested.
 
 ## Automated CI design
 
+The first two tiers are now implemented and intentionally use the neutral
+GitHub Actions job name `Spigot 1.20.1`:
+
+- Verify rebuilds the pinned server boundary, runs the exact descriptor and
+  cross-loader test suites, and rejects a malformed or incorrectly
+  fingerprinted plugin JAR.
+- Full Self-Test installs the inspected JAR into exact Spigot 3871 with
+  ProtocolLib 5.1.0, waits for the secure login bridge, sends one shutdown
+  request, and verifies clean world saving plus port/world-lock release. The
+  guarded Release workflow calls Full Self-Test, so this candidate check is
+  also a release gate.
+
+The neutral job label does not change support status. The JAR remains marked
+`UNSUPPORTED-CANDIDATE`, its Actions artifact is named
+`tested-spigot-1.20.1` rather than `release-*`, and the Release workflow cannot
+publish it. Exact boot is lifecycle evidence, not proof of either real login
+mode or the malicious-client matrix.
+
 Add these jobs incrementally with the first working module:
 
 1. Plain-Java policy/state-machine tests on JDK 17.
