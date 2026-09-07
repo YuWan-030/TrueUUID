@@ -39,8 +39,9 @@ The maintainer's first Fabric/clientless test commands are in
 
 ## Current implementation snapshot
 
-The Phase 0 module and `shared/server-core` now exist in the dirty worktree.
-The current candidate JAR is
+The Phase 0 module and `shared/server-core` were committed in `e4fbc54`
+and are integrated into `main`. The candidate JAR recorded by the
+2026-08-22 build audit is
 `5b49c808c477ef0d05a7451494f1d47861e0152b9ac80fa9cc1b55148585a28e`.
 It passed the exact Spigot 3871 descriptor check, the ProtocolLib 5.1.0
 checksum/version check, shared/plugin tests, and the Fabric 1.20.1 cross-loader

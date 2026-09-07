@@ -309,10 +309,12 @@ omitted patch. After the 1.3.0 version change, every current manifest `release`
 flag was reset to `false` and the approval is bound to
 `release_version: 1.3.0`.
 
-All 52 targets carry four-case installed-JAR evidence for the login path they
-ship: `build/runtime-acceptance/20260728T074332Z` for the 16 targets added in
-1.2.1, `20260728T133142Z` for the 22 whose login gate relocated, and
-`20260722T114302Z` for the 14 Fabric and 1.20.1 targets 1.2.1 did not change.
+All 52 targets have historical four-case installed-JAR evidence for the login
+paths captured by those artifacts: `build/runtime-acceptance/20260728T074332Z`
+for the 16 targets added in 1.2.1, `20260728T133142Z` for the 22 whose login
+gate relocated, `20260722T114302Z` for the 12 retained Fabric targets, and
+`20260730T043305Z` for the two 1.20.1 Forge-like targets after their gate
+relocation. These results do not approve the current 1.3.0 artifacts.
 Approval still does not convert the unit-tested rows in the feature table above
 into runtime-tested claims.
 

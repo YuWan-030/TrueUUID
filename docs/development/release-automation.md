@@ -194,11 +194,40 @@ Configure these values in the upstream repository:
 6. Protect matching `v*` tags with a tag ruleset restricting creation,
    updates, and deletion to release maintainers.
 
-The 2026-07-22 audit found the three credentials configured as repository
-secrets, but no `release` environment, repository ruleset, or classic `main`
-branch protection. Those owner-only settings must be completed before creating
-any future release tag; a write-level collaborator cannot configure them
-through the API. Do not use the withheld `v1.2.1` version.
+The 2026-09-07 GitHub API audit found a `release` environment, but its
+`protection_rules` were empty and its `deployment_branch_policy` was null.
+There were no repository rulesets, and `main` reported `protected: false`.
+The authenticated collaborator had push access but no admin or maintain access.
+An owner must configure the environment approval and ref restrictions, main
+protection, and release-tag ruleset before creating a release tag. Credential
+validity was not rechecked by this read-only audit; the guarded publishing
+probes remain required. Do not use the withheld `v1.2.1` version.
+
+### Release readiness audit: 2026-09-07
+
+The audited implementation commit was
+`ad7ad1388d625904b7a35a5a940be32383cfc4f5`, matching upstream `main`.
+Its [Verify run](https://github.com/YuWan-030/TrueUUID/actions/runs/32562837947)
+passed all 55 jobs, including all 52 native targets and the Spigot candidate.
+The latest completed
+[Full Self-Test](https://github.com/YuWan-030/TrueUUID/actions/runs/30368274440)
+was for `2cefde2` on 2026-07-28, before the current authentication changes.
+The latest published release was `v1.2.0`; no `v1.3.0` tag or draft existed.
+
+Lightweight manifest, source-sharing, workflow, and bilingual changelog
+validation passed. Publication validation refused 1.3.0 with exit 65 because
+`release_ready=false`; all 52 target approvals were false. Local shared
+protocol tests passed (84 tests), but the Forge test run was stopped before
+completion. This audit does not provide fresh native-artifact acceptance or
+plugin real-login evidence.
+
+Before publication, complete the current-artifact acceptance and feature gates
+in the target matrix and Spigot handoff, obtain all target approvals, finalize
+the bilingual changelog, and configure the owner-only protections above. Then
+follow the signed-tag, matching-draft, publishing-access, and Full Self-Test
+gates described here. Successful compilation alone does not remove the veto.
+
+### Credential handling and publication guard
 
 No manually created GitHub token is needed. GitHub supplies a job-scoped
 `GITHUB_TOKEN`; distribution credentials are exposed only to their publishing
