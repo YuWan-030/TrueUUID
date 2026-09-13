@@ -29,18 +29,16 @@ project_version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | t
     die 65 'gradle.properties must contain one strict SemVer mod_version'
 
 # A plugin approval is bound to one repository version, exactly like the mod
-# manifest. Only a supported target may be approved. Approving any plugin also
-# requires every distribution channel the Release workflow publishes it to, so
-# a release can never silently skip a store.
+# manifest. Only a supported target may be approved. Store project IDs are not
+# versioned here. They live in GitHub Actions variables, and the Release
+# workflow probes every store an approved plugin goes to before uploading.
 jq -e --arg project_version "$project_version" '
     (keys | sort) == (["distribution", "protocollib", "release_version", "schema_version", "targets"] | sort) and
-    .schema_version == 3 and
+    .schema_version == 4 and
     .release_version == $project_version and
 
     (.distribution | type == "object" and
-        (keys | sort) == (["curseforge_project_id", "hangar_channel", "hangar_owner", "hangar_slug"] | sort) and
-        (.curseforge_project_id == null or
-            (.curseforge_project_id | type == "number" and . > 0 and . == floor)) and
+        (keys | sort) == (["hangar_channel", "hangar_owner", "hangar_slug"] | sort) and
         (.hangar_owner | type == "string" and test("^[A-Za-z0-9_-]{1,32}$")) and
         (.hangar_slug | type == "string" and test("^[A-Za-z0-9_.-]{1,64}$")) and
         (.hangar_channel | type == "string" and test("^[A-Za-z0-9_-]{1,32}$"))) and
@@ -76,9 +74,7 @@ jq -e --arg project_version "$project_version" '
             (.hangar_platform == (if .platform == "paper" then "PAPER" else null end)) and
             (.ci_script == ("scripts/ci/server-plugins/" + .id + ".sh"))
         ) and
-        ([.[].id] | unique | length) == length) and
-
-    (([.targets[] | select(.release == true)] | length) == 0 or .distribution.curseforge_project_id != null)
+        ([.[].id] | unique | length) == length)
 ' "$manifest" >/dev/null || die 65 'server-plugin manifest failed strict schema validation'
 
 # The Java startup gate must accept exactly the tested ProtocolLib minimum.
@@ -146,7 +142,7 @@ jq -ce --arg id "$target_id" --arg mode "$1" '
             manifest_status: (if .support_status == "supported"
                 then "SUPPORTED" else "UNSUPPORTED-CANDIDATE" end),
             artifact_name: ((if .release then "release-" else "tested-" end) + .id),
-            curseforge_project_id: $root.distribution.curseforge_project_id,
+            curseforge_project_variable: "CURSEFORGE_ID_BUKKIT",
             hangar: (if .hangar_platform == null then null else {
                 owner: $root.distribution.hangar_owner,
                 slug: $root.distribution.hangar_slug,

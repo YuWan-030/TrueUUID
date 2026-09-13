@@ -129,10 +129,10 @@ public class SkinRefreshHandler {
         }
 
         if (fallbackOpt.isPresent()) {
-            sp.sendSystemMessage(TrueuuidText.configComponent(
+            sp.sendSystemMessage(Trueuuid.branded(TrueuuidText.configComponent(
                     TrueuuidConfig.offlineFallbackMessage(),
                     "trueuuid.chat.offline_fallback"
-            ).withStyle(ChatFormatting.RED));
+            ).withStyle(ChatFormatting.RED)));
 
             if (TrueuuidConfig.showJoinTitle()) {
                 var title = Component.translatable("trueuuid.title.offline").withStyle(ChatFormatting.RED);
@@ -143,7 +143,8 @@ public class SkinRefreshHandler {
         } else if (successOpt.isPresent() && successOpt.get().source() == AuthState.AuthSource.YGGDRASIL) {
             // 皮肤站模式：青绿色标题，明确区别于 Mojang 正版验证。
             AuthState.AuthSuccess success = successOpt.get();
-            sp.sendSystemMessage(Component.translatable("trueuuid.chat.skin_site", success.displayName()).withStyle(ChatFormatting.AQUA));
+            sp.sendSystemMessage(Trueuuid.branded(
+                    Component.translatable("trueuuid.chat.skin_site", success.displayName()).withStyle(ChatFormatting.AQUA)));
             if (TrueuuidConfig.showJoinTitle()) {
                 var title = Component.translatable("trueuuid.title.skin_site").withStyle(ChatFormatting.AQUA);
                 String sourceName = success.displayName();
@@ -152,7 +153,8 @@ public class SkinRefreshHandler {
             }
         } else if (successOpt.isPresent()) {
             // 正版模式：绿色标题，副标题短文案（灰色） (Premium Mode: Green title, subtitle short text (Gray))
-            sp.sendSystemMessage(Component.translatable("trueuuid.chat.premium").withStyle(ChatFormatting.GREEN));
+            sp.sendSystemMessage(Trueuuid.branded(
+                    Component.translatable("trueuuid.chat.premium").withStyle(ChatFormatting.GREEN)));
             if (TrueuuidConfig.showJoinTitle()) {
                 var title = Component.translatable("trueuuid.title.premium").withStyle(ChatFormatting.GREEN);
                 var subtitle = TrueuuidText.configComponent(

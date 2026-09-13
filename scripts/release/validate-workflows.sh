@@ -123,6 +123,9 @@ for plugin_release_contract in \
     'if: matrix.hangar' \
     './scripts/release/publish-hangar.sh' \
     'HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}' \
+    'CURSEFORGE_ID_MOD: ${{ vars.CURSEFORGE_ID_MOD }}' \
+    'CURSEFORGE_ID_BUKKIT: ${{ vars.CURSEFORGE_ID_BUKKIT }}' \
+    'MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}' \
     'run: ./scripts/release/validate-plugin-publishing-access.sh' \
     'if: matrix.spigotmc'
 do
@@ -131,6 +134,12 @@ do
         exit 65
     }
 done
+if grep -Eq 'secrets\.(MODRINTH_PROJECT_ID|CURSEFORGE_ID_)|\.curseforge_project_id' .github/workflows/release.yml ||
+    jq -e 'has("curseforge_project_id")' release/targets.json >/dev/null
+then
+    echo 'store project IDs must come from GitHub Actions variables, not secrets or manifests' >&2
+    exit 65
+fi
 grep -Fq './scripts/release/resolve-release-target.sh "$target_id"' \
     scripts/release/publish-modrinth.sh || {
     echo 'Modrinth publishing must resolve mod and server-plugin targets through one interface' >&2

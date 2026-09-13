@@ -56,7 +56,8 @@ public final class ClientAccountStatus {
         var server = minecraft.getSingleplayerServer();
         var transition = STATE.reconcileIntegratedWorld(server != null, server != null && server.isPublished());
         if (transition.chatTranslationKey() != null && TrueuuidConfig.showJoinFeedback()) {
-            minecraft.player.displayClientMessage(Component.translatable(transition.chatTranslationKey()), false);
+            minecraft.player.displayClientMessage(
+                    Trueuuid.branded(Component.translatable(transition.chatTranslationKey())), false);
         }
     }
 

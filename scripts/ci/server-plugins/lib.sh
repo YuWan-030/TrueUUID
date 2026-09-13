@@ -170,6 +170,7 @@ sp_verify() {
         "$sp_engine_package/LoginSeams.class" \
         "$sp_engine_package/ProtocolLibConnections.class" \
         cn/alini/trueuuid/bukkit/TrueuuidBukkitApi.class \
+        cn/alini/trueuuid/presentation/BrandText.class \
         cn/alini/trueuuid/protocol/AuthWireCodec.class \
         cn/alini/trueuuid/protocol/HybridLoginCoordinator.class \
         cn/alini/trueuuid/server/UnifiedAdmissionPolicy.class \

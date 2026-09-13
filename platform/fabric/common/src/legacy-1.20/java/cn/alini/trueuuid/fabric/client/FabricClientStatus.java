@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.fabric.client;
 
+import cn.alini.trueuuid.fabric.TrueuuidFabric;
 import cn.alini.trueuuid.fabric.config.FabricConfig;
 import cn.alini.trueuuid.fabric.login.FabricAuthenticationSource;
 import cn.alini.trueuuid.presentation.BadgeArtwork;
@@ -51,7 +52,7 @@ public final class FabricClientStatus {
         boolean integrated = client.isInSingleplayer() && server != null;
         var transition = STATE.reconcileIntegratedWorld(integrated, integrated && server.isRemote());
         if (transition.chatTranslationKey() != null && FabricConfig.showJoinFeedback()) {
-            client.player.sendMessage(Text.translatable(transition.chatTranslationKey()), false);
+            client.player.sendMessage(TrueuuidFabric.branded(Text.translatable(transition.chatTranslationKey())), false);
         }
     }
 

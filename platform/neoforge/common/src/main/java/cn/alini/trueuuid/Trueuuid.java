@@ -2,8 +2,15 @@ package cn.alini.trueuuid;
 
 import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.command.TrueuuidCommands;
+import cn.alini.trueuuid.presentation.BrandText;
+import cn.alini.trueuuid.presentation.TerminalBanner;
 import cn.alini.trueuuid.server.AdapterRuntime;
 import cn.alini.trueuuid.config.TrueuuidConfig;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
@@ -30,6 +37,16 @@ public final class Trueuuid {
         }
     }
 
+    /** Prefixes a player-facing message with the shared bold gradient wordmark. */
+    public static MutableComponent branded(Component message) {
+        MutableComponent line = Component.empty();
+        for (BrandText.Glyph glyph : BrandText.glyphs()) {
+            line.append(Component.literal(glyph.text())
+                    .withStyle(Style.EMPTY.withColor(TextColor.fromRgb(glyph.rgb())).withBold(true)));
+        }
+        return line.append(Component.literal(" » ").withStyle(ChatFormatting.DARK_GRAY)).append(message);
+    }
+
     public Trueuuid(IEventBus modBus) {
         TrueuuidConfig.register();
         AdapterRuntime.initialize();
@@ -38,5 +55,6 @@ public final class Trueuuid {
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> TrueuuidCommands.register(event.getDispatcher()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> AdapterRuntime.shutdown());
         LOGGER.info("TrueUUID NeoForge adapter loaded");
+        TerminalBanner.print("NeoForge adapter loaded");
     }
 }

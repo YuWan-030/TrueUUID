@@ -221,8 +221,8 @@ public final class ForgeAdapterRuntime {
                 TrueuuidConfig.showJoinFeedback() && !privateSingleplayer,
                 TrueuuidConfig.showOperatorNotifications())) {
             if (delivery.kind() == LoginNotificationRouter.Kind.JOIN_RESULT) {
-                delivery.recipient().sendSystemMessage(Component.translatable(source.chatTranslationKey()).withStyle(
-                        source.clientStatus().isPremium() ? ChatFormatting.GREEN : ChatFormatting.RED));
+                delivery.recipient().sendSystemMessage(Trueuuid.branded(Component.translatable(source.chatTranslationKey())
+                        .withStyle(source.clientStatus().isPremium() ? ChatFormatting.GREEN : ChatFormatting.RED)));
             } else {
                 delivery.recipient().sendSystemMessage(Component.translatable("trueuuid.operator.login",
                         ForgeGameProfiles.name(player.getGameProfile()), player.getUUID(),

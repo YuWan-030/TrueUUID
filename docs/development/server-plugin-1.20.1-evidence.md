@@ -3,10 +3,16 @@
 Latest acceptance: 2026-09-13.
 
 Status: `spigot-1.20.1` and `paper-1.20.1` are **supported** in
-`ci/server-plugin-targets.json`. Both passed the gate agreed for the first
-plugin release. Their `release` approval stays `false` until the CurseForge
-Bukkit plugin project ID is configured. The broader gates at the end of this
+`ci/server-plugin-targets.json` and approved for 1.3.0. Both passed the gate
+agreed for the first plugin release. The broader gates at the end of this
 document remain open, and nothing here claims them.
+
+After this acceptance, a presentation-only change replaced the message styles
+with the shared bold gradient wordmark from `BrandText`. The login engine did
+not change. The maintainer decided on 2026-09-13 that the automated checks
+below, repeated on the final JARs, plus Verify and Full Self-Test in the Release
+workflow, cover that change. The hashes in the artifact table are the JARs that
+ran the logins, not the final release JARs.
 
 The security contract is
 [`server-plugin-bridge.md`](../architecture/server-plugin-bridge.md). The test

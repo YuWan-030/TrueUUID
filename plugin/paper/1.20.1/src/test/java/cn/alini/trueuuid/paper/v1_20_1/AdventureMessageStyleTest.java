@@ -2,7 +2,10 @@ package cn.alini.trueuuid.paper.v1_20_1;
 
 import cn.alini.trueuuid.bukkit.StartupBanner;
 import cn.alini.trueuuid.bukkit.Tone;
+import cn.alini.trueuuid.presentation.BrandText;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
@@ -10,10 +13,22 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AdventureMessageStyleTest {
     private static String plain(Component component) {
         return PlainTextComponentSerializer.plainText().serialize(component);
+    }
+
+    @Test void wordmarkUsesTheSharedGradientColoursInBold() {
+        List<Component> letters = AdventureMessageStyle.BRAND.children();
+        assertEquals(BrandText.glyphs().size(), letters.size());
+        for (int index = 0; index < letters.size(); index++) {
+            TextComponent letter = (TextComponent) letters.get(index);
+            assertEquals(BrandText.glyphs().get(index).text(), letter.content());
+            assertEquals(BrandText.glyphs().get(index).rgb(), letter.color().value());
+            assertTrue(letter.hasDecoration(TextDecoration.BOLD));
+        }
     }
 
     @Test void rendersTheSameWordsAsTheSpigotStyle() {
@@ -25,7 +40,7 @@ class AdventureMessageStyleTest {
                 plain(AdventureMessageStyle.renderActionBar(Tone.ERROR, "Offline fallback")));
     }
 
-    @Test void contentIsNeverParsedAsMiniMessage() {
+    @Test void contentIsNeverParsedAsMarkup() {
         assertEquals("TrueUUID » <red>name</red> <click:run_command:/op x>",
                 plain(AdventureMessageStyle.render(Tone.INFO, "<red>name</red> <click:run_command:/op x>")));
     }

@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.bukkit;
 
+import cn.alini.trueuuid.presentation.BrandText;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -11,10 +12,13 @@ import org.bukkit.plugin.Plugin;
 import java.util.List;
 import java.util.Objects;
 
-/** Spigot rendering with legacy colour codes. CraftBukkit maps them to ANSI on the console. */
+/**
+ * Spigot rendering with colour codes. The wordmark uses the hexadecimal colour-code form that
+ * Spigot 1.16 and later render exactly in chat, the action bar, and a colour console.
+ */
 public final class LegacyMessageStyle implements MessageStyle {
-    static final String PREFIX = ChatColor.BLUE + "" + ChatColor.BOLD + "True"
-            + ChatColor.AQUA + ChatColor.BOLD + "UUID" + ChatColor.DARK_GRAY + " » ";
+    static final String WORDMARK = legacyWordmark();
+    static final String PREFIX = WORDMARK + ChatColor.DARK_GRAY + " » ";
 
     @Override public void send(CommandSender recipient, Tone tone, String text) {
         recipient.sendMessage(render(tone, text));
@@ -37,14 +41,25 @@ public final class LegacyMessageStyle implements MessageStyle {
     }
 
     static String renderActionBar(Tone tone, String text) {
-        return ChatColor.BLUE + "True" + ChatColor.AQUA + "UUID" + ChatColor.DARK_GRAY + " · "
-                + color(tone) + literal(text);
+        return WORDMARK + ChatColor.DARK_GRAY + " · " + color(tone) + literal(text);
     }
 
     static String renderBanner(StartupBanner.Line line) {
-        String title = line.title().isEmpty() ? "  " : "  " + ChatColor.BLUE + ChatColor.BOLD + "True"
-                + ChatColor.AQUA + ChatColor.BOLD + "UUID" + ChatColor.RESET + " ";
+        String title = line.title().isEmpty() ? "  " : "  " + WORDMARK + ChatColor.RESET + " ";
         return title + color(line.tone()) + literal(line.detail());
+    }
+
+    /** Each glyph becomes the hex marker, its six digits, bold, and then the letter. */
+    static String legacyWordmark() {
+        StringBuilder text = new StringBuilder();
+        for (BrandText.Glyph glyph : BrandText.glyphs()) {
+            text.append(ChatColor.COLOR_CHAR).append('x');
+            for (char digit : glyph.hex().toCharArray()) {
+                text.append(ChatColor.COLOR_CHAR).append(digit);
+            }
+            text.append(ChatColor.COLOR_CHAR).append('l').append(glyph.text());
+        }
+        return text.toString();
     }
 
     static ChatColor color(Tone tone) {
@@ -57,7 +72,7 @@ public final class LegacyMessageStyle implements MessageStyle {
         };
     }
 
-    /** Content is literal. A stray section sign can never restyle the rest of the line. */
+    /** Content is literal. A stray colour character can never restyle the rest of the line. */
     private static String literal(String text) {
         return Objects.requireNonNull(text, "text").replace(ChatColor.COLOR_CHAR, '?');
     }

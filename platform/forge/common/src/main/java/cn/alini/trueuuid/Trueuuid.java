@@ -1,9 +1,16 @@
 package cn.alini.trueuuid;
 
 import cn.alini.trueuuid.protocol.AcceptanceHooks;
+import cn.alini.trueuuid.presentation.BrandText;
+import cn.alini.trueuuid.presentation.TerminalBanner;
 import cn.alini.trueuuid.server.ForgeAdapterRuntime;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import com.mojang.logging.LogUtils;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
 
@@ -30,6 +37,16 @@ public final class Trueuuid {
         }
     }
 
+    /** Prefixes a player-facing message with the shared bold gradient wordmark. */
+    public static MutableComponent branded(Component message) {
+        MutableComponent line = Component.empty();
+        for (BrandText.Glyph glyph : BrandText.glyphs()) {
+            line.append(Component.literal(glyph.text())
+                    .withStyle(Style.EMPTY.withColor(TextColor.fromRgb(glyph.rgb())).withBold(true)));
+        }
+        return line.append(Component.literal(" » ").withStyle(ChatFormatting.DARK_GRAY)).append(message);
+    }
+
     public Trueuuid() {
         TrueuuidConfig.register();
         ForgeAdapterRuntime.initialize();
@@ -39,5 +56,6 @@ public final class Trueuuid {
         // TrueuuidForgeEvents with the correct import; everything else is shared.
         TrueuuidForgeEvents.register();
         LOGGER.info("TrueUUID Forge adapter loaded");
+        TerminalBanner.print("Forge adapter loaded");
     }
 }

@@ -26,8 +26,11 @@ changelog_file=$3
 
 target=$(./scripts/release/resolve-release-target.sh "$target_id")
 [[ "$(jq -r '.kind' <<<"$target")" == plugin ]] || die 65 "$target_id is not a server plugin"
-project_id=$(jq -r '.curseforge_project_id' <<<"$target")
-[[ "$project_id" =~ ^[1-9][0-9]*$ ]] || die 65 "$target_id has no CurseForge plugin project ID"
+[[ "$(jq -r '.curseforge_project_variable' <<<"$target")" == CURSEFORGE_ID_BUKKIT ]] ||
+    die 65 "$target_id is not published to the CurseForge plugin project"
+project_id=${CURSEFORGE_ID_BUKKIT:-}
+[[ "$project_id" =~ ^[1-9][0-9]*$ ]] ||
+    die 65 'the CURSEFORGE_ID_BUKKIT Actions variable must hold the CurseForge plugin project ID'
 jar=$(jq -r --arg version "$version" '.artifact | split("%VERSION%") | join($version)' <<<"$target")
 [[ -f "$jar" ]] || die 66 "missing release artifact: $jar"
 game_version=$(jq -r '.game_version' <<<"$target")

@@ -34,6 +34,7 @@ def pluginAuthors = providers.gradleProperty('mod_authors').get().split(',')
         .collect { it.trim() }.findAll { !it.isEmpty() }
 
 evaluationDependsOn(':shared:protocol')
+evaluationDependsOn(':shared:presentation')
 evaluationDependsOn(':shared:server-core')
 evaluationDependsOn(':plugin:bukkit-common')
 evaluationDependsOn(engineModule)
@@ -100,11 +101,12 @@ def generateTargetMetadata = tasks.register('generateTargetMetadata') {
 sourceSets.main.resources.srcDir(files(metadataDirectory).builtBy(generateTargetMetadata))
 
 tasks.named('jar', Jar).configure {
-    dependsOn ':shared:protocol:classes', ':shared:server-core:classes',
+    dependsOn ':shared:protocol:classes', ':shared:presentation:classes', ':shared:server-core:classes',
             ':plugin:bukkit-common:classes', "${engineModule}:classes"
     archiveFileName = supported ? "trueuuid-${project.version}-${targetId}.jar" : "trueuuid-${targetId}-candidate.jar"
     duplicatesStrategy = DuplicatesStrategy.FAIL
     from mainOutput(':shared:protocol')
+    from mainOutput(':shared:presentation')
     from mainOutput(':shared:server-core')
     from mainOutput(':plugin:bukkit-common')
     from mainOutput(engineModule)

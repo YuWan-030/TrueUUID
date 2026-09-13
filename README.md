@@ -13,8 +13,8 @@ the JAR made for the exact Minecraft version and loader.
 
 Spigot and Paper 1.20.1 servers can use the TrueUUID server plugin instead of a
 server mod. It needs ProtocolLib 5.1.0 or newer and accepts both a matching
-TrueUUID client and an unmodified premium client. The plugins passed their local
-login gate but are not yet approved for publication. Maintainers can follow the
+TrueUUID client and an unmodified premium client. The plugins ship with 1.3.0.
+Maintainers can follow the
 [server-plugin test guide](docs/development/server-plugin-1.20.1-testing.md).
 
 > [!IMPORTANT]
@@ -23,8 +23,8 @@ login gate but are not yet approved for publication. Maintainers can follow the
 > artifacts. The withheld 1.2.1
 > build will never be published. Its exact-patch coverage ships with 1.3.0
 > instead: every Minecraft patch from 1.20.1 through 1.21.11 on Fabric and
-> NeoForge, plus every Forge patch for which Forge exists. The Spigot and Paper
-> 1.20.1 plugins are not yet approved for 1.3.0. See the
+> NeoForge, plus every Forge patch for which Forge exists. Version 1.3.0 also
+> adds Spigot and Paper 1.20.1 server plugins. See the
 > [target matrix](docs/architecture/target-matrix.md).
 
 ## Quick start

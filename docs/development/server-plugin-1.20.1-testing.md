@@ -179,9 +179,10 @@ locale. Examples:
 - `Minecraft account lookup is unavailable. Login was denied to protect premium usernames. Try again later.`
 - `Name collision: no identity was changed. Ask an administrator to run /trueuuid identity collision allow ...`
 
-Chat, action-bar, and command output use a styled `TrueUUID »` prefix. Paper
-renders it with a blue gradient through Adventure, and Spigot uses legacy colour
-codes. Player names and configuration values are always literal text. The
+Chat, action-bar, and command output use a `TrueUUID »` prefix with the bold
+blue gradient from `BrandText` in `shared/presentation`, the same colours the
+mods use. Paper renders it through Adventure and Spigot through hexadecimal
+colour codes. Player names and configuration values are always literal text. The
 startup banner is decorative and uses the same styles on the console. Log files
 stay plain, and the machine-read lines (`Secure login bridge enabled`,
 `login_complete`, `Denied TrueUUID login for`) never carry colour.

@@ -249,16 +249,17 @@ jobs:
       - id: distribution
         name: Identify Modrinth publisher and validate distribution access
         env:
+          CURSEFORGE_ID_MOD: ${{ vars.CURSEFORGE_ID_MOD }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
-          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
-          ./scripts/release/validate-publishing-access.sh "$curseforge_project_id"
+          ./scripts/release/validate-publishing-access.sh "$CURSEFORGE_ID_MOD"
       - name: Validate server-plugin store access
         env:
+          CURSEFORGE_ID_BUKKIT: ${{ vars.CURSEFORGE_ID_BUKKIT }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
           HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}
         shell: bash
@@ -379,6 +380,8 @@ jobs:
           path: frozen-changelog
       - name: Verify artifact and publishing metadata
         env:
+          CURSEFORGE_ID_BUKKIT: ${{ vars.CURSEFORGE_ID_BUKKIT }}
+          CURSEFORGE_ID_MOD: ${{ vars.CURSEFORGE_ID_MOD }}
           TARGET_ID: ${{ matrix.target }}
           VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
@@ -389,7 +392,9 @@ jobs:
             '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
           loader=$(jq -r '.loader' <<<"$target")
           game_version=$(jq -r '.game_version' <<<"$target")
-          curseforge_project_id=$(jq -r '.curseforge_project_id' <<<"$target")
+          curseforge_variable=$(jq -r '.curseforge_project_variable' <<<"$target")
+          [[ "$curseforge_variable" =~ ^CURSEFORGE_ID_(MOD|BUKKIT)$ ]]
+          curseforge_project_id=${!curseforge_variable:-}
           (cd tested-artifact && sha256sum --check SHA256SUMS)
           tested_jar="tested-artifact/$(basename "$expected")"
           [[ -f "$tested_jar" ]]
@@ -417,7 +422,7 @@ jobs:
       - name: Publish to Modrinth
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           TARGET_ID: ${{ matrix.target }}
           VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
@@ -464,6 +469,7 @@ jobs:
       - name: Publish plugin to CurseForge
         if: matrix.kind == 'plugin' && steps.curseforge-preflight.outputs.upload == 'true'
         env:
+          CURSEFORGE_ID_BUKKIT: ${{ vars.CURSEFORGE_ID_BUKKIT }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
           TARGET_ID: ${{ matrix.target }}
           VERSION: ${{ needs.metadata.outputs.version }}

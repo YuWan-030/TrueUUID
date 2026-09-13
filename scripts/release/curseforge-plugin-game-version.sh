@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Prints the one CurseForge Bukkit game-version ID for a Minecraft version.
 #
-# Bukkit projects list versions such as 1.20.1 or only the 1.20 line. The exact
-# patch wins, the minor line is the fallback, and anything else is refused so
-# the publisher and the access probe always agree on the same ID.
+# The dev.bukkit.org game-version list mixes several taxonomies. Type 1 is the
+# Minecraft version list that plugin project pages use. Other types hold
+# thousands of unrelated entries that can reuse the same names, so only type 1
+# is considered. Within it the exact patch wins, the minor line is the
+# fallback, and anything else is refused, so the publisher and the access
+# probe always agree on the same ID.
 set -euo pipefail
 
 if [[ $# -ne 2 ]]
@@ -20,10 +23,11 @@ versions_file=$2
 
 jq -er --arg exact "$minecraft_version" --arg line "${minecraft_version%.*}" '
     if type != "array" then error("CurseForge game versions must be an array") else . end |
-    [.[] | select(.name == $exact)] as $exact_matches |
-    [.[] | select(.name == $line)] as $line_matches |
+    [.[] | select(.gameVersionTypeID == 1)] as $minecraft |
+    [$minecraft[] | select(.name == $exact)] as $exact_matches |
+    [$minecraft[] | select(.name == $line)] as $line_matches |
     if ($exact_matches | length) == 1 then $exact_matches[0].id
     elif ($exact_matches | length) == 0 and ($line_matches | length) == 1 then $line_matches[0].id
-    else error("CurseForge has no single Bukkit game version for " + $exact)
+    else error("CurseForge has no single Bukkit Minecraft game version for " + $exact)
     end
 ' "$versions_file"

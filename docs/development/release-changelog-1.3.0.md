@@ -2,8 +2,9 @@
 
 TrueUUID 1.3.0 is a security update for every Forge, Fabric, and NeoForge
 build. It also delivers the exact-patch coverage prepared for 1.2.1, which was
-never published. This release contains 52 exact builds for Minecraft 1.20.1
-through 1.21.11. Every build passed the installed-JAR login matrix: premium
+never published. This release contains 52 exact mod builds for Minecraft 1.20.1
+through 1.21.11 and new server plugins for Spigot 1.20.1 and Paper 1.20.1. The
+login flow of every mod build passed the installed-JAR login matrix: premium
 login, offline fallback, confirmed migration, and known-name denial.
 
 ### Security fixes
@@ -19,10 +20,18 @@ login, offline fallback, confirmed migration, and known-name denial.
 - Fabric and NeoForge: 1.20.3, 1.20.5, 1.21, 1.21.2, 1.21.7, and 1.21.9.
 - Forge: 1.20.3, 1.21, 1.21.7, and 1.21.9. Forge never published a loader for Minecraft 1.20.5 or 1.21.2.
 
+### New server plugins
+
+- TrueUUID now runs as a plugin on Spigot 1.20.1 and Paper 1.20.1 servers, with no server mod. The plugin needs ProtocolLib 5.1.0 or newer.
+- A player with the matching TrueUUID client mod is verified through the mod. A premium player without the mod is verified through the normal Mojang login.
+- The plugin works with any Spigot or Paper 1.20.1 build whose login internals match, and it refuses to start when BungeeCord or Velocity forwarding is enabled.
+- Name collisions between premium and offline players wait for a one-time administrator approval. See the identity policy guide in the repository.
+
 ### Other changes
 
 - A player without TrueUUID on the client is disconnected with a plain message asking them to install it.
 - The offline-fallback chat notice is shorter and states that the account was not premium-verified.
+- Join notices show a bold blue TrueUUID gradient, and a server started in an interactive terminal prints the same gradient at startup. Log files stay plain.
 
 ### Upgrade notes for server owners
 
@@ -34,14 +43,15 @@ login, offline fallback, confirmed migration, and known-name denial.
 - Forge: 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.6, 1.21, 1.21.1, and 1.21.3 through 1.21.11.
 - Fabric: every Minecraft release from 1.20.1 through 1.21.11.
 - NeoForge: every Minecraft release from 1.20.1 through 1.21.11.
-- The Spigot and Paper 1.20.1 server plugins are not part of this release.
+- Server plugins: Spigot 1.20.1 and Paper 1.20.1.
 
 ## 中文
 
 TrueUUID 1.3.0 是面向所有 Forge、Fabric 与 NeoForge 构建的安全更新，同时
 包含原本为 1.2.1 准备、但从未发布的精确补丁版本覆盖。本次发布共 52 个精确
-构建，覆盖 Minecraft 1.20.1 至 1.21.11。每个构建都通过了生产 JAR 真实登录验收：
-正版登录、离线兜底、确认迁移和已验证名称拒绝。
+Mod 构建，覆盖 Minecraft 1.20.1 至 1.21.11，并新增 Spigot 1.20.1 与 Paper 1.20.1
+服务端插件。每个 Mod 构建的登录流程都通过了生产 JAR 真实登录验收：正版登录、
+离线兜底、确认迁移和已验证名称拒绝。
 
 ### 安全修复
 
@@ -56,10 +66,18 @@ TrueUUID 1.3.0 是面向所有 Forge、Fabric 与 NeoForge 构建的安全更新
 - Fabric 与 NeoForge：1.20.3、1.20.5、1.21、1.21.2、1.21.7 和 1.21.9。
 - Forge：1.20.3、1.21、1.21.7 和 1.21.9。Forge 上游从未发布 Minecraft 1.20.5 或 1.21.2 的加载器。
 
+### 新增服务端插件
+
+- TrueUUID 现在可以作为插件运行在 Spigot 1.20.1 与 Paper 1.20.1 服务器上，无需服务端 Mod。插件需要 ProtocolLib 5.1.0 或更新版本。
+- 安装了匹配 TrueUUID 客户端 Mod 的玩家通过 Mod 验证，未安装 Mod 的正版玩家通过常规 Mojang 登录验证。
+- 插件兼容登录内部结构匹配的任意 Spigot 或 Paper 1.20.1 构建，并会在启用 BungeeCord 或 Velocity 转发时拒绝启动。
+- 正版与离线玩家的名称冲突需要管理员一次性批准。详见仓库中的身份策略管理指南。
+
 ### 其他更新
 
 - 客户端未安装 TrueUUID 的玩家会被断开连接，并看到提示其安装本 Mod 的纯文本信息。
 - 离线兜底的聊天提示更简短，并明确说明该账号未通过正版验证。
+- 进服提示中的 TrueUUID 以粗体蓝色渐变显示。在交互式终端中启动的服务器也会在启动时显示同样的渐变。日志文件保持纯文本。
 
 ### 服务器升级须知
 
@@ -71,4 +89,4 @@ TrueUUID 1.3.0 是面向所有 Forge、Fabric 与 NeoForge 构建的安全更新
 - Forge：1.20.1、1.20.2、1.20.3、1.20.4、1.20.6、1.21、1.21.1，以及 1.21.3 至 1.21.11。
 - Fabric：1.20.1 至 1.21.11 的每个 Minecraft 正式版本。
 - NeoForge：1.20.1 至 1.21.11 的每个 Minecraft 正式版本。
-- Spigot 与 Paper 1.20.1 服务端插件不包含在本次发布中。
+- 服务端插件：Spigot 1.20.1 与 Paper 1.20.1。

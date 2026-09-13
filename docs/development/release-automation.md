@@ -2,8 +2,13 @@
 
 > **Release status:** version 1.3.0 is approved. `release/targets.json` sets
 > `release_ready=true` and approves all 52 targets from the 2026-09-13
-> installed-JAR matrix recorded in the target matrix. Version 1.2.1 remains
-> permanently withheld. Do not create or reuse a `v1.2.1` tag or draft.
+> installed-JAR matrix recorded in the target matrix. The Spigot and Paper
+> 1.20.1 plugins are approved from their own evidence. After both runs, a
+> presentation-only change added the gradient wordmark to join notices and a
+> terminal-only startup banner. On 2026-09-13 the maintainer decided that Verify
+> and Full Self-Test in the Release workflow cover that change without another
+> installed-JAR matrix. Version 1.2.1 remains permanently withheld. Do not
+> create or reuse a `v1.2.1` tag or draft.
 
 TrueUUID has one repository version and one complete target inventory:
 
@@ -126,8 +131,10 @@ Server plugins have their own inventory, `ci/server-plugin-targets.json`
 enter `release/targets.json`, so a plugin can never block or widen a mod
 release. The manifest holds:
 
-- `distribution`: the CurseForge Bukkit plugin project ID and the Hangar owner,
-  project slug, and channel shared by every plugin target.
+- `distribution`: the Hangar owner, project slug, and channel shared by every
+  plugin target. Store project IDs are not versioned in any manifest. The
+  Release workflow reads the GitHub Actions variables `MODRINTH_PROJECT_ID`,
+  `CURSEFORGE_ID_MOD`, and `CURSEFORGE_ID_BUKKIT`.
 - `protocollib`: the tested minimum ProtocolLib version, the compile version,
   the version installed on test servers, and the SHA-256 of every verified
   release. Gradle and the CI scripts read the same pins, and the validator
@@ -139,8 +146,7 @@ release. The manifest holds:
   `trueuuid-paper-1.20.1-candidate.jar`, and a supported target builds the
   public name `trueuuid-X.Y.Z-paper-1.20.1.jar`. `release` approves the target
   for the current version. The validator refuses `release: true` on a
-  candidate, or on any plugin while `distribution.curseforge_project_id` is
-  unset, and `set-version.sh` resets it.
+  candidate, and `set-version.sh` resets it.
 
 When `release` is true, Full Self-Test uploads the plugin as `release-<target>`.
 The Release workflow attaches it to the GitHub Release, includes it in
@@ -173,18 +179,16 @@ have been checked against published API documentation and public projects, but
 not yet with this repository's credentials. The pre-flight probes exercise
 exactly those calls before any artifact is uploaded.
 
-Spigot 1.20.1 and Paper 1.20.1 are `supported`. They passed the local gate
-agreed for the first plugin release, recorded in
-[`server-plugin-1.20.1-evidence.md`](server-plugin-1.20.1-evidence.md). Their
-`release` switch stays `false` until the CurseForge Bukkit plugin project ID is
-set. To approve them for a version, in one commit:
+Spigot 1.20.1 and Paper 1.20.1 are `supported` and approved for 1.3.0. They
+passed the local gate agreed for the first plugin release, recorded in
+[`server-plugin-1.20.1-evidence.md`](server-plugin-1.20.1-evidence.md). To
+approve plugins for a later version, in one commit:
 
-1. Set `distribution.curseforge_project_id`.
-2. Set `release` to `true` on each approved plugin target.
-3. Name every approved plugin, such as `Paper 1.20.1`, in both language
+1. Set `release` to `true` on each approved plugin target.
+2. Name every approved plugin, such as `Paper 1.20.1`, in both language
    sections of the changelog. `validate-release-config.sh` enforces this.
-4. Update the target matrix and both READMEs.
-5. Run `./scripts/release/validate-release-config.sh` and
+3. Update the target matrix and both READMEs.
+4. Run `./scripts/release/validate-release-config.sh` and
    `./scripts/release/validate-workflows.sh`.
 
 The changelog must begin with a nonempty `## English` section and then contain
@@ -211,13 +215,13 @@ Configure these values in the upstream repository:
    `USER_READ` scope used to identify the publisher and the `VERSION_CREATE`
    scope needed to create versions; the token owner must also be allowed to
    upload versions to the project.
-3. Add `MODRINTH_PROJECT_ID` preferably as a repository variable using the
-   stable eight-character project ID, not the mutable slug. A `release`
-   environment secret is accepted as a fallback.
-4. Add `CURSEFORGE_TOKEN` as a `release` environment secret. The CurseForge project ID
-   (`1539688`) is versioned in `release/targets.json`. The same token uploads to
-   the CurseForge Bukkit plugin project, whose ID is versioned in
-   `ci/server-plugin-targets.json`.
+3. Add `MODRINTH_PROJECT_ID` as a GitHub Actions variable holding the stable
+   eight-character project ID, not the mutable slug.
+4. Add `CURSEFORGE_TOKEN` as a `release` environment secret. Add the public
+   project IDs as GitHub Actions variables: `CURSEFORGE_ID_MOD` for the mod
+   project and `CURSEFORGE_ID_BUKKIT` for the Bukkit plugin project. The same
+   token uploads to both. Workflow validation rejects project IDs read from
+   secrets or versioned in a manifest.
 5. Add `HANGAR_API_TOKEN` as a `release` secret. Its API key needs the
    `create_version` permission on the Hangar project named in
    `ci/server-plugin-targets.json`, and the configured channel must already

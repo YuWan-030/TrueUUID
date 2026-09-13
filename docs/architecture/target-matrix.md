@@ -10,8 +10,16 @@ Version 1.3.0 is approved for release. Every one of the 52 declared targets
 passed the four-case installed-JAR matrix against its 1.3.0 artifact, and
 `release/targets.json` sets `release_ready` and every target-level `release`
 approval to `true`. The Spigot and Paper 1.20.1 server plugins are supported
-but not yet approved for 1.3.0 publication, as described below. Version 1.2.1
-remains permanently withheld. Never create or reuse a `v1.2.1` tag.
+and approved for 1.3.0, as described below. Version 1.2.1 remains permanently
+withheld. Never create or reuse a `v1.2.1` tag.
+
+After the mod and plugin acceptance runs, one presentation-only change added
+the bold gradient wordmark to join notices (the chat translation strings lost
+their bracketed prefix) and a startup banner written only to an interactive
+terminal. Login, verification, and persistence code did not change. On
+2026-09-13 the maintainer decided that Verify and Full Self-Test in the Release
+workflow are sufficient for that change, so the installed-JAR matrix was not
+rerun on the final artifacts.
 
 The worktree declares 52 exact mod targets: 16 Forge, 18 Fabric, and 18 NeoForge.
 Fabric and NeoForge now carry one exact module for every Minecraft patch from
@@ -23,8 +31,8 @@ loader, so those two Forge targets do not exist upstream and are not omissions.
 
 | Target ID | Server tested | ProtocolLib tested | Java | Runtime state | 1.3.0 approval |
 |---|---|---|---:|---|---:|
-| `spigot-1.20.1` | Spigot 1.20.1 build 3871 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | false |
-| `paper-1.20.1` | Paper 1.20.1 build 196 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | false |
+| `spigot-1.20.1` | Spigot 1.20.1 build 3871 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | true |
+| `paper-1.20.1` | Paper 1.20.1 build 196 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | true |
 
 Server plugins are inventoried in `ci/server-plugin-targets.json`. Both share
 one CraftBukkit 1.20.1 login engine and accept any Spigot or Paper 1.20.1 build
@@ -34,9 +42,8 @@ Fabric 1.20.1 premium, and Fabric 1.20.1 offline logins on the installed JAR,
 plus the seam contract and the installed-server smoke. The broader plugin gates
 remain open and are listed in
 [`server-plugin-1.20.1-evidence.md`](../development/server-plugin-1.20.1-evidence.md).
-The approval column stays `false` until the CurseForge Bukkit plugin project ID
-is configured. Verify and Full Self-Test run a `Spigot / 1.20.1 (JDK 17)` and a
-`Paper / 1.20.1 (JDK 17)` job.
+The approval column mirrors `ci/server-plugin-targets.json`. Verify and Full
+Self-Test run a `Spigot / 1.20.1 (JDK 17)` and a `Paper / 1.20.1 (JDK 17)` job.
 
 ### Mod target inventory
 

@@ -1,5 +1,6 @@
 package cn.alini.trueuuid.client;
 
+import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.presentation.BadgeArtwork;
 import cn.alini.trueuuid.presentation.BadgeLayout;
@@ -43,7 +44,8 @@ public final class ClientAccountStatus {
         var server = minecraft.getSingleplayerServer();
         var transition = STATE.reconcileIntegratedWorld(server != null, server != null && server.isPublished());
         if (transition.chatTranslationKey() != null && TrueuuidConfig.showJoinFeedback()) {
-            minecraft.player.displayClientMessage(Component.translatable(transition.chatTranslationKey()), false);
+            minecraft.player.displayClientMessage(
+                    Trueuuid.branded(Component.translatable(transition.chatTranslationKey())), false);
         }
     }
 

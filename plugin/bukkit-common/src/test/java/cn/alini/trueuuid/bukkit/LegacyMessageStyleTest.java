@@ -10,6 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyMessageStyleTest {
+    @Test void wordmarkIsTheApprovedHexGradientByteForByte() {
+        String approved = "§x§0§D§6§1§D§0§lT§x§0§E§6§9§D§2§lr§x§0§E§7§2§D§4§lu§x§0§F§7§A§D§6§le"
+                + "§x§1§0§8§2§D§7§lU§x§1§1§8§A§D§9§lU§x§1§1§9§3§D§B§lI§x§1§2§9§B§D§D§lD";
+        assertEquals(approved, LegacyMessageStyle.legacyWordmark());
+    }
+
     @Test void prefixedLinesKeepTheWordsReadableAfterStrippingColour() {
         assertEquals("TrueUUID » Premium account verified.",
                 ChatColor.stripColor(LegacyMessageStyle.render(Tone.SUCCESS, "Premium account verified.")));
@@ -21,7 +27,7 @@ class LegacyMessageStyleTest {
 
     @Test void contentCannotInjectColourCodes() {
         String rendered = LegacyMessageStyle.render(Tone.INFO, "name§4red");
-        assertFalse(rendered.contains("§4"));
+        assertFalse(rendered.contains("§4red"));
         assertTrue(rendered.endsWith("name?4red"));
     }
 

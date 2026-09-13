@@ -109,7 +109,8 @@ public final class FabricLoginNetworking {
                 FabricConfig.showJoinFeedback() && !privateSingleplayer,
                 FabricConfig.showOperatorNotifications())) {
             if (delivery.kind() == LoginNotificationRouter.Kind.JOIN_RESULT) {
-                delivery.recipient().sendMessage(Text.translatable(source.chatKey()).formatted(chatColor(source)), false);
+                delivery.recipient().sendMessage(
+                        TrueuuidFabric.branded(Text.translatable(source.chatKey()).formatted(chatColor(source))), false);
             } else {
                 delivery.recipient().sendMessage(Text.translatable("trueuuid.operator.login",
                         FabricGameProfiles.name(player.getGameProfile()), player.getUuid(),

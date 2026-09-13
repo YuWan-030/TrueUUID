@@ -284,9 +284,11 @@ types instead of recreating boolean fallback logic.
 ### Presentation and machine-read lines
 
 Player chat, the action bar, command output, and the startup banner go through
-`MessageStyle`. Paper renders a blue `TrueUUID` gradient with Adventure. Spigot
-uses legacy colour codes. Every content argument is literal text, so a player
-name or configuration value can never inject formatting or MiniMessage tags.
+`MessageStyle`. Both platforms render the bold blue `TrueUUID` gradient from
+`BrandText` in `shared/presentation`, which the mods also use. Paper renders it
+through Adventure and Spigot through hexadecimal colour codes. Every content
+argument is literal text, so a player name or configuration value can never
+inject formatting or tags.
 
 Audit lines stay plain and use the plugin logger. Tests and operators read
 them:

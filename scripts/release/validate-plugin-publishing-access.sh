@@ -29,9 +29,9 @@ trap 'rm -rf -- "$work_dir"' EXIT
 # CurseForge keeps Bukkit plugins in their own project class, served by the
 # dev.bukkit.org upload API. Probe it with the same token as the mod project.
 : "${CURSEFORGE_TOKEN:?CURSEFORGE_TOKEN must be set}"
-curseforge_project_id=$(jq -r '.distribution.curseforge_project_id' "$manifest")
+curseforge_project_id=${CURSEFORGE_ID_BUKKIT:-}
 [[ "$curseforge_project_id" =~ ^[1-9][0-9]*$ ]] ||
-    die 65 'approved server plugins require distribution.curseforge_project_id'
+    die 65 'approved server plugins require the CURSEFORGE_ID_BUKKIT Actions variable'
 versions_status=$(curl --silent --show-error --proto '=https' --tlsv1.2 \
     --connect-timeout 10 --max-time 30 \
     --header "User-Agent: ${user_agent}" \
@@ -101,6 +101,9 @@ then
         die 77 "Hangar project ${owner}/${slug} has no ${channel} channel"
     echo "Verified Hangar channel ${channel}."
 else
-    die 77 "Hangar channel list for ${owner}/${slug} could not be read (HTTP ${channels##*$'\n'})"
+    # The channel list is an internal endpoint that an API session may not be
+    # allowed to read. Hangar still rejects an upload to a missing channel, and
+    # the publisher is safe to rerun after the channel is created.
+    echo "::warning title=Hangar channel not pre-verified::The ${channel} channel list for ${owner}/${slug} returned HTTP ${channels##*$'\n'}. The upload step verifies it instead."
 fi
 echo "Verified Hangar create_version access to ${owner}/${slug} without creating a version."
