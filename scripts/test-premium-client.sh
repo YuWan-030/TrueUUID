@@ -434,7 +434,7 @@ if [[ "$loader" == "fabric" ]]; then
                 "$target_dir/build.gradle" | head -1 | awk -F: '{print $3}')
         fi
         if [[ -n "$coord" ]]; then
-            fabric_api=$(find "$HOME/.gradle/caches" -name "fabric-api-$coord.jar" 2>/dev/null | head -1)
+            fabric_api=$(find "${GRADLE_USER_HOME:-$HOME/.gradle}/caches" -name "fabric-api-$coord.jar" 2>/dev/null | head -1)
         fi
     fi
     if [[ -n "$fabric_api" && -f "$fabric_api" ]]; then

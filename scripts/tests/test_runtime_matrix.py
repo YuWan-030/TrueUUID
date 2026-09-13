@@ -6,6 +6,7 @@ import socket
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 
 
@@ -113,6 +114,41 @@ class RuntimeMatrixHelpersTest(unittest.TestCase):
             "(/127.0.0.1:57864) lost connection: Disconnected",
         ):
             self.assertIsNone(matrix.PROTOCOL_FAILURE_RE.search(intended))
+
+    @staticmethod
+    def marker_runner(events: list[tuple[object, int, str]]) -> matrix.RuntimeMatrix:
+        runner = matrix.RuntimeMatrix.__new__(matrix.RuntimeMatrix)
+        runner.events = queue.Queue()
+        runner.args = SimpleNamespace(client_startup_timeout=5.0, timeout=5.0)
+        runner.client_game_log = None
+        runner.client_game_log_position = 0
+        for source, sequence, line in events:
+            runner.events.put(matrix.ProcessEvent(source, sequence, line))
+        return runner
+
+    def test_previous_client_reset_does_not_fail_the_next_scenario(self) -> None:
+        # fabric-1.21.5: stopping the migrate client logged its connection reset
+        # after the premium scenario had started, before the premium client
+        # connected. That stale line must not fail the new scenario.
+        server, client = object(), object()
+        runner = self.marker_runner([
+            (server, 11, "FixGOD lost connection: Internal Exception: "
+                "io.netty.channel.unix.Errors$NativeIoException: Connection reset by peer"),
+            (client, 1, "[Render thread/INFO]: Connecting to 127.0.0.1, 25565"),
+            (server, 12, "TRUEUUID_ACCEPTANCE result=premium_join player=FixGOD"),
+        ])
+        self.assertEqual((True, ""), runner.wait_for_marker(server, client, "premium", 10))
+
+    def test_protocol_failure_after_client_connects_still_fails_fast(self) -> None:
+        server, client = object(), object()
+        runner = self.marker_runner([
+            (client, 1, "[Render thread/INFO]: Connecting to 127.0.0.1, 25565"),
+            (server, 11, "FixGOD lost connection: Internal Exception: "
+                "io.netty.handler.codec.DecoderException: unknown TrueUUID protocol header"),
+        ])
+        passed, reason = runner.wait_for_marker(server, client, "premium", 10)
+        self.assertFalse(passed)
+        self.assertIn("login protocol failure", reason)
 
     def test_resume_reuses_only_complete_target_passes(self) -> None:
         with tempfile.TemporaryDirectory() as raw_tmp:

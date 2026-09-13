@@ -167,6 +167,14 @@ fi
 # Online by default: a new Minecraft version's assets must download on first run.
 # Set TRUEUUID_OFFLINE=1 once cached to avoid re-resolving.
 gradle_flags=(--no-daemon)
+# Root-build targets include only themselves beside the shared modules, so a
+# cold cache does not set up every loader module before one dev run. Plugins
+# that register run tasks after full evaluation, such as ForgeGradle 6, still
+# find their tasks because configure-on-demand stays off for these runs.
+if [[ "$standalone" != true ]]
+then
+    gradle_flags+=("-Ptrueuuid.onlyTarget=$target" --no-configure-on-demand)
+fi
 if [[ -n "${TRUEUUID_OFFLINE:-}" ]]; then
     gradle_flags+=(--offline)
 fi

@@ -517,7 +517,10 @@ class RuntimeMatrix:
                 if event.sequence > server_baseline and marker.search(event.line):
                     return True, ""
                 if event.sequence > server_baseline:
-                    if PROTOCOL_FAILURE_RE.search(event.line):
+                    # The previous scenario's stopped client can log its reset
+                    # after this scenario has begun. Attribute a protocol failure
+                    # to this scenario only once its own client is connecting.
+                    if marker_deadline is not None and PROTOCOL_FAILURE_RE.search(event.line):
                         return False, f"login protocol failure: {event.line.strip()}"
                     terminal = TERMINAL_RESULT_RE.search(event.line)
                     if terminal is not None:
@@ -640,11 +643,15 @@ class RuntimeMatrix:
                 "--no-daemon",
             ]
         else:
+            # Configure only the target and its shared dependencies. Without
+            # this a cold cache configures every loader module first, which
+            # multiplies setup time and cache size by the whole matrix.
             command = [
                 str(ROOT / "gradlew"),
                 build_task,
                 "-PtrueuuidAcceptanceHooks=true",
                 "--no-daemon",
+                "--configure-on-demand",
             ]
         if os.environ.get("TRUEUUID_OFFLINE"):
             command.append("--offline")
