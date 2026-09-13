@@ -106,18 +106,29 @@ jobs:
           tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
           git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main
           ./scripts/release/validate-targets.sh
-          approved=$(jq -c '
+          ./scripts/ci/validate-server-plugin-targets.sh
+          # Every mod target must be approved. Server plugins are approved
+          # individually, and only supported ones can be approved at all.
+          approved=$(jq -cn \
+            --slurpfile mods release/targets.json \
+            --slurpfile plugins ci/server-plugin-targets.json '
             def loader_name:
               if . == "forge" then "Forge"
               elif . == "fabric" then "Fabric"
               elif . == "neoforge" then "NeoForge"
               else error("unsupported loader")
               end;
-            {include: [.targets[] | select(.release == true) |
-              {target: .id,
-               loader_name: (.loader | loader_name),
-               game_version: .game_version}]}' \
-            release/targets.json)
+            {include: (
+              [$mods[0].targets[] | select(.release == true) |
+                {target: .id,
+                 loader_name: (.loader | loader_name),
+                 game_version: .game_version,
+                 curseforge: true}] +
+              [$plugins[0].targets[] | select(.release == true) |
+                {target: .id,
+                 loader_name: .platform_name,
+                 game_version: .game_version,
+                 curseforge: false}])}')
           jq -e '.include | length > 0' <<<"$approved" >/dev/null
           release_json=$(gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
@@ -278,13 +289,14 @@ jobs:
           path: tested-artifacts
       - name: Collect only release-approved JARs
         env:
+          APPROVED: ${{ needs.metadata.outputs.approved }}
           VERSION: ${{ needs.metadata.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir release-assets
           while IFS= read -r target_id; do
-            target=$(./scripts/release/validate-targets.sh --approved "$target_id")
+            target=$(./scripts/release/resolve-release-target.sh "$target_id")
             expected=$(jq -r --arg version "$VERSION" \
               '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
             source_dir="tested-artifacts/release-${target_id}"
@@ -292,7 +304,7 @@ jobs:
             source_jar="${source_dir}/$(basename "$expected")"
             [[ -f "$source_jar" ]]
             cp "$source_jar" release-assets/
-          done < <(jq -r '.targets[] | select(.release == true) | .id' release/targets.json)
+          done < <(jq -r '.include[].target' <<<"$APPROVED")
           (cd release-assets && sha256sum -- *.jar > SHA256SUMS)
       - name: Attach tested assets to the GitHub Release
         env:
@@ -304,7 +316,7 @@ jobs:
           [[ "$RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
           for asset in release-assets/*; do
             name=$(basename "$asset")
-            [[ "$name" =~ ^(SHA256SUMS|trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar)$ ]]
+            [[ "$name" =~ ^(SHA256SUMS|trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge|spigot|paper)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar)$ ]]
             while IFS= read -r asset_id; do
               [[ "$asset_id" =~ ^[1-9][0-9]*$ ]]
               gh api --method DELETE \
@@ -360,7 +372,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          target=$(./scripts/release/validate-targets.sh --approved "$TARGET_ID")
+          target=$(./scripts/release/resolve-release-target.sh "$TARGET_ID")
           expected=$(jq -r --arg version "$VERSION" \
             '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
           loader=$(jq -r '.loader' <<<"$target")
@@ -392,8 +404,21 @@ jobs:
           [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]]
           ./scripts/release/publish-modrinth.sh \
             "$TARGET_ID" "$VERSION" frozen-changelog/release-changelog.md
+      - name: Record manual plugin distribution handoff
+        if: ${{ !matrix.curseforge }}
+        env:
+          TARGET_ID: ${{ matrix.target }}
+        shell: bash
+        run: |
+          {
+            echo "## ${TARGET_ID} manual distribution"
+            echo
+            echo 'This server plugin is not uploaded to CurseForge automatically.'
+            echo 'After the GitHub Release is published, upload the same checksum-verified asset to the Bukkit CurseForge project and SpigotMC by hand.'
+          } >> "$GITHUB_STEP_SUMMARY"
       - id: curseforge-preflight
         name: Check for an existing CurseForge artifact
+        if: matrix.curseforge
         shell: bash
         run: |
           set -euo pipefail
@@ -411,7 +436,7 @@ jobs:
               ;;
           esac
       - name: Publish to CurseForge
-        if: steps.curseforge-preflight.outputs.upload == 'true'
+        if: matrix.curseforge && steps.curseforge-preflight.outputs.upload == 'true'
         uses: Kir-Antipov/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
         with:
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}

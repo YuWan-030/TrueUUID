@@ -4,7 +4,7 @@ version: '${candidateVersion}'
 api-version: '1.20'
 load: STARTUP
 depend: [ProtocolLib]
-description: Unsupported secure dual-mode Spigot 1.20.1 candidate
+description: '${pluginDescription}'
 softdepend: [LuckPerms]
 commands:
   trueuuid:

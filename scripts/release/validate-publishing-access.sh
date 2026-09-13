@@ -149,7 +149,8 @@ while IFS= read -r expected_version; do
     ' <<<"$modrinth_game_versions_body" >/dev/null; then
         missing_modrinth_versions+=("$expected_version")
     fi
-done < <(jq -r '[.targets[] | select(.release == true) | .game_version] | unique[]' release/targets.json)
+done < <(jq -rs '[(.[0].targets[], .[1].targets[]) | select(.release == true) | .game_version] | unique[]' \
+    release/targets.json ci/server-plugin-targets.json)
 
 missing_modrinth_loaders=()
 while IFS= read -r expected_loader; do
@@ -158,7 +159,9 @@ while IFS= read -r expected_loader; do
     ' <<<"$modrinth_loaders_body" >/dev/null; then
         missing_modrinth_loaders+=("$expected_loader")
     fi
-done < <(jq -r '[.targets[] | select(.release == true) | .loader] | unique[]' release/targets.json)
+done < <(jq -rs '[(.[0].targets[] | select(.release == true) | .loader),
+    (.[1].targets[] | select(.release == true) | .modrinth_loaders[])] | unique[]' \
+    release/targets.json ci/server-plugin-targets.json)
 
 if ((${#missing_modrinth_versions[@]} || ${#missing_modrinth_loaders[@]})); then
     ((${#missing_modrinth_versions[@]} == 0)) ||

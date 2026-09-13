@@ -55,6 +55,8 @@ protocol_runtime="$repo_root/plugin/spigot/1.20.1/build/pinned/ProtocolLib-5.1.0
 mod_version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | tr -d '[:space:]')
 [[ -n "$mod_version" ]] || { echo "Could not read mod_version from gradle.properties" >&2; exit 65; }
 fabric_runtime="$repo_root/platform/fabric/1.20.1/build/libs/trueuuid-${mod_version}-fabric-1.20.1.jar"
+plugin_artifact="$repo_root/$("$repo_root/scripts/ci/validate-server-plugin-targets.sh" --target "$expected_target" |
+    jq -r --arg version "$mod_version" '.artifact | gsub("%VERSION%"; $version)')"
 [[ -f "$spigot_runtime" ]] || { echo "BuildTools did not produce the inner Spigot runtime JAR" >&2; exit 66; }
 
 JAVA_HOME="$java21_home" PATH="$java21_home/bin:$PATH" \
@@ -78,7 +80,7 @@ sha256sum \
     "$spigot_runtime" \
     "$protocol_runtime" \
     "$fabric_runtime" \
-    "$repo_root/plugin/spigot/1.20.1/build/libs/trueuuid-spigot-1.20.1-candidate.jar" \
+    "$plugin_artifact" \
     > "$work_root/reports/artifacts.sha256"
 
 echo "Spigot 1.20.1 candidate build and exact runtime descriptor checks passed."

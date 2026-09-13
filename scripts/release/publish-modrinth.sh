@@ -13,23 +13,18 @@ changelog_file=$3
 [[ -f "$changelog_file" ]] || { echo "missing changelog: $changelog_file" >&2; exit 66; }
 ./scripts/release/validate-changelog.sh "$changelog_file"
 
-target=$(./scripts/release/validate-targets.sh --approved "$target_id")
+target=$(./scripts/release/resolve-release-target.sh "$target_id")
 
 : "${MODRINTH_TOKEN:?MODRINTH_TOKEN must be set}"
 : "${MODRINTH_PROJECT_ID:?MODRINTH_PROJECT_ID must be set}"
 [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]] || { echo "MODRINTH_PROJECT_ID must be the stable eight-character project ID" >&2; exit 64; }
 
 jar=$(jq -r --arg version "$version" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
-loader=$(jq -r '.loader' <<<"$target")
+loader_name=$(jq -r '.loader_name' <<<"$target")
+loaders_json=$(jq -c '.modrinth_loaders' <<<"$target")
+environment=$(jq -r '.modrinth_environment' <<<"$target")
 minecraft_version=$(jq -r '.game_version' <<<"$target")
 [[ -f "$jar" ]] || { echo "missing release artifact: $jar" >&2; exit 66; }
-
-case "$loader" in
-  forge) loader_name=Forge ;;
-  fabric) loader_name=Fabric ;;
-  neoforge) loader_name=NeoForge ;;
-  *) echo "unsupported release loader: $loader" >&2; exit 65 ;;
-esac
 display_name="TrueUUID ${version} for ${loader_name} ${minecraft_version}"
 
 umask 077
@@ -56,7 +51,7 @@ case "$existing_status" in
       --arg project_id "$MODRINTH_PROJECT_ID" \
       --arg version_number "$version_number" \
       --arg display_name "$display_name" \
-      --arg loader "$loader" \
+      --argjson loaders "$loaders_json" \
       --arg minecraft_version "$minecraft_version" \
       --arg sha512 "$jar_sha512" \
       --rawfile changelog "$changelog_file" \
@@ -64,7 +59,7 @@ case "$existing_status" in
        .version_number == $version_number and
        .name == $display_name and
        .changelog == $changelog and
-       (.loaders | index($loader)) != null and
+       (($loaders - .loaders) | length) == 0 and
        (.game_versions | index($minecraft_version)) != null and
        any(.files[]; .primary == true and .hashes.sha512 == $sha512)' \
       <<<"$existing_body" >/dev/null; then
@@ -86,8 +81,9 @@ metadata=$(jq -cn \
   --arg display_name "$display_name" \
   --arg target_id "$target_id" \
   --arg version "$version" \
-  --arg loader "$loader" \
+  --argjson loaders "$loaders_json" \
   --arg minecraft_version "$minecraft_version" \
+  --arg environment "$environment" \
   --rawfile changelog "$changelog_file" \
   '{
     name: $display_name,
@@ -96,13 +92,13 @@ metadata=$(jq -cn \
     dependencies: [],
     game_versions: [$minecraft_version],
     version_type: "release",
-    loaders: [$loader],
+    loaders: $loaders,
     featured: true,
     status: "listed",
     project_id: $project_id,
     file_parts: ["file"],
     primary_file: "file",
-    environment: "client_and_server"
+    environment: $environment
   }')
 
 jar_sha512=$(sha512sum "$jar")
@@ -131,7 +127,7 @@ if ! jq -e \
   --arg project_id "$MODRINTH_PROJECT_ID" \
   --arg version_number "$version_number" \
   --arg display_name "$display_name" \
-  --arg loader "$loader" \
+  --argjson loaders "$loaders_json" \
   --arg minecraft_version "$minecraft_version" \
   --arg sha512 "$jar_sha512" \
   --rawfile changelog "$changelog_file" \
@@ -139,7 +135,7 @@ if ! jq -e \
    .version_number == $version_number and
    .name == $display_name and
    .changelog == $changelog and
-   (.loaders | index($loader)) != null and
+   (($loaders - .loaders) | length) == 0 and
    (.game_versions | index($minecraft_version)) != null and
    any(.files[]; .primary == true and .hashes.sha512 == $sha512)' \
   <<<"$publish_body" >/dev/null; then

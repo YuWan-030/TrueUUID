@@ -11,6 +11,7 @@ elif [[ $# -ne 0 && $# -ne 2 ]]; then
 fi
 
 ./scripts/release/validate-targets.sh
+./scripts/ci/validate-server-plugin-targets.sh
 
 project_version=$(sed -n 's/^mod_version=//p' gradle.properties)
 version=${1:-$project_version}
@@ -56,6 +57,18 @@ jq -se --arg id "$first_approved_target" \
     exit 65
 }
 
+# Server plugins are approved individually and may be absent from a release.
+# Every approved plugin must still resolve through the same interface that the
+# attach and publish jobs use after the self-test matrix.
+while IFS= read -r approved_plugin; do
+    jq -se --arg id "$approved_plugin" \
+        'length == 1 and .[0].id == $id and .[0].kind == "plugin"' \
+        <(./scripts/release/resolve-release-target.sh "$approved_plugin") >/dev/null || {
+        echo "approved server plugin does not resolve for publication: $approved_plugin" >&2
+        exit 65
+    }
+done < <(jq -r '.targets[] | select(.release == true) | .id' ci/server-plugin-targets.json)
+
 ./scripts/release/validate-changelog.sh "$changelog"
 
-echo "Verified complete ${version} release configuration for $(jq '.targets | length' release/targets.json) targets."
+echo "Verified complete ${version} release configuration for $(jq '.targets | length' release/targets.json) mod targets and $(jq '[.targets[] | select(.release == true)] | length' ci/server-plugin-targets.json) approved server plugins."

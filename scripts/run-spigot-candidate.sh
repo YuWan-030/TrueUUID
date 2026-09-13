@@ -137,7 +137,10 @@ fi
 test_home=${TRUEUUID_SPIGOT_TEST_HOME:-$repo_root/build/spigot-candidate/manual-server}
 spigot_jar=${TRUEUUID_SPIGOT_JAR:-$repo_root/build/spigot-candidate/output/spigot-1.20.1.jar}
 protocol_jar=${TRUEUUID_PROTOCOLLIB_JAR:-$repo_root/plugin/spigot/1.20.1/build/pinned/ProtocolLib-5.1.0.jar}
-candidate_jar=$repo_root/plugin/spigot/1.20.1/build/libs/trueuuid-spigot-1.20.1-candidate.jar
+plugin_version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | tr -d '[:space:]')
+plugin_target=$("$repo_root/scripts/ci/validate-server-plugin-targets.sh" --target spigot-1.20.1)
+candidate_jar=$repo_root/$(jq -r --arg version "$plugin_version" '.artifact | gsub("%VERSION%"; $version)' <<<"$plugin_target")
+expected_support_status=$(jq -r '.manifest_status' <<<"$plugin_target")
 java17_home=${TRUEUUID_SPIGOT_JAVA_HOME:-${JAVA_HOME_17_X64:-/usr/lib/jvm/jdk-17.0.12-oracle-x64}}
 java21_home=${TRUEUUID_SPIGOT_BUILD_JAVA_HOME:-${JAVA_HOME_21_X64:-/usr/lib/jvm/java-21-openjdk-amd64}}
 protocol_sha256=562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769
@@ -208,8 +211,8 @@ command -v unzip >/dev/null 2>&1 || { echo "unzip is required to inspect the can
 
 printf '%s  %s\n' "$protocol_sha256" "$protocol_jar" | sha256sum --check --strict
 candidate_manifest=$(unzip -p "$candidate_jar" META-INF/MANIFEST.MF)
-if ! grep -Fq 'TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' <<<"$candidate_manifest"; then
-    echo "Candidate JAR does not carry the required unsupported-candidate manifest." >&2
+if ! grep -Fq "TrueUUID-Support-Status: $expected_support_status" <<<"$candidate_manifest"; then
+    echo "Plugin JAR does not carry the $expected_support_status marker required by ci/server-plugin-targets.json." >&2
     exit 65
 fi
 

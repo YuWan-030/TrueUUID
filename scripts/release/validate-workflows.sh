@@ -108,6 +108,27 @@ for server_self_test_contract in \
         exit 65
     }
 done
+grep -Fq 'artifact_name: ((if .release then "release-" else "tested-" end) + .id)' \
+    .github/workflows/self-test.yml || {
+    echo 'self-test.yml must derive the server-plugin artifact namespace from its release approval' >&2
+    exit 65
+}
+for plugin_release_contract in \
+    '--slurpfile plugins ci/server-plugin-targets.json' \
+    './scripts/release/resolve-release-target.sh "$target_id"' \
+    './scripts/release/resolve-release-target.sh "$TARGET_ID"' \
+    "if: matrix.curseforge && steps.curseforge-preflight.outputs.upload == 'true'"
+do
+    grep -Fq -- "$plugin_release_contract" .github/workflows/release.yml || {
+        echo "release.yml is missing server-plugin release contract: ${plugin_release_contract}" >&2
+        exit 65
+    }
+done
+grep -Fq './scripts/release/resolve-release-target.sh "$target_id"' \
+    scripts/release/publish-modrinth.sh || {
+    echo 'Modrinth publishing must resolve mod and server-plugin targets through one interface' >&2
+    exit 65
+}
 grep -Fq 'pattern: release-*' .github/workflows/release.yml || {
     echo 'release.yml must collect only explicitly release-namespaced artifacts' >&2
     exit 65
@@ -128,6 +149,7 @@ for pinned_spigot_contract in \
 done
 for spigot_artifact_contract in \
     'TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' \
+    'TrueUUID-Support-Status: SUPPORTED' \
     'ProtocolLib-Version: 5.1.0' \
     'Spigot-Implementation-Version: 3871-Spigot-d2eba2c-3f9263b'; do
     grep -Fq "$spigot_artifact_contract" scripts/ci/verify-spigot-plugin-jar.sh || {

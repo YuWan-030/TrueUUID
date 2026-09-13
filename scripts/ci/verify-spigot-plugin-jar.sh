@@ -14,13 +14,20 @@ expected_target='spigot-1.20.1'
 }
 output_dir=$1
 version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | tr -d '[:space:]')
-artifact="$repo_root/plugin/spigot/1.20.1/build/libs/trueuuid-spigot-1.20.1-candidate.jar"
 protocol_sha256='562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769'
 
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo 'invalid mod_version' >&2
     exit 65
 }
+command -v jq >/dev/null 2>&1 || { echo 'jq is required' >&2; exit 69; }
+target=$("$repo_root/scripts/ci/validate-server-plugin-targets.sh" --target "$expected_target")
+artifact="$repo_root/$(jq -r --arg version "$version" '.artifact | gsub("%VERSION%"; $version)' <<<"$target")"
+case "$(jq -r '.manifest_status' <<<"$target")" in
+    UNSUPPORTED-CANDIDATE) expected_status='TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' ;;
+    SUPPORTED) expected_status='TrueUUID-Support-Status: SUPPORTED' ;;
+    *) echo 'unknown server-plugin support status' >&2; exit 65 ;;
+esac
 [[ -f "$artifact" ]] || {
     echo "missing built Spigot plugin: $artifact" >&2
     exit 66
@@ -67,7 +74,7 @@ manifest=$(unzip -p "$artifact" META-INF/MANIFEST.MF | tr -d '\r' | awk '
 ')
 for attribute in \
     "Implementation-Version: $version" \
-    'TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' \
+    "$expected_status" \
     'ProtocolLib-Version: 5.1.0' \
     "ProtocolLib-SHA-256: $protocol_sha256" \
     'Spigot-Implementation-Version: 3871-Spigot-d2eba2c-3f9263b'; do

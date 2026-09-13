@@ -5,6 +5,25 @@ plugins {
 group = 'cn.alini'
 version = providers.gradleProperty('mod_version').get()
 
+// ci/server-plugin-targets.json owns the support decision. A candidate keeps
+// its unambiguous candidate filename and manifest marker. Only a supported
+// target builds the public release filename.
+def pluginTarget = new groovy.json.JsonSlurper()
+        .parse(rootProject.file('ci/server-plugin-targets.json'))
+        .targets.find { it.id == 'spigot-1.20.1' }
+if (pluginTarget == null) {
+    throw new GradleException('ci/server-plugin-targets.json must declare spigot-1.20.1')
+}
+def pluginSupported = pluginTarget.support_status == 'supported'
+def pluginSupportStatus = pluginSupported ? 'SUPPORTED' : 'UNSUPPORTED-CANDIDATE'
+def pluginArchiveName = pluginSupported
+        ? "trueuuid-${project.version}-spigot-1.20.1.jar"
+        : 'trueuuid-spigot-1.20.1-candidate.jar'
+def pluginTitle = pluginSupported ? 'TrueUUID Spigot 1.20.1' : 'TrueUUID Spigot 1.20.1 Candidate'
+def pluginDescription = pluginSupported
+        ? 'Secure dual-mode premium authentication for Spigot 1.20.1'
+        : 'Unsupported secure dual-mode Spigot 1.20.1 candidate'
+
 evaluationDependsOn(':shared:protocol')
 evaluationDependsOn(':shared:server-core')
 evaluationDependsOn(':plugin:bukkit-common')
@@ -99,23 +118,24 @@ tasks.register('crossLoaderCompatibilityTest', Test) {
 }
 
 tasks.named('processResources', ProcessResources).configure {
+    inputs.property('pluginDescription', pluginDescription)
     filesMatching('plugin.yml') {
-        expand(candidateVersion: project.version)
+        expand(candidateVersion: project.version, pluginDescription: pluginDescription)
     }
 }
 
 tasks.named('jar', Jar).configure {
     dependsOn ':shared:protocol:classes', ':shared:server-core:classes', ':plugin:bukkit-common:classes'
-    archiveFileName = 'trueuuid-spigot-1.20.1-candidate.jar'
+    archiveFileName = pluginArchiveName
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from sharedProtocolMain.get().output
     from sharedServerCoreMain.get().output
     from bukkitCommonMain.get().output
     manifest {
         attributes(
-                'Implementation-Title': 'TrueUUID Spigot 1.20.1 Candidate',
+                'Implementation-Title': pluginTitle,
                 'Implementation-Version': project.version,
-                'TrueUUID-Support-Status': 'UNSUPPORTED-CANDIDATE',
+                'TrueUUID-Support-Status': pluginSupportStatus,
                 'ProtocolLib-Version': protocolLibVersion,
                 'ProtocolLib-SHA-256': protocolLibSha256,
                 'Spigot-Implementation-Version': '3871-Spigot-d2eba2c-3f9263b')

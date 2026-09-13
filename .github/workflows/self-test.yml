@@ -54,7 +54,8 @@ jobs:
           server_plugins=$(jq -c '{include: [.targets[] |
             {target: .id, platform_name: .platform_name,
              game_version: .game_version, java: (.java | tostring),
-             artifact_name: .artifact_name}]}' ci/server-plugin-targets.json)
+             artifact_name: ((if .release then "release-" else "tested-" end) + .id)}]}' \
+            ci/server-plugin-targets.json)
           jq -e '.include | length > 0' <<<"$server_plugins" >/dev/null
           echo "server_plugins=$server_plugins" >> "$GITHUB_OUTPUT"
 

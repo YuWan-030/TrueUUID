@@ -14,7 +14,8 @@ targets=release/targets.json
     echo "version must be strict SemVer major.minor.patch: $version" >&2
     exit 65
 }
-[[ -f "$properties" && -f "$targets" && -x ./gradlew ]] || {
+plugins=ci/server-plugin-targets.json
+[[ -f "$properties" && -f "$targets" && -f "$plugins" && -x ./gradlew ]] || {
     echo "run this script from the repository root" >&2
     exit 66
 }
@@ -32,15 +33,18 @@ manifest_version=$(jq -r '.release_version // empty' "$targets")
     exit 65
 }
 
-if [[ "$current_version" == "$version" && "$manifest_version" == "$version" ]]; then
+plugin_manifest_version=$(jq -r '.release_version // empty' "$plugins")
+if [[ "$current_version" == "$version" && "$manifest_version" == "$version" &&
+      "$plugin_manifest_version" == "$version" ]]; then
     echo "TrueUUID is already version $version; release approvals were not changed."
     exit 0
 fi
 
 properties_temporary=$(mktemp "${properties}.XXXXXX")
 targets_temporary=$(mktemp "${targets}.XXXXXX")
+plugins_temporary=$(mktemp "${plugins}.XXXXXX")
 cleanup() {
-    rm -f "$properties_temporary" "$targets_temporary"
+    rm -f "$properties_temporary" "$targets_temporary" "$plugins_temporary"
 }
 trap cleanup EXIT
 
@@ -53,10 +57,16 @@ jq --arg version "$version" '
     .release_ready = false |
     .targets |= map(.release = false)
 ' "$targets" > "$targets_temporary"
+jq --arg version "$version" '
+    .release_version = $version |
+    .targets |= map(.release = false)
+' "$plugins" > "$plugins_temporary"
 
 chmod --reference="$properties" "$properties_temporary"
 chmod --reference="$targets" "$targets_temporary"
+chmod --reference="$plugins" "$plugins_temporary"
 mv "$targets_temporary" "$targets"
+mv "$plugins_temporary" "$plugins"
 mv "$properties_temporary" "$properties"
 
-echo "TrueUUID version set to $version; publication and all target approvals were reset."
+echo "TrueUUID version set to $version; publication and all mod and server-plugin approvals were reset."

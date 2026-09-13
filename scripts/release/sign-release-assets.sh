@@ -69,10 +69,17 @@ gh release download "$tag" --repo "$repository" --dir "$work_dir" \
     exit 66
 }
 
-expected_names=$(jq -r --arg version "$version" '
-    .targets[] | select(.release == true) |
-    (.artifact | gsub("%VERSION%"; $version) | split("/")[-1])
-' release/targets.json | sort)
+expected_names=$({
+    jq -r --arg version "$version" '
+        .targets[] | select(.release == true) |
+        (.artifact | gsub("%VERSION%"; $version) | split("/")[-1])
+    ' release/targets.json
+    while IFS= read -r plugin_id
+    do
+        ./scripts/ci/validate-server-plugin-targets.sh --approved "$plugin_id" |
+            jq -r --arg version "$version" '.artifact | gsub("%VERSION%"; $version) | split("/")[-1]'
+    done < <(jq -r '.targets[] | select(.release == true) | .id' ci/server-plugin-targets.json)
+} | sort)
 actual_names=$(find "$work_dir" -maxdepth 1 -type f -name 'trueuuid-*.jar' \
     -printf '%f\n' | sort)
 [[ "$actual_names" == "$expected_names" ]] || {
@@ -84,7 +91,7 @@ actual_names=$(find "$work_dir" -maxdepth 1 -type f -name 'trueuuid-*.jar' \
 
 manifest_names=$(awk '
     NF == 2 && $1 ~ /^[0-9a-f]{64}$/ &&
-      $2 ~ /^trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar$/ {
+      $2 ~ /^trueuuid-[0-9]+\.[0-9]+\.[0-9]+-(forge|fabric|neoforge|spigot|paper)-[0-9]+\.[0-9]+(\.[0-9]+)?\.jar$/ {
         print $2
         next
     }
