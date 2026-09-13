@@ -50,7 +50,8 @@ matches_release() {
         --arg platform "$platform" \
         --arg sha256 "$jar_sha256" \
         --rawfile changelog "$changelog_file" \
-        '.name == $name and .channel.name == $channel and .description == $changelog and
+        '.name == $name and .channel.name == $channel and
+         (.description | sub("\\s+$"; "")) == ($changelog | sub("\\s+$"; "")) and
          .downloads[$platform].fileInfo.sha256Hash == $sha256' >/dev/null
 }
 

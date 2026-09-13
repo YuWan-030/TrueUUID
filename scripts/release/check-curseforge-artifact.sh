@@ -32,13 +32,19 @@ while true; do
         --max-time 30 \
         --header "User-Agent: ${user_agent}" \
         "${api_root}/files?pageSize=${page_size}&index=${index}")
+    # A project without files, such as a new Bukkit plugin project, answers
+    # with an empty list and an empty pagination object.
     jq -e '
         (.data | type == "array") and
         (.data | all(.[]; (.id | type == "number") and .id > 0 and
                           (.fileName | type == "string"))) and
-        (.pagination.index | type == "number") and
-        (.pagination.pageSize | type == "number") and
-        (.pagination.totalCount | type == "number")
+        (.pagination | type == "object") and
+        (if (.data | length) == 0 and (.pagination | length) == 0 then true
+         else
+            (.pagination.index | type == "number") and
+            (.pagination.pageSize | type == "number") and
+            (.pagination.totalCount | type == "number")
+         end)
     ' <<<"$response" >/dev/null || {
         echo "unexpected CurseForge files response" >&2
         exit 69
@@ -48,7 +54,7 @@ while true; do
         '.data[] | select(.fileName == $filename) | .id' <<<"$response")
     matches+=("${page_matches[@]}")
 
-    total_count=$(jq -r '.pagination.totalCount' <<<"$response")
+    total_count=$(jq -r '.pagination.totalCount // 0' <<<"$response")
     index=$((index + page_size))
     (( index < total_count )) || break
 done
