@@ -1,10 +1,9 @@
 # Release automation
 
-> **Publication veto:** version 1.3.0 is the current development line. The
-> machine-readable `release_ready=false` value and false per-target approvals
-> in `release/targets.json` make `validate-release-config.sh` and the guarded
-> Release workflow refuse it. Version 1.2.1 remains permanently withheld; do
-> not create or reuse a `v1.2.1` tag or draft.
+> **Release status:** version 1.3.0 is approved. `release/targets.json` sets
+> `release_ready=true` and approves all 52 targets from the 2026-09-13
+> installed-JAR matrix recorded in the target matrix. Version 1.2.1 remains
+> permanently withheld. Do not create or reuse a `v1.2.1` tag or draft.
 
 TrueUUID has one repository version and one complete target inventory:
 
@@ -38,10 +37,8 @@ is selected by manifest-driven scripts and workflows. The Spigot job is an
 additional candidate gate, not a 53rd release target. Its tested artifact is
 uploaded as `tested-spigot-1.20.1`, deliberately outside the `release-*`
 artifact namespace consumed by the Release workflow. CI coverage is separate
-from release approval. The recorded 1.2.1 native results remain historical
-evidence, but all target approvals were reset for 1.3.0 and the version-wide
-publication veto prevents artifacts from being attached to a GitHub Release or
-sent to a distribution service.
+from release approval. All 52 native targets are approved for 1.3.0 from the
+2026-09-13 installed-JAR matrix recorded in the target matrix.
 
 Candidate server-plugin CI entries live separately in
 `ci/server-plugin-targets.json`. The strict validator exports the same matrix
@@ -118,39 +115,48 @@ and CurseForge therefore receive the same frozen changelog file.
 
 ## Server-plugin distribution path
 
-The CI job name describes the platform under test; it is not a support claim.
-The plugin manifest continues to carry
-`TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE`, Spigot remains absent from
-`release/targets.json`, and `release_ready=false` remains authoritative until
-the installed production JAR passes the real-premium and malicious-client
-acceptance gates in
-[`spigot-paper-1.20.1-handoff.md`](spigot-paper-1.20.1-handoff.md).
+The CI job name describes the platform under test. It is not a support claim.
 
-Once those gates pass, promote one exact server target at a time:
+Server plugins have their own inventory, `ci/server-plugin-targets.json`,
+bound to the same `release_version` as the mod manifest. They never enter
+`release/targets.json`, so an unapproved plugin cannot block a mod release.
+Each plugin target carries two switches:
 
-1. Replace the candidate artifact name/status with the supported artifact only
-   in the same change that records fresh runtime evidence.
-2. Add the exact Spigot target to `release/targets.json` and extend its
-   validator, Release loader/display mapping, asset-name allowlist, and
-   publisher selection with Bukkit `plugin.yml` metadata instead of pretending
-   it is a Forge/Fabric/NeoForge mod.
-3. Change Full Self-Test's artifact name from `tested-spigot-1.20.1` to the
-   target's `release-*` name. The Release workflow must continue collecting
-   only approved, checksum-verified manifest targets.
-4. Add a per-platform distribution project identifier and credential probe.
-   Never silently reuse the current mod-project identifier for a plugin
-   project.
+- `support_status` is `unsupported-candidate` or `supported`. It selects the
+  JAR name and the `TrueUUID-Support-Status` manifest marker. A candidate
+  builds `trueuuid-spigot-1.20.1-candidate.jar`. A supported target builds the
+  public name `trueuuid-X.Y.Z-spigot-1.20.1.jar`.
+- `release` approves the target for the current version. The validator refuses
+  `release: true` on a candidate, and `set-version.sh` resets it.
+
+When `release` is true, Full Self-Test uploads the plugin as `release-<target>`
+instead of `tested-<target>`. The Release workflow then attaches it to the
+GitHub Release, includes it in `SHA256SUMS`, and publishes it to the existing
+Modrinth project with the manifest's `modrinth_loaders` and the `server_only`
+environment. It never sends a plugin to the CurseForge mod project.
+`sign-release-assets.sh` expects approved plugin JARs as well.
+
+Spigot 1.20.1 is currently `unsupported-candidate` with `release: false`.
+Promote it in one commit that also records fresh evidence in
+[`spigot-1.20.1-phase0-evidence.md`](spigot-1.20.1-phase0-evidence.md):
+
+1. Pass the acceptance gates in
+   [`spigot-paper-1.20.1-handoff.md`](spigot-paper-1.20.1-handoff.md) with the
+   exact production JAR.
+2. Set `support_status` to `supported` and `release` to `true`.
+3. Add the Spigot download to the bilingual changelog and the target matrix.
+4. Run `./scripts/release/validate-release-config.sh`.
 
 Current official distribution capabilities are:
 
 - [Modrinth's loader API](https://docs.modrinth.com/api/operations/loaderlist/)
-  reports Bukkit, Paper, and Spigot loader tags as applicable to plugin/mod
-  projects. The existing version publisher can support the plugin after its
-  loader mapping, project compatibility, and approval metadata are validated.
+  lists the Bukkit, Paper, and Spigot loader tags as valid for mod projects, so
+  the existing TrueUUID project accepts plugin versions. The Release workflow
+  publishes approved plugins there.
 - [CurseForge's upload API](https://support.curseforge.com/support/solutions/articles/9000197321)
-  exposes Bukkit as a game dependency and supports automated project file
-  uploads. Configure and probe a Bukkit plugin project ID separately; do not
-  assume the existing mod project ID accepts plugin files.
+  exposes Bukkit plugins as a separate project class. The mod project
+  `1539688` cannot hold plugin files. Create a Bukkit plugin project and upload
+  the GitHub asset by hand, or add a publisher with its own probed project ID.
 - [PaperMC Hangar](https://docs.papermc.io/misc/hangar-publishing/) provides an
   official Gradle publisher and GitHub Actions flow using a
   `HANGAR_API_TOKEN` with `create_version`. Add it only with the independent
@@ -198,8 +204,9 @@ The 2026-09-07 GitHub API audit found a `release` environment, but its
 `protection_rules` were empty and its `deployment_branch_policy` was null.
 There were no repository rulesets, and `main` reported `protected: false`.
 The authenticated collaborator had push access but no admin or maintain access.
-An owner must configure the environment approval and ref restrictions, main
-protection, and release-tag ruleset before creating a release tag. Credential
+An owner should configure the environment approval and ref restrictions, main
+protection, and release-tag ruleset. They are recommended, and the Release
+workflow does not require them. Credential
 validity was not rechecked by this read-only audit; the guarded publishing
 probes remain required. Do not use the withheld `v1.2.1` version.
 
@@ -221,11 +228,99 @@ protocol tests passed (84 tests), but the Forge test run was stopped before
 completion. This audit does not provide fresh native-artifact acceptance or
 plugin real-login evidence.
 
-Before publication, complete the current-artifact acceptance and feature gates
-in the target matrix and Spigot handoff, obtain all target approvals, finalize
-the bilingual changelog, and configure the owner-only protections above. Then
+Before publication, complete the current-artifact acceptance in the target
+matrix, obtain all target approvals, and finalize the bilingual changelog. The
+owner protections above are recommended when the owner is available. Then
 follow the signed-tag, matching-draft, publishing-access, and Full Self-Test
 gates described here. Successful compilation alone does not remove the veto.
+
+### Access recheck: 2026-09-12
+
+A read-only API recheck found the same state as the 2026-09-07 audit. The
+`release` environment has no protection rules or deployment branch policy,
+`main` is unprotected, the repository has no rulesets, and `F1xGOD` holds write
+access without admin or maintain. Verify passed for `6f87f99`. No Full
+Self-Test has run since `2cefde2`.
+
+### Runbook: cutting 1.3.0
+
+1.3.0 is a native-mod release of the 52 manifest targets. The Spigot candidate
+stays outside the manifest, and this workflow cannot publish it. Each step
+depends on the one before it. Stop at the first failure.
+
+1. **Signing key, then optional owner protections.** Confirm that the tagger's
+   GPG or SSH signing key is registered on GitHub so the tag reports as
+   verified. The repository setup above is recommended defense in depth, but
+   the Release workflow does not require it. On 2026-09-12 the maintainer chose
+   to cut 1.3.0 with write access alone while the owner was unavailable. Add
+   the protections once the owner can apply them.
+2. **Fresh installed-JAR acceptance.** From a clean checkout of `main`:
+
+   ```bash
+   scripts/test-premium-client.sh login
+   TRUEUUID_PREMIUM_NAME=YourMinecraftName \
+     scripts/test-runtime-matrix.sh --targets all \
+     --scenarios premium,offline,migrate,known-deny
+   ```
+
+   Resume an interrupted run with `--start-at <target>` or
+   `--resume-from build/runtime-acceptance/<run>`, reusing only runs of the
+   same commit. Every target needs four `PASS` or `REUSED_PASS` rows in the new
+   `summary.tsv`. These scenarios do not exercise the timeout, silence, or
+   malformed-answer denials, which remain unit-tested.
+3. **Record evidence and approve, in one commit.** Add an "Evidence level for
+   1.3.0" section to the target matrix with the run directory, change each
+   runtime state to "Core accepted (1.3.0)", and update the release notice in
+   both READMEs. Then approve the manifest:
+
+   ```bash
+   jq '.release_ready = true | .targets |= map(.release = true)' \
+     release/targets.json > release/targets.json.new
+   mv release/targets.json.new release/targets.json
+   ./scripts/release/validate-release-config.sh
+   ./scripts/release/validate-workflows.sh
+   git diff --check
+   ```
+
+   The publication validator must now exit 0. Reread
+   [`release-changelog-1.3.0.md`](release-changelog-1.3.0.md) before
+   committing. Its exact bytes become the GitHub, Modrinth, and CurseForge
+   notes.
+4. **Push and wait for CI.** Push the signed commit to `main`, wait for every
+   Verify job, and then run Full Self-Test on `main`:
+
+   ```bash
+   gh workflow run self-test.yml --ref main
+   ```
+
+   A failure here costs a fix commit. The same failure after tagging requires
+   a new patch version.
+5. **Tag and draft.**
+
+   ```bash
+   git tag -s v1.3.0 -m "TrueUUID 1.3.0"
+   git push origin v1.3.0
+   gh release create v1.3.0 --draft --verify-tag \
+     --title "v1.3.0-TrueUUID" \
+     --notes-file docs/development/release-changelog-1.3.0.md
+   gh api repos/YuWan-030/TrueUUID/releases \
+     | jq -j '.[] | select(.tag_name == "v1.3.0") | .body' \
+     | cmp - docs/development/release-changelog-1.3.0.md
+   ```
+
+   The last command must print nothing. The Release workflow repeats the same
+   byte comparison.
+6. **Publish.** Start the guarded workflow and approve the `release`
+   deployment:
+
+   ```bash
+   gh workflow run release.yml --ref main -f tag=v1.3.0
+   ```
+
+   Do not press **Publish release** in the GitHub UI. The workflow publishes
+   the draft itself after the Modrinth and CurseForge uploads succeed.
+7. **Optional endorsements.** Each maintainer may add a detached signature
+   with `sign-release-assets.sh`, described below.
 
 ### Credential handling and publication guard
 
@@ -292,10 +387,9 @@ instruction. `./scripts/release/validate-release-config.sh` must fail for this
 version; CI uses `--development` only to validate that the manifest is coherent
 while publication remains blocked.
 
-For 1.3.0, keep every target unapproved until its exact current-artifact matrix
-passes, finish the bilingual changelog, and set `release_ready=true` only after
-the complete declared inventory has fresh approval. The next implementation
-sequence is documented in
+For 1.3.0, every target passed its exact current-artifact matrix and received
+fresh approval before `release_ready` was set to true. The Spigot/Paper
+implementation sequence is documented in
 [`spigot-paper-1.20.1-handoff.md`](spigot-paper-1.20.1-handoff.md).
 
 ### Adding independent developer signatures

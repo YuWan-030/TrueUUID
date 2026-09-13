@@ -17,13 +17,14 @@ passes. Maintainers can follow the
 [first-test guide](docs/development/spigot-1.20.1-first-test.md).
 
 > [!IMPORTANT]
-> Version 1.3.0 is the current development line and is explicitly blocked from
-> publication while its acceptance gates remain open. The withheld 1.2.1
-> artifacts remain historical regression evidence in the
-> [target matrix](docs/architecture/target-matrix.md): every Minecraft patch
-> from 1.20.1 through 1.21.11 on Fabric and NeoForge, plus every Forge patch
-> for which Forge exists. The next feature release will add dual-mode
-> Spigot/Paper support only after its security and real-login gates pass.
+> Version 1.3.0 is a security update for every Forge, Fabric, and NeoForge
+> build, and all 52 builds passed the installed-JAR login matrix on their 1.3.0
+> artifacts. The withheld 1.2.1
+> build will never be published. Its exact-patch coverage ships with 1.3.0
+> instead: every Minecraft patch from 1.20.1 through 1.21.11 on Fabric and
+> NeoForge, plus every Forge patch for which Forge exists. The Spigot 1.20.1
+> plugin is not part of 1.3.0. See the
+> [target matrix](docs/architecture/target-matrix.md).
 
 ## Quick start
 
@@ -58,11 +59,10 @@ internet. It deliberately binds to localhost and uses offline mode for testing.
   that feature in the target matrix.
 
 All 52 currently declared adapters include offline-to-verified data migration,
-admin commands, and the addon API, and every one of them passed the premium,
-offline fallback, confirmed migration, and known-name denial installed-JAR
-matrix on the exact login path it ships. Consult the target matrix instead of
-assuming every implemented feature or an omitted adjacent Minecraft patch was
-exercised.
+admin commands, and the addon API. On the 1.3.0 artifacts, every one of them
+passed the installed-JAR matrix: premium login, offline fallback, confirmed
+migration, and known-name denial. Consult the target matrix instead of assuming
+every implemented feature or an omitted adjacent Minecraft patch was exercised.
 
 ## How login verification works
 
@@ -120,22 +120,27 @@ The main policy options are:
 
 ```toml
 auth.timeoutMs = 30000
-auth.allowOfflineOnTimeout = false # legacy key; timeout always denies
 auth.allowOfflineOnFailure = true
 auth.knownPremiumDenyOffline = true
 auth.allowOfflineForUnknownOnly = true
-auth.recentIpGrace.enabled = true
-auth.recentIpGrace.ttlSeconds = 10
 auth.showJoinFeedback = true
 auth.showJoinTitle = false
 auth.showAccountOverlay = true
 ```
 
-Only the exact bounded client response that explicitly reports no local session
-may select the configured offline route. Timeout, malformed/deceptive response,
-authority failure, and failed premium verification always deny; the legacy
-`allowOfflineOnTimeout` key is retained for config-file compatibility but is
-ignored by current login seams.
+`allowOfflineOnFailure` applies only when a client with TrueUUID installed
+explicitly reports that it has no local premium session, as an offline launcher
+does. Timeout, a malformed or deceptive response, authority failure, and failed
+premium verification always deny. A client without TrueUUID is disconnected
+with a message asking the player to install it.
+
+For a name that has already passed premium verification, offline fallback is
+refused while either `knownPremiumDenyOffline` or `allowOfflineForUnknownOnly`
+is true.
+
+`allowOfflineOnTimeout`, `recentIpGrace.enabled`, and
+`recentIpGrace.ttlSeconds` remain in generated config files for compatibility.
+Version 1.3.0 ignores them.
 
 The unsupported Spigot candidate has the newer admission, alias, command, and
 LuckPerms model. See the
@@ -174,8 +179,7 @@ Available admin commands:
 /trueuuid migrateuuid <name>
 ```
 
-Both commands require permission level 4. The target matrix identifies which
-adapters currently include migration.
+Both commands require permission level 4.
 
 ## Addon API
 
@@ -214,34 +218,8 @@ The Prism-ready JAR is then:
 platform/neoforge/1.21.11/build/libs/trueuuid-1.3.0-neoforge-1.21.11.jar
 ```
 
-Change `TARGET` to any ID in `release/targets.json`, for example:
-
-```text
-forge-1.20.1
-forge-1.20.3
-forge-1.21
-forge-1.21.6
-forge-1.21.7
-forge-1.21.8
-forge-1.21.9
-fabric-1.20.1
-fabric-1.20.5
-fabric-1.21
-fabric-1.21.2
-fabric-1.21.7
-fabric-1.21.9
-fabric-1.21.11
-neoforge-1.20.3
-neoforge-1.20.4
-neoforge-1.20.5
-neoforge-1.21
-neoforge-1.21.2
-neoforge-1.21.7
-neoforge-1.21.9
-neoforge-1.21.11
-```
-
-List every available target with:
+Change `TARGET` to any ID in `release/targets.json`, such as `forge-1.20.1`
+or `fabric-1.21.11`. List every available target with:
 
 ```bash
 jq -r '.targets[].id' release/targets.json

@@ -13,9 +13,8 @@ The maintainer's first Fabric/clientless test commands are in
 
 ## Fixed decisions
 
-- Version 1.3.0 is the current development line. `release/targets.json` carries
-  the machine-readable `release_ready=false` veto and no current target is
-  release-approved.
+- Version 1.3.0 is a native-mod release. Its 52 mod targets are approved in
+  `release/targets.json`, and Spigot stays an unsupported candidate outside it.
 - Version 1.2.1 remains permanently withheld; never tag, draft, publish, or
   reuse it.
 - Implement Spigot 1.20.1 first, then Paper 1.20.1, then add exact server
