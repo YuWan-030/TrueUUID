@@ -8,22 +8,25 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class HybridJoinFeedbackTest {
     @Test void rendersPremiumFeedbackForEnglishAndChineseClients() {
-        assertEquals("[TrueUUID] Premium account verified.",
-                HybridJoinFeedback.messages(AccountStatus.PREMIUM_VERIFIED, "en_us").chat());
-        assertEquals("TrueUUID · Premium verified",
+        HybridJoinFeedback.Messages english = HybridJoinFeedback.messages(AccountStatus.PREMIUM_VERIFIED, "en_us");
+        assertEquals("Premium account verified.", english.chat());
+        assertEquals(Tone.SUCCESS, english.tone());
+        assertEquals("Premium verified",
                 HybridJoinFeedback.messages(AccountStatus.PREMIUM_VERIFIED, null).actionBar());
-        assertEquals("[TrueUUID] 正版账号验证成功。",
+        assertEquals("正版账号验证成功。",
                 HybridJoinFeedback.messages(AccountStatus.PREMIUM_VERIFIED, "zh_cn").chat());
     }
 
     @Test void rendersExplicitOfflineFallbackWithoutCallingItPremium() {
-        assertEquals("[TrueUUID] Offline fallback accepted. This account was not premium-verified.",
-                HybridJoinFeedback.messages(AccountStatus.OFFLINE_FALLBACK, "en_gb").chat());
-        assertEquals("TrueUUID · 离线兜底",
+        HybridJoinFeedback.Messages offline = HybridJoinFeedback.messages(AccountStatus.OFFLINE_FALLBACK, "en_gb");
+        assertEquals("Offline fallback accepted. This account was not premium-verified.", offline.chat());
+        assertEquals(Tone.ERROR, offline.tone());
+        assertEquals("离线兜底",
                 HybridJoinFeedback.messages(AccountStatus.OFFLINE_FALLBACK, "zh_tw").actionBar());
     }
 
@@ -41,8 +44,17 @@ class HybridJoinFeedbackTest {
                 AuthenticatedIdentity.Authority.OFFLINE, true);
         HybridJoinFeedback.Messages messages = HybridJoinFeedback.messages(
                 AccountStatus.OFFLINE_FALLBACK, "en_us", Optional.of(identity));
-        assertEquals("[TrueUUID] Offline identity FixGOD is using the safe alias -FixGOD.",
-                messages.chat());
-        assertEquals("TrueUUID · Offline alias -FixGOD", messages.actionBar());
+        assertEquals("Offline identity FixGOD is using the safe alias -FixGOD.", messages.chat());
+        assertEquals("Offline alias -FixGOD", messages.actionBar());
+    }
+
+    @Test void bodiesNeverCarryTheBrandPrefixThatRenderersAdd() {
+        for (AccountStatus status : new AccountStatus[]{AccountStatus.PREMIUM_VERIFIED, AccountStatus.OFFLINE_FALLBACK}) {
+            for (String locale : new String[]{"en_us", "zh_cn"}) {
+                HybridJoinFeedback.Messages messages = HybridJoinFeedback.messages(status, locale);
+                assertFalse(messages.chat().contains("TrueUUID"));
+                assertFalse(messages.actionBar().contains("TrueUUID"));
+            }
+        }
     }
 }

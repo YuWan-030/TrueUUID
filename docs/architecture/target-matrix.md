@@ -9,9 +9,9 @@ wide metadata range is not a support claim.
 Version 1.3.0 is approved for release. Every one of the 52 declared targets
 passed the four-case installed-JAR matrix against its 1.3.0 artifact, and
 `release/targets.json` sets `release_ready` and every target-level `release`
-approval to `true`. Spigot/Paper dual-mode work must pass its own gates before
-support is declared. Version 1.2.1 remains permanently withheld. Never create
-or reuse a `v1.2.1` tag.
+approval to `true`. The Spigot and Paper 1.20.1 server plugins are supported
+but not yet approved for 1.3.0 publication, as described below. Version 1.2.1
+remains permanently withheld. Never create or reuse a `v1.2.1` tag.
 
 The worktree declares 52 exact mod targets: 16 Forge, 18 Fabric, and 18 NeoForge.
 Fabric and NeoForge now carry one exact module for every Minecraft patch from
@@ -19,13 +19,26 @@ Fabric and NeoForge now carry one exact module for every Minecraft patch from
 which Forge published a loader. Forge never published a 1.20.5 or 1.21.2
 loader, so those two Forge targets do not exist upstream and are not omissions.
 
-Spigot 1.20.1 has a `Spigot / 1.20.1 (JDK 17)` matrix job in both Verify and
-Full Self-Test. `ci/server-plugin-targets.json` supplies the shared candidate
-matrix, while exact target scripts rebuild the pinned boundary, inspect the
-plugin JAR, install it on Spigot 3871, and verify one-signal clean shutdown.
-This is a CI candidate gate, not a declared target or support claim: its
-artifact remains marked `UNSUPPORTED-CANDIDATE`, is uploaded outside the
-`release-*` namespace, and cannot be published by the guarded Release workflow.
+### Server plugins
+
+| Target ID | Server tested | ProtocolLib tested | Java | Runtime state | 1.3.0 approval |
+|---|---|---|---:|---|---:|
+| `spigot-1.20.1` | Spigot 1.20.1 build 3871 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | false |
+| `paper-1.20.1` | Paper 1.20.1 build 196 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | false |
+
+Server plugins are inventoried in `ci/server-plugin-targets.json`. Both share
+one CraftBukkit 1.20.1 login engine and accept any Spigot or Paper 1.20.1 build
+whose login seams resolve, with ProtocolLib 5.x from 5.1.0. "Local gate
+accepted" means the gate agreed for the first plugin release: vanilla premium,
+Fabric 1.20.1 premium, and Fabric 1.20.1 offline logins on the installed JAR,
+plus the seam contract and the installed-server smoke. The broader plugin gates
+remain open and are listed in
+[`server-plugin-1.20.1-evidence.md`](../development/server-plugin-1.20.1-evidence.md).
+The approval column stays `false` until the CurseForge Bukkit plugin project ID
+is configured. Verify and Full Self-Test run a `Spigot / 1.20.1 (JDK 17)` and a
+`Paper / 1.20.1 (JDK 17)` job.
+
+### Mod target inventory
 
 `release/targets.json` is the single target inventory. Root `settings.gradle`
 derives its included modules from it, the aggregate root `build` task derives
@@ -171,8 +184,8 @@ Every declared target now carries 1.3.0 evidence. The 1.2.0 and 1.2.1 states
 are kept only in the historical sections.
 
 The `1.3.0 approval` column mirrors `release/targets.json`. Spigot and Paper do
-not appear in this table because the Spigot implementation remains an
-unsupported candidate and Paper is not implemented.
+not appear in this table because server plugins have their own inventory and
+table in the current verdict above.
 
 | Target ID | Loader version | Java | Runtime state | 1.3.0 approval |
 |---|---:|---:|---|---:|

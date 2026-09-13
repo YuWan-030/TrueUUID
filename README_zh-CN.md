@@ -9,16 +9,17 @@ TrueUUID 是适用于离线模式 Minecraft 服务器的账号验证 Mod。它�
 它也支持已配置的 Yggdrasil/authlib-injector 皮肤站账号。当前已验证及计划中的目标状态统一记录在
 [`目标矩阵`](docs/architecture/target-matrix.md)中。
 
-当前受支持的原生 Mod 模式要求客户端和服务端都安装本 Mod。现有一个尚未
-受支持的 Spigot 1.20.1 候选版本，同时实现了匹配 TrueUUID 客户端的路径和
-无需客户端 Mod 的安全原版混合鉴权路径；在完整真实登录矩阵通过前，它不会
-进入发布目标清单。维护者可参考
-[`首次测试指南`](docs/development/spigot-1.20.1-first-test.md)。
+原生 Mod 模式要求客户端和服务端都安装本 Mod。
+
+Spigot 与 Paper 1.20.1 服务器可以改用 TrueUUID 服务端插件，无需服务端 Mod。
+插件需要 ProtocolLib 5.1.0 或更新版本，同时支持匹配的 TrueUUID 客户端和未安装
+Mod 的正版客户端。插件已通过本地登录验收，但尚未获准发布。维护者可参考
+[`服务端插件测试指南`](docs/development/server-plugin-1.20.1-testing.md)。
 
 > [!IMPORTANT]
 > 1.3.0 是面向所有 Forge、Fabric 与 NeoForge 构建的安全更新，全部 52 个构建
 > 都已在 1.3.0 产物上通过生产 JAR 真实登录验收。1.2.1 永久保留、不会发布，
-> 其精确补丁版本覆盖将随 1.3.0 一起提供。Spigot 1.20.1 插件不包含在 1.3.0 中。
+> 其精确补丁版本覆盖将随 1.3.0 一起提供。Spigot 与 Paper 1.20.1 插件尚未获准随 1.3.0 发布。
 
 服务端必须设置：
 

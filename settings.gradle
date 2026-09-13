@@ -34,12 +34,15 @@ include 'shared:server-core'
 // to avoid setting up every loader for one run. Builds without it are unchanged.
 def onlyTarget = providers.gradleProperty('trueuuid.onlyTarget').orNull
 
-// Unsupported plugin candidates are intentionally outside release/targets.json
-// until their installed-JAR acceptance matrix is complete. They still compile
-// and test explicitly in CI and may not be published by manifest-driven tasks.
+// Server plugins are inventoried by ci/server-plugin-targets.json, not
+// release/targets.json, so a plugin approval can never block or widen the mod
+// release. The CraftBukkit engine module is shared by the Spigot and Paper
+// targets of the same Minecraft version and is not itself a release target.
 if (onlyTarget == null) {
     include 'plugin:bukkit-common'
+    include 'plugin:craftbukkit:1.20.1'
     include 'plugin:spigot:1.20.1'
+    include 'plugin:paper:1.20.1'
 }
 
 // release/targets.json is the single target inventory. Standalone build

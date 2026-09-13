@@ -34,7 +34,7 @@ login, offline fallback, confirmed migration, and known-name denial.
 - Forge: 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.6, 1.21, 1.21.1, and 1.21.3 through 1.21.11.
 - Fabric: every Minecraft release from 1.20.1 through 1.21.11.
 - NeoForge: every Minecraft release from 1.20.1 through 1.21.11.
-- The Spigot 1.20.1 plugin in the source tree is an unsupported candidate and is not part of this release.
+- The Spigot and Paper 1.20.1 server plugins are not part of this release.
 
 ## 中文
 
@@ -71,4 +71,4 @@ TrueUUID 1.3.0 是面向所有 Forge、Fabric 与 NeoForge 构建的安全更新
 - Forge：1.20.1、1.20.2、1.20.3、1.20.4、1.20.6、1.21、1.21.1，以及 1.21.3 至 1.21.11。
 - Fabric：1.20.1 至 1.21.11 的每个 Minecraft 正式版本。
 - NeoForge：1.20.1 至 1.21.11 的每个 Minecraft 正式版本。
-- 源码中的 Spigot 1.20.1 插件仍是未受支持的候选版本，不包含在本次发布中。
+- Spigot 与 Paper 1.20.1 服务端插件不包含在本次发布中。

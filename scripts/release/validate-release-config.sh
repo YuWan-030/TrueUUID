@@ -71,4 +71,21 @@ done < <(jq -r '.targets[] | select(.release == true) | .id' ci/server-plugin-ta
 
 ./scripts/release/validate-changelog.sh "$changelog"
 
+# Every store receives this exact changelog. An approved plugin must therefore
+# be named in both language sections, so no store lists a download the notes
+# never mention.
+english_notes=$(awk '$0 == "## English" { section = 1; next } $0 == "## 中文" { section = 0 } section' "$changelog")
+chinese_notes=$(awk '$0 == "## 中文" { section = 1; next } section' "$changelog")
+while IFS=$'\t' read -r plugin_name plugin_game_version
+do
+    for notes in "$english_notes" "$chinese_notes"
+    do
+        grep -Fq "$plugin_name $plugin_game_version" <<<"$notes" || {
+            echo "the changelog must name the approved $plugin_name $plugin_game_version plugin in both languages" >&2
+            exit 65
+        }
+    done
+done < <(jq -r '.targets[] | select(.release == true) | [.platform_name, .game_version] | @tsv' \
+    ci/server-plugin-targets.json)
+
 echo "Verified complete ${version} release configuration for $(jq '.targets | length' release/targets.json) mod targets and $(jq '[.targets[] | select(.release == true)] | length' ci/server-plugin-targets.json) approved server plugins."

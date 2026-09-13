@@ -8,13 +8,14 @@ TrueUUID adds account verification to modded Minecraft servers that run in
 offline mode. A premium player's access token stays on their own computer; the
 server receives only the login proof needed to verify their UUID and skin.
 
-The currently supported native-mod model requires TrueUUID on both client and
-server. Always choose the JAR made for the exact Minecraft version and loader.
-An unsupported Spigot 1.20.1 candidate now implements both a matching TrueUUID
-client path and a secure vanilla-hybrid path with no client mod. It remains
-outside the release target manifest until its complete real-login matrix
-passes. Maintainers can follow the
-[first-test guide](docs/development/spigot-1.20.1-first-test.md).
+The native-mod model requires TrueUUID on both client and server. Always choose
+the JAR made for the exact Minecraft version and loader.
+
+Spigot and Paper 1.20.1 servers can use the TrueUUID server plugin instead of a
+server mod. It needs ProtocolLib 5.1.0 or newer and accepts both a matching
+TrueUUID client and an unmodified premium client. The plugins passed their local
+login gate but are not yet approved for publication. Maintainers can follow the
+[server-plugin test guide](docs/development/server-plugin-1.20.1-testing.md).
 
 > [!IMPORTANT]
 > Version 1.3.0 is a security update for every Forge, Fabric, and NeoForge
@@ -22,8 +23,8 @@ passes. Maintainers can follow the
 > artifacts. The withheld 1.2.1
 > build will never be published. Its exact-patch coverage ships with 1.3.0
 > instead: every Minecraft patch from 1.20.1 through 1.21.11 on Fabric and
-> NeoForge, plus every Forge patch for which Forge exists. The Spigot 1.20.1
-> plugin is not part of 1.3.0. See the
+> NeoForge, plus every Forge patch for which Forge exists. The Spigot and Paper
+> 1.20.1 plugins are not yet approved for 1.3.0. See the
 > [target matrix](docs/architecture/target-matrix.md).
 
 ## Quick start
@@ -142,7 +143,7 @@ is true.
 `recentIpGrace.ttlSeconds` remain in generated config files for compatibility.
 Version 1.3.0 ignores them.
 
-The unsupported Spigot candidate has the newer admission, alias, command, and
+The Spigot and Paper plugins have the newer admission, alias, command, and
 LuckPerms model. See the
 [identity policy administrator guide](docs/development/identity-policy-admin-guide.md).
 The loader adapters do not yet implement that entire model; the guide states the

@@ -117,7 +117,14 @@ for plugin_release_contract in \
     '--slurpfile plugins ci/server-plugin-targets.json' \
     './scripts/release/resolve-release-target.sh "$target_id"' \
     './scripts/release/resolve-release-target.sh "$TARGET_ID"' \
-    "if: matrix.curseforge && steps.curseforge-preflight.outputs.upload == 'true'"
+    "if: matrix.kind == 'mod' && steps.curseforge-preflight.outputs.upload == 'true'" \
+    "if: matrix.kind == 'plugin' && steps.curseforge-preflight.outputs.upload == 'true'" \
+    './scripts/release/publish-curseforge-plugin.sh' \
+    'if: matrix.hangar' \
+    './scripts/release/publish-hangar.sh' \
+    'HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}' \
+    'run: ./scripts/release/validate-plugin-publishing-access.sh' \
+    'if: matrix.spigotmc'
 do
     grep -Fq -- "$plugin_release_contract" .github/workflows/release.yml || {
         echo "release.yml is missing server-plugin release contract: ${plugin_release_contract}" >&2
@@ -133,37 +140,36 @@ grep -Fq 'pattern: release-*' .github/workflows/release.yml || {
     echo 'release.yml must collect only explicitly release-namespaced artifacts' >&2
     exit 65
 }
-if grep -Fq 'release-spigot-1.20.1' .github/workflows/self-test.yml; then
-    echo 'unsupported Spigot artifact must not enter the release artifact namespace' >&2
+if grep -Eq 'release-(spigot|paper)-' .github/workflows/self-test.yml
+then
+    echo 'server-plugin artifacts may enter the release namespace only through their manifest approval' >&2
     exit 65
 fi
-for pinned_spigot_contract in \
-    "buildtools_sha256='b61fa90158f594ee95bea1a27399eb64d439b4c8ae9345bd4476a02ce49b06ff'" \
-    "protocol_sha256='562c3ef79391e25f71b23359adb6becae7bcee36b0dfe2621b2c679013116769'" \
-    ':plugin:spigot:1.20.1:exactRuntimeCompatibilityTest' \
-    ':plugin:spigot:1.20.1:crossLoaderCompatibilityTest'; do
-    grep -Fq "$pinned_spigot_contract" scripts/ci/build-spigot-candidate.sh || {
-        echo "Spigot candidate builder is missing pin: ${pinned_spigot_contract}" >&2
-        exit 65
-    }
-done
-for spigot_artifact_contract in \
-    'TrueUUID-Support-Status: UNSUPPORTED-CANDIDATE' \
-    'TrueUUID-Support-Status: SUPPORTED' \
-    'ProtocolLib-Version: 5.1.0' \
-    'Spigot-Implementation-Version: 3871-Spigot-d2eba2c-3f9263b'; do
-    grep -Fq "$spigot_artifact_contract" scripts/ci/verify-spigot-plugin-jar.sh || {
-        echo "Spigot plugin verifier is missing artifact contract: ${spigot_artifact_contract}" >&2
-        exit 65
-    }
-done
-for spigot_smoke_contract in \
+for server_plugin_library_contract in \
+    '"$sp_engine_module:serverRuntimeContractTest"' \
+    '"$sp_engine_module:crossLoaderCompatibilityTest"' \
     'server AUTO DENY CONSENT_REQUIRED' \
-    'Secure login bridge enabled: mode=AUTO, offline=DENY, admission=CONSENT_REQUIRED' \
+    'Secure login bridge enabled: mode=AUTO, offline=DENY, admission=CONSENT_REQUIRED, platform=$sp_platform_name, server=' \
     'Server exited cleanly.' \
-    'ThreadedAnvilChunkStorage: All dimensions are saved'; do
-    grep -Fq "$spigot_smoke_contract" scripts/ci/runtime-smoke-spigot.sh || {
-        echo "Spigot runtime smoke is missing lifecycle contract: ${spigot_smoke_contract}" >&2
+    '"TrueUUID-Support-Status: $sp_manifest_status"' \
+    'trueuuid-target.properties does not match ci/server-plugin-targets.json' \
+    'latest.log contains ANSI escape codes from console styling'
+do
+    grep -Fq -- "$server_plugin_library_contract" scripts/ci/server-plugins/lib.sh || {
+        echo "server-plugin CI library is missing contract: ${server_plugin_library_contract}" >&2
+        exit 65
+    }
+done
+for pinned_runtime_contract in \
+    "scripts/ci/server-plugins/spigot-1.20.1.sh|buildtools_sha256='b61fa90158f594ee95bea1a27399eb64d439b4c8ae9345bd4476a02ce49b06ff'" \
+    "scripts/ci/server-plugins/spigot-1.20.1.sh|ThreadedAnvilChunkStorage: All dimensions are saved" \
+    "scripts/ci/server-plugins/paper-1.20.1.sh|paper_sha256='234a9b32098100c6fc116664d64e36ccdb58b5b649af0f80bcccb08b0255eaea'" \
+    "scripts/ci/server-plugins/paper-1.20.1.sh|Closing Server" \
+    "plugin/craftbukkit/1.20.1/src/main/java/cn/alini/trueuuid/craftbukkit/v1_20_1/TrueuuidPlugin.java|\"Secure login bridge enabled: mode=\"" \
+    "plugin/craftbukkit/1.20.1/src/main/java/cn/alini/trueuuid/craftbukkit/v1_20_1/TrueuuidPlugin.java|\", platform=\" + platform.platform().displayName()"
+do
+    grep -Fq -- "${pinned_runtime_contract#*|}" "${pinned_runtime_contract%%|*}" || {
+        echo "server-plugin runtime contract is missing: ${pinned_runtime_contract}" >&2
         exit 65
     }
 done

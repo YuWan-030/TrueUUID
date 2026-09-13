@@ -1,6 +1,6 @@
 # Identity policy administrator guide
 
-This guide describes the unsupported Spigot 1.20.1 candidate. It is written for
+This guide describes the Spigot and Paper 1.20.1 server plugins. It is written for
 administrators who do not want to understand the login protocol. The secure
 architecture contract remains
 [`server-plugin-bridge.md`](../architecture/server-plugin-bridge.md).
@@ -116,7 +116,7 @@ trueuuid.notify
 ```
 
 Bukkit permission checks work with LuckPerms without group changes. If
-LuckPerms 5.5 is installed on the backend, the candidate registers:
+LuckPerms 5.5 is installed on the backend, the plugin registers:
 
 ```text
 trueuuid-status=premium|offline
@@ -158,10 +158,10 @@ The shared server core defines the target admission/configuration contract, but
 the current Forge, Fabric, and NeoForge server adapters still use their legacy
 fallback booleans and verified-name stores. Their client badge and wire remain
 compatible; the new collision repository, approval commands, aliases, identity
-API, and LuckPerms contexts are not yet behaviorally ported. Do not copy Spigot
+API, and LuckPerms contexts are not yet behaviorally ported. Do not copy plugin
 YAML keys into a loader config and assume they work.
 
 Each loader becomes equivalent only after its exact installed artifact consumes
 the shared core and passes the same collision, malicious-client, restart,
-permission, and feedback cases. Until then the target matrix and handoff must
-state this gap plainly.
+permission, and feedback cases. Until then the target matrix and the plugin
+evidence must state this gap plainly.

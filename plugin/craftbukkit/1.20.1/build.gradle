@@ -1,0 +1,133 @@
+plugins {
+    id 'java-library'
+}
+
+// Plugin modules share the project name of their Minecraft version. A distinct
+// group per directory keeps their Gradle module identities from colliding.
+group = 'cn.alini.plugin.craftbukkit'
+version = providers.gradleProperty('mod_version').get()
+
+// The CraftBukkit v1_20_R1 login engine shared by the Spigot and Paper 1.20.1
+// targets. It is not a release target and produces no plugin JAR of its own.
+// ProtocolLib pins come from ci/server-plugin-targets.json. The CI scripts read
+// the same file and the same download directory, so Gradle tests and the
+// installed-server smoke always use identical ProtocolLib bytes.
+def pluginManifest = new groovy.json.JsonSlurper().parse(rootProject.file('ci/server-plugin-targets.json'))
+def protocolLibPins = pluginManifest.protocollib.verified.collect { [version: it.version, sha256: it.sha256] }
+def protocolLibJar = { String pinnedVersion ->
+    rootProject.layout.buildDirectory.file("server-plugins/protocollib/ProtocolLib-${pinnedVersion}.jar").get().asFile
+}
+def compileProtocolLib = protocolLibJar(pluginManifest.protocollib.compile_version as String)
+def protocolLibJarsProperty = protocolLibPins.collect { protocolLibJar(it.version).absolutePath }
+        .join(File.pathSeparator)
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+}
+
+def fetchProtocolLib = tasks.register('fetchProtocolLib') {
+    description = 'Downloads every verified ProtocolLib release and checks its SHA-256.'
+    inputs.property('pins', protocolLibPins)
+    outputs.files(protocolLibPins.collect { protocolLibJar(it.version) })
+    doLast {
+        protocolLibPins.each { pin ->
+            File destination = protocolLibJar(pin.version)
+            destination.parentFile.mkdirs()
+            if (!destination.exists()) {
+                File partial = new File(destination.parentFile, "${destination.name}.part")
+                URI.create("https://github.com/dmulloy2/ProtocolLib/releases/download/${pin.version}/ProtocolLib.jar")
+                        .toURL()
+                        .withInputStream { input -> partial.withOutputStream { output -> output << input } }
+                if (!partial.renameTo(destination)) {
+                    throw new GradleException("Could not move ${partial} into place")
+                }
+            }
+            String actual = java.security.MessageDigest.getInstance('SHA-256')
+                    .digest(destination.bytes).encodeHex().toString()
+            if (actual != pin.sha256) {
+                destination.delete()
+                throw new GradleException("ProtocolLib ${pin.version} checksum mismatch: ${actual}")
+            }
+        }
+    }
+}
+
+dependencies {
+    api project(':plugin:bukkit-common')
+    api project(':shared:protocol')
+    api project(':shared:server-core')
+    compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    compileOnly files(compileProtocolLib)
+    testImplementation 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    testImplementation files(compileProtocolLib)
+    testImplementation 'org.ow2.asm:asm:9.7.1'
+    testImplementation 'org.ow2.asm:asm-tree:9.7.1'
+    // ProtocolLib's channel injector links against netty, which the server
+    // bundles at runtime. The isolated ProtocolLib shape test needs the same.
+    testRuntimeOnly 'io.netty:netty-transport:4.1.82.Final'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn fetchProtocolLib
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test) {
+    dependsOn fetchProtocolLib
+    systemProperty 'trueuuid.protocolLibJars', protocolLibJarsProperty
+    useJUnitPlatform {
+        excludeTags 'server-runtime', 'cross-loader-runtime'
+    }
+}
+
+tasks.register('serverRuntimeContractTest', Test) {
+    description = 'Checks every obfuscated login seam against a real mapped 1.20.1 server JAR.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    dependsOn fetchProtocolLib
+    useJUnitPlatform {
+        includeTags 'server-runtime'
+    }
+    def runtimeJar = providers.gradleProperty('serverRuntimeJar')
+    systemProperty 'trueuuid.protocolLibJars', protocolLibJarsProperty
+    doFirst {
+        if (!runtimeJar.isPresent() || !file(runtimeJar.get()).isFile()) {
+            throw new GradleException('serverRuntimeContractTest requires -PserverRuntimeJar=/path/to/mapped-server.jar')
+        }
+        systemProperty 'trueuuid.serverRuntimeJar', file(runtimeJar.get()).absolutePath
+    }
+}
+
+tasks.register('crossLoaderCompatibilityTest', Test) {
+    description = 'Checks that a built plugin JAR and the Fabric 1.20.1 JAR share the golden wire contract.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    def pluginTargetId = providers.gradleProperty('pluginTarget')
+    def targetModule = { ->
+        def target = pluginManifest.targets.find { it.id == pluginTargetId.getOrNull() }
+        if (target == null) {
+            throw new GradleException('crossLoaderCompatibilityTest requires -PpluginTarget=<server-plugin target id>')
+        }
+        target.module as String
+    }
+    dependsOn fetchProtocolLib, ':platform:fabric-1.20.1:remapJar'
+    dependsOn { "${targetModule()}:jar".toString() }
+    useJUnitPlatform {
+        includeTags 'cross-loader-runtime'
+    }
+    doFirst {
+        systemProperty 'trueuuid.pluginJar', project(targetModule()).tasks.named('jar', Jar).get()
+                .archiveFile.get().asFile.absolutePath
+        systemProperty 'trueuuid.fabric1201Jar', rootProject.file(
+                "platform/fabric/1.20.1/build/libs/trueuuid-${project.version}-fabric-1.20.1.jar").absolutePath
+    }
+}

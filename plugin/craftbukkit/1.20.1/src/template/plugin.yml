@@ -1,0 +1,39 @@
+name: TrueUUID
+main: @main@
+version: '@version@'
+description: '@description@'
+authors: [@authors@]
+website: https://github.com/YuWan-030/TrueUUID
+api-version: '1.20'
+load: STARTUP
+depend: [ProtocolLib]
+softdepend: [LuckPerms]
+commands:
+  trueuuid:
+    description: Inspect and administer TrueUUID identity state
+    usage: /trueuuid status
+permissions:
+  trueuuid.command.status.other:
+    default: op
+  trueuuid.command.health:
+    default: op
+  trueuuid.command.policy:
+    default: op
+  trueuuid.command.identity.inspect:
+    default: op
+  trueuuid.command.identity.alias:
+    default: op
+  trueuuid.command.identity.collision:
+    default: op
+  trueuuid.command.identity.block:
+    default: op
+  trueuuid.command.identity.release:
+    default: op
+  trueuuid.command.migrate:
+    default: op
+  trueuuid.command.cleanup:
+    default: op
+  trueuuid.command.reload:
+    default: op
+  trueuuid.notify:
+    default: op

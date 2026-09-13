@@ -1,106 +1,136 @@
 #!/usr/bin/env bash
+# Strict validator and machine-readable resolver for ci/server-plugin-targets.json.
+#
+# Without arguments it validates the whole inventory. With --target or
+# --approved it prints exactly one resolved target as JSON on stdout. Release
+# jobs, CI dispatch, Gradle-independent scripts, and the local runner all read
+# targets through this one interface.
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 manifest="$repo_root/ci/server-plugin-targets.json"
 
+die() {
+    local status=$1
+    shift
+    printf '%s\n' "$*" >&2
+    exit "$status"
+}
+
 if [[ $# -ne 0 && ! ( $# -eq 2 && ( $1 == --target || $1 == --approved ) ) ]]
 then
-    echo "usage: $0 [--target <target-id> | --approved <target-id>]" >&2
-    exit 64
+    die 64 "usage: $0 [--target <target-id> | --approved <target-id>]"
 fi
-command -v jq >/dev/null 2>&1 || { echo 'jq is required' >&2; exit 69; }
-[[ -f "$manifest" ]] || { echo "missing server-plugin CI manifest: $manifest" >&2; exit 66; }
+command -v jq >/dev/null 2>&1 || die 69 'jq is required'
+[[ -f "$manifest" ]] || die 66 "missing server-plugin manifest: $manifest"
 
 project_version=$(sed -n 's/^mod_version=//p' "$repo_root/gradle.properties" | tr -d '[:space:]')
-[[ "$project_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
-    echo 'gradle.properties must contain one strict SemVer mod_version' >&2
-    exit 65
-}
+[[ "$project_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
+    die 65 'gradle.properties must contain one strict SemVer mod_version'
 
 # A plugin approval is bound to one repository version, exactly like the mod
-# manifest. Only a supported target may be approved, so an unsupported
-# candidate can never enter the release-* artifact namespace.
+# manifest. Only a supported target may be approved. Approving any plugin also
+# requires every distribution channel the Release workflow publishes it to, so
+# a release can never silently skip a store.
 jq -e --arg project_version "$project_version" '
-    (keys | sort) == (["release_version", "schema_version", "targets"] | sort) and
-    .schema_version == 2 and
+    (keys | sort) == (["distribution", "protocollib", "release_version", "schema_version", "targets"] | sort) and
+    .schema_version == 3 and
     .release_version == $project_version and
-    (.targets | type == "array" and length > 0) and
-    all(.targets[];
-      (keys | sort) == ([
-        "build_script", "game_version", "id", "java", "modrinth_loaders",
-        "module", "platform", "platform_name", "release", "smoke_script",
-        "support_status", "verify_script"
-      ] | sort) and
-      (.id | type == "string" and test("^(spigot|paper)-[0-9]+\\.[0-9]+(\\.[0-9]+)?$")) and
-      (.platform == "spigot" or .platform == "paper") and
-      (.platform_name == (if .platform == "spigot" then "Spigot" else "Paper" end)) and
-      (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$")) and
-      (.id == (.platform + "-" + .game_version)) and
-      (.java == 17 or .java == 21) and
-      (.module == (":plugin:" + .platform + ":" + .game_version)) and
-      (.support_status == "unsupported-candidate" or .support_status == "supported") and
-      (.release | type == "boolean") and
-      (.release == false or .support_status == "supported") and
-      (.platform as $platform | .modrinth_loaders |
-        type == "array" and length > 0 and
-        (unique | length) == length and
-        all(.[]; . == "spigot" or . == "paper" or . == "bukkit") and
-        index($platform) != null) and
-      all(.build_script, .verify_script, .smoke_script;
-        type == "string" and test("^scripts/ci/[a-z0-9][a-z0-9.-]*\\.sh$"))
-    ) and
-    (([.targets[].id] | unique | length) == (.targets | length)) and
-    (([.targets[].module] | unique | length) == (.targets | length))
-' "$manifest" >/dev/null || {
-    echo 'server-plugin CI manifest failed strict schema validation' >&2
-    exit 65
-}
+
+    (.distribution | type == "object" and
+        (keys | sort) == (["curseforge_project_id", "hangar_channel", "hangar_owner", "hangar_slug"] | sort) and
+        (.curseforge_project_id == null or
+            (.curseforge_project_id | type == "number" and . > 0 and . == floor)) and
+        (.hangar_owner | type == "string" and test("^[A-Za-z0-9_-]{1,32}$")) and
+        (.hangar_slug | type == "string" and test("^[A-Za-z0-9_.-]{1,64}$")) and
+        (.hangar_channel | type == "string" and test("^[A-Za-z0-9_-]{1,32}$"))) and
+
+    (.protocollib | type == "object" and
+        (keys | sort) == (["compile_version", "minimum_version", "runtime_version", "verified"] | sort) and
+        (.verified | type == "array" and length > 0 and
+            all(type == "object" and (keys | sort) == (["sha256", "version"]) and
+                (.version | type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
+                (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))) and
+            ([.[].version] | unique | length) == length) and
+        (.minimum_version as $minimum | .compile_version as $compile | .runtime_version as $runtime |
+            [.verified[].version] |
+            index($minimum) != null and index($compile) != null and index($runtime) != null)) and
+
+    (.targets | type == "array" and length > 0 and
+        all(
+            (keys | sort) == ([
+                "ci_script", "engine_module", "game_version", "hangar_platform", "id", "java",
+                "modrinth_loaders", "module", "platform", "platform_name", "release", "support_status"
+            ] | sort) and
+            (.platform == "spigot" or .platform == "paper") and
+            (.platform_name == (if .platform == "spigot" then "Spigot" else "Paper" end)) and
+            (.game_version | type == "string" and test("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$")) and
+            (.id == (.platform + "-" + .game_version)) and
+            (.java == 17 or .java == 21) and
+            (.module == (":plugin:" + .platform + ":" + .game_version)) and
+            (.engine_module == (":plugin:craftbukkit:" + .game_version)) and
+            (.support_status == "unsupported-candidate" or .support_status == "supported") and
+            (.release | type == "boolean") and
+            (.release == false or .support_status == "supported") and
+            (.modrinth_loaders == [.platform]) and
+            (.hangar_platform == (if .platform == "paper" then "PAPER" else null end)) and
+            (.ci_script == ("scripts/ci/server-plugins/" + .id + ".sh"))
+        ) and
+        ([.[].id] | unique | length) == length) and
+
+    (([.targets[] | select(.release == true)] | length) == 0 or .distribution.curseforge_project_id != null)
+' "$manifest" >/dev/null || die 65 'server-plugin manifest failed strict schema validation'
+
+# The Java startup gate must accept exactly the tested ProtocolLib minimum.
+minimum=$(jq -r '.protocollib.minimum_version' "$manifest")
+minimum_java="MINIMUM_VERSION = new Version(${minimum//./, })"
 
 while IFS= read -r target
 do
     target_id=$(jq -r '.id' <<<"$target")
     platform=$(jq -r '.platform' <<<"$target")
+    platform_name=$(jq -r '.platform_name' <<<"$target")
     game_version=$(jq -r '.game_version' <<<"$target")
     module=$(jq -r '.module' <<<"$target")
-    settings_module=${module#:}
-    [[ -d "$repo_root/plugin/$platform/$game_version" ]] || {
-        echo "server-plugin module directory is missing for $target_id" >&2
-        exit 66
-    }
-    grep -Fq "include '$settings_module'" "$repo_root/settings.gradle" || {
-        echo "settings.gradle does not include $module" >&2
-        exit 65
-    }
-    for field in build_script verify_script smoke_script
-    do
-        script=$(jq -r --arg field "$field" '.[$field]' <<<"$target")
-        [[ -f "$repo_root/$script" && -x "$repo_root/$script" ]] || {
-            echo "$target_id references a missing or non-executable $field: $script" >&2
-            exit 66
-        }
-        grep -Fq "expected_target='$target_id'" "$repo_root/$script" || {
-            echo "$target_id references a $field that is not pinned to that exact target: $script" >&2
-            exit 65
-        }
-    done
+    engine_module=$(jq -r '.engine_module' <<<"$target")
+    ci_script=$(jq -r '.ci_script' <<<"$target")
+    module_dir="$repo_root/plugin/$platform/$game_version"
+    engine_dir="$repo_root/plugin/craftbukkit/$game_version"
+    version_package="v${game_version//./_}"
+
+    [[ -d "$module_dir" ]] || die 66 "server-plugin module directory is missing for $target_id"
+    [[ -d "$engine_dir" ]] || die 66 "engine module directory is missing for $target_id"
+    grep -Fq "include '${module#:}'" "$repo_root/settings.gradle" || die 65 "settings.gradle does not include $module"
+    grep -Fq "include '${engine_module#:}'" "$repo_root/settings.gradle" ||
+        die 65 "settings.gradle does not include $engine_module"
+    grep -Fq "apply from: rootProject.file('plugin/server-plugin-target.gradle')" "$module_dir/build.gradle" ||
+        die 65 "$module must apply plugin/server-plugin-target.gradle"
+    main_source="$module_dir/src/main/java/cn/alini/trueuuid/$platform/$version_package/Trueuuid${platform_name}Plugin.java"
+    [[ -f "$main_source" ]] || die 66 "$target_id lacks its main class source: $main_source"
+    grep -Fq "ServerPlatform.${platform^^}" "$module_dir/src/main/java/cn/alini/trueuuid/$platform/$version_package/${platform_name}Platform.java" ||
+        die 65 "$target_id platform adapter does not declare ServerPlatform.${platform^^}"
+    grep -RFq "$minimum_java" "$engine_dir/src/main/java" ||
+        die 65 "$engine_module does not enforce the manifest ProtocolLib minimum $minimum"
+    [[ -f "$repo_root/$ci_script" && -x "$repo_root/$ci_script" ]] ||
+        die 66 "$target_id references a missing or non-executable CI script: $ci_script"
+    grep -Fxq "expected_target='$target_id'" "$repo_root/$ci_script" ||
+        die 65 "$target_id CI script is not pinned to that exact target: $ci_script"
 done < <(jq -c '.targets[]' "$manifest")
 
 if [[ $# -eq 0 ]]
 then
-    echo 'Verified server-plugin CI target inventory.'
+    echo 'Verified server-plugin target inventory.'
     exit 0
 fi
 
 target_id=$2
-[[ "$target_id" =~ ^(spigot|paper)-[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
-    echo "invalid server-plugin target id: $target_id" >&2
-    exit 64
-}
-# stdout is a machine-readable API. The derived artifact path, manifest marker,
-# and Actions artifact namespace are defined here, and the plugin's
-# build.gradle applies the same support_status rule.
+[[ "$target_id" =~ ^(spigot|paper)-[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || die 64 "invalid server-plugin target id: $target_id"
+
+# stdout is a machine-readable API. The artifact path, manifest marker, Actions
+# artifact namespace, and distribution coordinates are derived here, and
+# plugin/server-plugin-target.gradle applies the same support_status rule.
 jq -ce --arg id "$target_id" --arg mode "$1" '
+    . as $root |
     [.targets[] | select(.id == $id)] as $matches |
     if ($matches | length) != 1 then
         error("server-plugin target must appear exactly once")
@@ -115,7 +145,14 @@ jq -ce --arg id "$target_id" --arg mode "$1" '
                 else $libs + .id + "-candidate.jar" end),
             manifest_status: (if .support_status == "supported"
                 then "SUPPORTED" else "UNSUPPORTED-CANDIDATE" end),
-            artifact_name: ((if .release then "release-" else "tested-" end) + .id)
+            artifact_name: ((if .release then "release-" else "tested-" end) + .id),
+            curseforge_project_id: $root.distribution.curseforge_project_id,
+            hangar: (if .hangar_platform == null then null else {
+                owner: $root.distribution.hangar_owner,
+                slug: $root.distribution.hangar_slug,
+                channel: $root.distribution.hangar_channel,
+                platform: .hangar_platform
+            } end)
         }
     end
-' "$manifest" || { echo "refusing server-plugin target: $target_id" >&2; exit 65; }
+' "$manifest" || die 65 "refusing server-plugin target: $target_id"

@@ -1,0 +1,120 @@
+// Shared build for every plugin/<platform>/<minecraft-version> target module.
+//
+// ci/server-plugin-targets.json owns the target inventory and support status.
+// This script derives the JAR name, manifest, plugin.yml, and the embedded
+// trueuuid-target.properties from it, so every artifact and the plugin's own
+// startup self-check agree with the manifest. A target module only adds the
+// server API it compiles against and its thin platform adapter.
+apply plugin: 'java'
+
+// Target modules are all named after their Minecraft version, for example
+// 1.20.1. A per-platform group keeps each Gradle module identity unique.
+group = "cn.alini.plugin.${project.parent.name}".toString()
+version = providers.gradleProperty('mod_version').get()
+
+def targetId = "${project.parent.name}-${project.name}".toString()
+def pluginManifest = new groovy.json.JsonSlurper().parse(rootProject.file('ci/server-plugin-targets.json'))
+def pluginTarget = pluginManifest.targets.find { it.id == targetId }
+if (pluginTarget == null) {
+    throw new GradleException("ci/server-plugin-targets.json must declare ${targetId}")
+}
+if (pluginTarget.module != project.path) {
+    throw new GradleException("${targetId} must be built by ${pluginTarget.module}, not ${project.path}")
+}
+def supported = pluginTarget.support_status == 'supported'
+def supportStatus = supported ? 'SUPPORTED' : 'UNSUPPORTED-CANDIDATE'
+def engineModule = pluginTarget.engine_module as String
+def gameVersion = pluginTarget.game_version as String
+def platformName = pluginTarget.platform_name as String
+def mainClass = "cn.alini.trueuuid.${pluginTarget.platform}.v${gameVersion.replace('.', '_')}.Trueuuid${platformName}Plugin"
+def pluginDescription = supported
+        ? "Secure premium login for offline-mode ${platformName} ${gameVersion} servers"
+        : "Unsupported ${platformName} ${gameVersion} candidate of TrueUUID secure premium login"
+def pluginAuthors = providers.gradleProperty('mod_authors').get().split(',')
+        .collect { it.trim() }.findAll { !it.isEmpty() }
+
+evaluationDependsOn(':shared:protocol')
+evaluationDependsOn(':shared:server-core')
+evaluationDependsOn(':plugin:bukkit-common')
+evaluationDependsOn(engineModule)
+def mainOutput = { String path ->
+    project(path).extensions.getByType(SourceSetContainer).named('main').get().output
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(pluginTarget.java as int)
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    implementation project(engineModule)
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+}
+
+def metadataDirectory = layout.buildDirectory.dir('generated/trueuuid-plugin')
+def generateTargetMetadata = tasks.register('generateTargetMetadata') {
+    description = 'Generates plugin.yml and trueuuid-target.properties from the server-plugin manifest.'
+    def template = project(engineModule).file('src/template/plugin.yml')
+    def placeholders = [
+            main       : mainClass.toString(),
+            version    : project.version.toString(),
+            description: pluginDescription.toString(),
+            authors    : pluginAuthors.join(', ')]
+    def targetProperties = [
+            "target=${targetId}",
+            "platform=${pluginTarget.platform}",
+            "minecraft=${gameVersion}",
+            "version=${project.version}",
+            "support_status=${supportStatus}"].collect { it.toString() }
+    inputs.file(template)
+    inputs.property('placeholders', placeholders)
+    inputs.property('targetProperties', targetProperties)
+    outputs.dir(metadataDirectory)
+    doLast {
+        File output = metadataDirectory.get().asFile
+        project.delete(output)
+        output.mkdirs()
+        String text = template.getText('UTF-8')
+        placeholders.each { key, value -> text = text.replace("@${key}@".toString(), value) }
+        if (text =~ /@[a-z]+@/) {
+            throw new GradleException("Unexpanded placeholder in ${template}")
+        }
+        new File(output, 'plugin.yml').setText(text, 'UTF-8')
+        new File(output, 'trueuuid-target.properties').setText(targetProperties.join('\n') + '\n', 'UTF-8')
+    }
+}
+sourceSets.main.resources.srcDir(files(metadataDirectory).builtBy(generateTargetMetadata))
+
+tasks.named('jar', Jar).configure {
+    dependsOn ':shared:protocol:classes', ':shared:server-core:classes',
+            ':plugin:bukkit-common:classes', "${engineModule}:classes"
+    archiveFileName = supported ? "trueuuid-${project.version}-${targetId}.jar" : "trueuuid-${targetId}-candidate.jar"
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    from mainOutput(':shared:protocol')
+    from mainOutput(':shared:server-core')
+    from mainOutput(':plugin:bukkit-common')
+    from mainOutput(engineModule)
+    manifest {
+        attributes(
+                'Implementation-Title': "TrueUUID ${platformName} ${gameVersion}",
+                'Implementation-Version': project.version,
+                'TrueUUID-Target': targetId,
+                'TrueUUID-Support-Status': supportStatus,
+                'Minecraft-Version': gameVersion,
+                'ProtocolLib-Minimum-Version': pluginManifest.protocollib.minimum_version)
+    }
+}

@@ -121,14 +121,20 @@ jobs:
             {include: (
               [$mods[0].targets[] | select(.release == true) |
                 {target: .id,
+                 kind: "mod",
                  loader_name: (.loader | loader_name),
                  game_version: .game_version,
-                 curseforge: true}] +
+                 curseforge: true,
+                 hangar: false,
+                 spigotmc: false}] +
               [$plugins[0].targets[] | select(.release == true) |
                 {target: .id,
+                 kind: "plugin",
                  loader_name: .platform_name,
                  game_version: .game_version,
-                 curseforge: false}])}')
+                 curseforge: true,
+                 hangar: (.hangar_platform != null),
+                 spigotmc: (.platform == "spigot")}])}')
           jq -e '.include | length > 0' <<<"$approved" >/dev/null
           release_json=$(gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
@@ -251,6 +257,12 @@ jobs:
           set -euo pipefail
           curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
           ./scripts/release/validate-publishing-access.sh "$curseforge_project_id"
+      - name: Validate server-plugin store access
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}
+        shell: bash
+        run: ./scripts/release/validate-plugin-publishing-access.sh
 
   attach:
     name: Attach approved artifacts
@@ -377,7 +389,7 @@ jobs:
             '.artifact | gsub("%VERSION%"; $version)' <<<"$target")
           loader=$(jq -r '.loader' <<<"$target")
           game_version=$(jq -r '.game_version' <<<"$target")
-          curseforge_project_id=$(jq -r '.curseforge_project_id' release/targets.json)
+          curseforge_project_id=$(jq -r '.curseforge_project_id' <<<"$target")
           (cd tested-artifact && sha256sum --check SHA256SUMS)
           tested_jar="tested-artifact/$(basename "$expected")"
           [[ -f "$tested_jar" ]]
@@ -391,6 +403,17 @@ jobs:
             echo "RELEASE_GAME_VERSION=$game_version"
             echo "CURSEFORGE_PROJECT_ID=$curseforge_project_id"
           } >> "$GITHUB_ENV"
+      - name: Publish to Hangar
+        if: matrix.hangar
+        env:
+          HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}
+          TARGET_ID: ${{ matrix.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/release/publish-hangar.sh \
+            "$TARGET_ID" "$VERSION" frozen-changelog/release-changelog.md
       - name: Publish to Modrinth
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
@@ -404,18 +427,6 @@ jobs:
           [[ "$MODRINTH_PROJECT_ID" =~ ^[0-9A-Za-z]{8}$ ]]
           ./scripts/release/publish-modrinth.sh \
             "$TARGET_ID" "$VERSION" frozen-changelog/release-changelog.md
-      - name: Record manual plugin distribution handoff
-        if: ${{ !matrix.curseforge }}
-        env:
-          TARGET_ID: ${{ matrix.target }}
-        shell: bash
-        run: |
-          {
-            echo "## ${TARGET_ID} manual distribution"
-            echo
-            echo 'This server plugin is not uploaded to CurseForge automatically.'
-            echo 'After the GitHub Release is published, upload the same checksum-verified asset to the Bukkit CurseForge project and SpigotMC by hand.'
-          } >> "$GITHUB_STEP_SUMMARY"
       - id: curseforge-preflight
         name: Check for an existing CurseForge artifact
         if: matrix.curseforge
@@ -435,8 +446,8 @@ jobs:
               exit 69
               ;;
           esac
-      - name: Publish to CurseForge
-        if: matrix.curseforge && steps.curseforge-preflight.outputs.upload == 'true'
+      - name: Publish mod to CurseForge
+        if: matrix.kind == 'mod' && steps.curseforge-preflight.outputs.upload == 'true'
         uses: Kir-Antipov/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
         with:
           curseforge-id: ${{ env.CURSEFORGE_PROJECT_ID }}
@@ -450,6 +461,33 @@ jobs:
           game-versions: ${{ env.RELEASE_GAME_VERSION }}
           retry-attempts: 1
           fail-mode: fail
+      - name: Publish plugin to CurseForge
+        if: matrix.kind == 'plugin' && steps.curseforge-preflight.outputs.upload == 'true'
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          TARGET_ID: ${{ matrix.target }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/release/publish-curseforge-plugin.sh \
+            "$TARGET_ID" "$VERSION" frozen-changelog/release-changelog.md
+      - name: Record the SpigotMC upload handoff
+        if: matrix.spigotmc
+        env:
+          TARGET_ID: ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256=$(sha256sum "$RELEASE_JAR" | awk '{print $1}')
+          {
+            echo "## ${TARGET_ID} SpigotMC upload"
+            echo
+            echo 'SpigotMC has no upload API. After the GitHub Release is published, upload this exact asset to the SpigotMC resource with the frozen changelog.'
+            echo
+            echo "- File: $(basename "$RELEASE_JAR")"
+            echo "- SHA-256: ${sha256}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish-github:
     name: Publish GitHub Release
