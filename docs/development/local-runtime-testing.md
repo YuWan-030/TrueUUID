@@ -113,8 +113,8 @@ with their module toolchain. Select the launcher with
 
 ## Fabric 1.20 targets
 
-Fabric 1.20.1, 1.20.2, and 1.20.4 produce Java 17 bytecode; Fabric 1.20.6 uses
-Java 21. Loom 1.13.6 requires a Java 21 Gradle launcher for all four. Run client
+Fabric 1.20.1 through 1.20.4 produce Java 17 bytecode. Fabric 1.20.5 and
+1.20.6 use Java 21. Loom 1.13.6 requires a Java 21 launcher for every target. Run client
 and offline-mode local server separately, replacing the target ID as needed:
 
 ```bash
@@ -125,10 +125,10 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
 ```
 
 The script prepares the selected target's `run/server` with `eula=true`,
-`online-mode=false`, and a localhost bind. Fabric 1.20.1, 1.20.2, 1.20.4, and
-1.20.6 passed the four core scenarios on 2026-07-22 and are approved for 1.2.0;
-the target matrix separately records extended feature paths with more limited
-runtime evidence. Minecraft 1.20.3 and 1.20.5 are not implicitly covered.
+`online-mode=false`, and a localhost bind. All six Fabric 1.20.x modules have historical four-case evidence on the
+September 2026 1.3.0 baseline. The issue #34 client change needs fresh
+acceptance. The target matrix records current approvals and extended testing
+gaps separately.
 
 For concurrent local runs, the launcher caps Gradle at 1G, the Fabric server
 at 1536M, and the Fabric client at 3G. Override one cap only when needed:
@@ -145,11 +145,9 @@ instead; do not expose a development server to the public internet.
 
 ## Fabric 1.21 targets
 
-Fabric 1.21.1, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, and 1.21.11
-are manifest-integrated and approved for the version-bound 1.2.0 release. Each exact target passed its
-focused build, structural release-JAR check, client/server bootstrap smoke, and
-four-case installed-JAR core login matrix. Launch any exact target with the
-same wrapper:
+Fabric has an exact module for each 1.21 patch through 1.21.11, including
+1.21 itself. All twelve have historical four-case evidence on the September
+2026 baseline. Use the same wrapper to launch any declared target:
 
 ```bash
 TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
@@ -158,7 +156,8 @@ TRUEUUID_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
   scripts/run-dev-target.sh fabric-1.21.11 client
 ```
 
-Forge 1.21.1 is one of the core-accepted, 1.2.0-approved targets.
+Forge 1.21.1 also has historical core acceptance. Check the target matrix
+for its current publication approval.
 Launch it with Java 21 in two terminals:
 
 ```bash
@@ -180,10 +179,11 @@ path locally, the development launcher enforces `online-mode=false` and
 expose an offline-mode development server publicly.
 
 `auth.showJoinFeedback` defaults to `true` in `config/trueuuid-common.toml`.
-It sends the player a localized chat message and title after verification or
-offline fallback. `auth.showAccountOverlay` defaults to `true` and shows a
-small top-left account badge after a TrueUUID handshake. Green means premium
-verified; red means the server accepted its configured offline fallback. The
+It enables localized join feedback. Full-screen titles have a separate
+`auth.showJoinTitle` switch, which defaults to `false`.
+`auth.showAccountOverlay` defaults to `true`, with a bottom-right badge at
+scale 1.0. Green means verified; red means the server accepted offline
+fallback. Corners, offsets, and scale are configurable. The
 server audit line remains English for administrators and log tooling;
 player-facing text follows the player's client language.
 
@@ -194,12 +194,12 @@ login. Successful premium names are recorded in
 `config/trueuuid-registry.json`; keep
 `auth.knownPremiumDenyOffline=true` and
 `auth.allowOfflineForUnknownOnly=true` on public/private shared servers.
-Yggdrasil, timeout/grace, negative migration, command, addon-callback, and skin
+Yggdrasil, timeout/disconnect, negative migration, command, addon-callback, and skin
 refresh runtime evidence remains separate from the four core scenarios.
 
-Run the server and client commands in separate terminals. The client must use
-the same freshly built protocol-v1 source tree as the server; it cannot
-interoperate with an older TrueUUID jar.
+Run the server and client commands in separate terminals. Use freshly built matching artifacts for acceptance. The issue #34 fix
+keeps the existing wire format, but older clients do not contain its session
+classification or Fabric failure-response correction.
 
 The launcher accepts every target in the validated manifest, including
 NeoForge 1.20.x, 1.21.6, 1.21.10, and 1.21.11. Record each exact artifact and

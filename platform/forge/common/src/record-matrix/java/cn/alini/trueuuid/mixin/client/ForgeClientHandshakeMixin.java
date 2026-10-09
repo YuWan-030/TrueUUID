@@ -5,6 +5,7 @@ import cn.alini.trueuuid.net.ForgeAuthAnswerPayload;
 import cn.alini.trueuuid.net.ForgeAuthPayload;
 import cn.alini.trueuuid.net.ForgeNetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.ClientSession;
 import cn.alini.trueuuid.protocol.ClientAuthDiagnostics;
 import cn.alini.trueuuid.protocol.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.Trueuuid;
@@ -55,8 +56,8 @@ abstract class ForgeClientHandshakeMixin {
             callback.cancel();
             return;
         }
-        if (accessToken == null || accessToken.isBlank() || "0".equals(accessToken)) {
-            Trueuuid.debug("TrueUUID client session token is absent or is a development placeholder");
+        if (ClientSession.isMissing(user.getProfileId(), accessToken)) {
+            Trueuuid.debug("TrueUUID client has no session or uses an offline launcher placeholder");
             Trueuuid.acceptance("phase=client_missing_session_token");
             trueuuid$reply(connection, packet.transactionId(), false, "", false, true);
             callback.cancel();

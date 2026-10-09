@@ -5,6 +5,8 @@ import cn.alini.trueuuid.protocol.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.fabric.client.FabricClientStatus;
 import cn.alini.trueuuid.protocol.AcceptanceHooks;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.ClientSession;
+import cn.alini.trueuuid.protocol.ClientAuthDiagnostics;
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginNetworking;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
@@ -33,17 +35,34 @@ public final class FabricClientLoginNetworking {
                             TrueuuidFabric.acceptance("phase=client_migration_query_received offlineUuid={}", query.offlineUuid());
                             return confirmOfflinePlayerDataUpgrade(client, query.offlineUuid(), query.summary(), lastHasJoinedUrl);
                         }
+                        var session = client.getSession();
+                        if (ClientSession.isMissing(session.getUuidOrNull(), session.getAccessToken())) {
+                            TrueuuidFabric.debug("TrueUUID client has no session or uses an offline launcher placeholder");
+                            TrueuuidFabric.acceptance("phase=client_missing_session_token");
+                            return CompletableFuture.completedFuture(FabricLoginPayloads.answer(ClientSession.offlineAnswer()));
+                        }
                         String hasJoinedUrl = ClientYggdrasilEndpoint.resolveHasJoinedUrl();
                         lastHasJoinedUrl = hasJoinedUrl;
-                        return CompletableFuture.supplyAsync(() -> joinedMojangSession(query.nonce()))
+                        return CompletableFuture.supplyAsync(() -> {
+                                    try {
+                                        FabricSessionJoiner.join(client, session, query.nonce());
+                                        TrueuuidFabric.debug("TrueUUID joinServer completed successfully");
+                                        TrueuuidFabric.acceptance("phase=client_joinserver_ok");
+                                        return true;
+                                    } catch (Throwable failure) {
+                                        TrueuuidFabric.debug("TrueUUID joinServer failed: {}", ClientAuthDiagnostics.failureCategory(failure));
+                                        TrueuuidFabric.acceptance("phase=client_joinserver_failed category={}", ClientAuthDiagnostics.failureCategory(failure));
+                                        return false;
+                                    }
+                                })
                                 .orTimeout(30, TimeUnit.SECONDS)
                                 .exceptionally(failure -> false)
                                 .thenApply(joined -> {
                                     TrueuuidFabric.acceptance(
                                             "phase=client_answer_send joined={} migrationConfirmed=false missingToken={}",
-                                            joined, !joined);
+                                            joined, false);
                                     return FabricLoginPayloads.answer(
-                                            new AuthMessages.Answer(joined, joined ? hasJoinedUrl : "", false, !joined));
+                                            ClientSession.proofAnswer(joined, hasJoinedUrl));
                                 });
                     } catch (IllegalArgumentException malformed) {
                         TrueuuidFabric.LOGGER.warn("Rejected malformed TrueUUID Fabric login query: {}",
@@ -56,27 +75,6 @@ public final class FabricClientLoginNetworking {
         FabricClientStatusNetworking.registerReceiver();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FabricClientStatus.clear());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> FabricClientStatus.clear());
-    }
-
-    private static boolean joinedMojangSession(String serverId) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        var session = client.getSession();
-        if (session.getUuidOrNull() == null || session.getAccessToken() == null
-                || session.getAccessToken().isBlank() || "0".equals(session.getAccessToken())) {
-            TrueuuidFabric.debug("TrueUUID client session token is absent or is a development placeholder");
-            TrueuuidFabric.acceptance("phase=client_missing_session_token");
-            return false;
-        }
-        try {
-            FabricSessionJoiner.join(client, session, serverId);
-            TrueuuidFabric.debug("TrueUUID joinServer completed successfully");
-            TrueuuidFabric.acceptance("phase=client_joinserver_ok");
-            return true;
-        } catch (Throwable failure) {
-            TrueuuidFabric.debug("TrueUUID joinServer failed: {}", failureCategory(failure));
-            TrueuuidFabric.acceptance("phase=client_joinserver_failed category={}", failureCategory(failure));
-            return false;
-        }
     }
 
     private static CompletableFuture<net.minecraft.network.PacketByteBuf> confirmOfflinePlayerDataUpgrade(
@@ -110,20 +108,6 @@ public final class FabricClientLoginNetworking {
         return hasJoinedUrl == null || hasJoinedUrl.isBlank()
                 ? Text.translatable("trueuuid.auth_source.premium")
                 : Text.translatable("trueuuid.auth_source.skin_site");
-    }
-
-    private static String failureCategory(Throwable failure) {
-        String message = failure.getMessage();
-        String normalized = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("invalid token") || normalized.contains("invalid session")
-                || normalized.contains("unauthorized") || normalized.contains("forbidden")) {
-            return "account session rejected (refresh the launcher account)";
-        }
-        if (normalized.contains("timeout") || normalized.contains("connect")
-                || normalized.contains("unavailable") || normalized.contains("service")) {
-            return "authentication service unavailable";
-        }
-        return "authentication request rejected (" + failure.getClass().getSimpleName() + ")";
     }
 
     private FabricClientLoginNetworking() {}

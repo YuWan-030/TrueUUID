@@ -1,8 +1,8 @@
 # Identity policy administrator guide
 
-This guide describes the Spigot and Paper 1.20.1 server plugins. It is written for
-administrators who do not want to understand the login protocol. The secure
-architecture contract remains
+This guide covers configuration and identity commands for the Spigot and Paper
+1.20.1 server plugins. Loader mods use the [setup guide](../setup.md).
+The login architecture is described in
 [`server-plugin-bridge.md`](../architecture/server-plugin-bridge.md).
 
 ## Recommended fresh configuration

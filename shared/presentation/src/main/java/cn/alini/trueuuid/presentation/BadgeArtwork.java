@@ -3,14 +3,10 @@ package cn.alini.trueuuid.presentation;
 import java.util.ArrayList;
 import java.util.List;
 
-/*
- * ================================================================
- * TrueUUID lock badge artwork
- * Copyright (C) 2026 F1xGOD. Original lock textures by F1xGOD.
- * Licensed with TrueUUID under the GNU LGPL 3.0; see LICENSE.
- * ================================================================
+/**
+ * Shared lock artwork, drawn by F1xGOD. Noncommercial use with credit.
+ * See branding/lock-icons.txt for artwork terms. The code is LGPL-3.0.
  */
-/** One shared pixel-art source and palette for every loader drawing adapter. */
 public final class BadgeArtwork {
     public static final int WIDTH = 11;
     public static final int HEIGHT = 16;
@@ -29,7 +25,7 @@ public final class BadgeArtwork {
             "55555555556", "57777777786", "579R999R956", "57RrR9RrR56", "579RrRrR956",
             "5799RrR9956", "579RrRrR956", "57RrR9RrR56", "579R999R956", "68555555556", "66666666666"
     };
-    /** User-supplied single-crop.png, preserved pixel-for-pixel on an 11x16 transparent canvas. */
+    /** Singleplayer lock on an 11x16 transparent canvas. */
     private static final String[] SINGLEPLAYER = {
             "           ", "   11 11   ", "  123 331  ", " 1211 1431 ", " 121   431 ",
             "55555555556", "57777777786", "57ss9999956", "57SSs99ss56", "5799S9sSS56",

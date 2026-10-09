@@ -1,14 +1,11 @@
 # Release automation
 
-> **Release status:** version 1.3.0 is approved. `release/targets.json` sets
-> `release_ready=true` and approves all 52 targets from the 2026-09-13
-> installed-JAR matrix recorded in the target matrix. The Spigot and Paper
-> 1.20.1 plugins are approved from their own evidence. After both runs, a
-> presentation-only change added the gradient wordmark to join notices and a
-> terminal-only startup banner. On 2026-09-13 the maintainer decided that Verify
-> and Full Self-Test in the Release workflow cover that change without another
-> installed-JAR matrix. Version 1.2.1 remains permanently withheld. Do not
-> create or reuse a `v1.2.1` tag or draft.
+> Mod publication is blocked while the issue #34 client changes await fresh
+> installed-JAR acceptance. `release/targets.json` has `release_ready=false`
+> and all 52 mod approvals are false. The September 2026 1.3.0 approval applies
+> to the earlier baseline. Plugin approvals are kept in their own manifest.
+> See the [target matrix](../architecture/target-matrix.md). Version 1.2.1
+> remains permanently withheld.
 
 TrueUUID has one repository version and one complete target inventory:
 
@@ -39,9 +36,9 @@ TrueUUID has one repository version and one complete target inventory:
 
 The current mod inventory is 52 targets: sixteen Forge, eighteen Fabric, and
 eighteen NeoForge. Forge 1.21.11 is a standalone build island whose own wrapper
-is selected by manifest-driven scripts and workflows. All 52 native targets are
-approved for 1.3.0 from the 2026-09-13 installed-JAR matrix recorded in the
-target matrix.
+is selected by manifest-driven scripts and workflows. All 52 native targets have historical 1.3.0 evidence from the September
+installed-JAR matrix. The current client change requires new acceptance
+before restoring their publication approvals.
 
 Server plugins live in `ci/server-plugin-targets.json`, not in the mod
 inventory. The strict validator exports that matrix to Verify and Full
@@ -272,11 +269,12 @@ A read-only API recheck found the same state as the 2026-09-07 audit. The
 access without admin or maintain. Verify passed for `6f87f99`. No Full
 Self-Test has run since `2cefde2`.
 
-### Runbook: cutting 1.3.0
+### Release runbook
 
-1.3.0 carries the 52 manifest mod targets and every server plugin approved in
-`ci/server-plugin-targets.json`. Each step depends on the one before it. Stop
-at the first failure.
+Select an unused version with `scripts/release/set-version.sh` before
+preparing a new release. Never reuse an existing signed tag. The 1.3.0 values
+below are historical examples. A release includes the manifest mod targets
+and independently approved plugins. Stop at the first failed gate.
 
 1. **Signing key, then optional owner protections.** Confirm that the tagger's
    GPG or SSH signing key is registered on GitHub so the tag reports as
@@ -298,10 +296,9 @@ at the first failure.
    same commit. Every target needs four `PASS` or `REUSED_PASS` rows in the new
    `summary.tsv`. These scenarios do not exercise the timeout, silence, or
    malformed-answer denials, which remain unit-tested.
-3. **Record evidence and approve, in one commit.** Add an "Evidence level for
-   1.3.0" section to the target matrix with the run directory, change each
-   runtime state to "Core accepted (1.3.0)", and update the release notice in
-   both READMEs. Then approve the manifest:
+3. **Record evidence and approve, in one commit.** Record the version, exact artifact hashes, and run directory in the
+   target matrix. Update the current verdict and per-target runtime states.
+   Keep the READMEs focused on installation and link to that evidence. Then approve the manifest:
 
    ```bash
    jq '.release_ready = true | .targets |= map(.release = true)' \
@@ -406,7 +403,7 @@ The runtime smokes use loader development runs, while the separately verified
 artifact is the production JAR. They detect packaging, classpath, Mixin, and
 basic bootstrap failures; they are not join tests. The installed-JAR acceptance
 harness separately recorded the four core login scenarios. Allowed Yggdrasil,
-disconnect/grace, negative migration, commands, callbacks, HUD presentation,
+timeout/disconnect, negative migration, commands, callbacks, HUD presentation,
 and skin refresh retain the evidence limitations shown in the target matrix.
 
 ## Withheld version 1.2.1
@@ -417,8 +414,9 @@ instruction. `./scripts/release/validate-release-config.sh` must fail for this
 version; CI uses `--development` only to validate that the manifest is coherent
 while publication remains blocked.
 
-For 1.3.0, every target passed its exact current-artifact matrix and received
-fresh approval before `release_ready` was set to true. The server-plugin
+The September 2026 1.3.0 baseline passed its installed-JAR matrix and received
+approval. The issue #34 client change resets mod publication approvals.
+Those earlier results do not approve the changed clients. The server-plugin
 contract and its open gates are in
 [`server-plugin-bridge.md`](../architecture/server-plugin-bridge.md).
 

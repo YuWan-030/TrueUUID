@@ -8,6 +8,7 @@ import cn.alini.trueuuid.protocol.ClientYggdrasilEndpoint;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.ClientSession;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -53,8 +54,8 @@ abstract class ClientHandshakeMixin {
             callback.cancel();
             return;
         }
-        if (token == null || token.isBlank() || "0".equals(token)) {
-            Trueuuid.debug("TrueUUID client session token is absent or is a development placeholder");
+        if (ClientSession.isMissing(user.getProfileId(), token)) {
+            Trueuuid.debug("TrueUUID client has no session or uses an offline launcher placeholder");
             Trueuuid.acceptance("phase=client_missing_session_token");
             trueuuid$send(loginConnection, transactionId, false, "", false, true);
             callback.cancel();

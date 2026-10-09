@@ -6,16 +6,17 @@ metadata-range presence alone is not a support claim.
 
 ## Current Forge targets
 
-Version 1.2.1 declares sixteen exact Forge targets for Minecraft 1.20.1,
+The mod manifest declares sixteen exact Forge targets for Minecraft 1.20.1,
 1.20.2, 1.20.3, 1.20.4, 1.20.6, 1.21, 1.21.1, 1.21.3, 1.21.4, 1.21.5,
 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, and 1.21.11. Forge did not publish
-a loader for 1.20.5 or 1.21.2. All sixteen passed the installed-JAR premium,
-offline-fallback, confirmed-migration, and known-name-denial matrix on
-2026-07-28, after every 1.20.2 and later target moved its authentication gate
-to `startClientVerification`. Only `forge-1.20.1` keeps the older
-`handleHello` hook, because 1.20.1 has no such method. The target matrix
-records the evidence directories, alongside the wider Yggdrasil, timeout,
-grace, negative-migration, and visual evidence that remains limited there.
+a loader for 1.20.5 or 1.21.2. The September 2026 1.3.0 baseline passed the
+four-case installed-JAR matrix on every Forge target. The issue #34 client
+change needs fresh runtime acceptance and resets the mod release approvals.
+
+Every 1.20.2 and later target gates login at `startClientVerification` HEAD.
+Forge 1.20.1 has no such method and gates immediately after the profile writes
+in `handleHello`. The target matrix records the evidence and remaining
+Yggdrasil, timeout, negative-migration, and visual testing gaps.
 
 Forge 1.21.11 requires ForgeGradle 7 and Gradle 9.5, so it is an intentional
 standalone build island with its own wrapper. It is nevertheless a first-class
@@ -27,7 +28,8 @@ or `scripts/ci/build-target.sh forge-1.21.11` for this target alone.
 ## Shared protocol and adapter boundary
 
 `shared/protocol` owns the plain-Java wire codec, bounded endpoint and HTTP
-policy, login state, verified-profile values, known-name and grace stores, and
+policy, client session classification, login state, verified-profile values,
+known-name storage, and
 migration planning/execution contracts. It has no Minecraft, Forge, authlib,
 Netty, Mixin, or loader imports.
 
@@ -43,7 +45,8 @@ The login remains bilateral. An offline-mode server sends a one-time custom
 login query; the client calls its local session service and returns only the
 proof inputs. The server verifies `hasJoined` asynchronously, applies the
 verified UUID/name/signed textures, and resumes native login on the server
-thread. The player's access token never leaves the client.
+thread. The client's access token goes only to its authentication service,
+never to the Minecraft server.
 
 ## Build eras
 

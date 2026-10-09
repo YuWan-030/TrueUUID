@@ -28,6 +28,10 @@ srg_probe=$(jq -r '.srg_probe // empty' <<<"$target")
 
 [[ -f "$artifact" ]] || { echo "missing built artifact: $artifact" >&2; exit 66; }
 unzip -tqq "$artifact"
+cmp -s <(unzip -p "$artifact" META-INF/trueuuid-lock-icons.txt) branding/lock-icons.txt || {
+    echo "missing or outdated lock-icon credit: $artifact" >&2
+    exit 65
+}
 
 case "$loader" in
     forge)

@@ -1,213 +1,66 @@
-# Handoff: exact Fabric targets from 1.20.1 through 1.21.11
+# Fabric adapter notes
 
-This is the canonical handoff for the next implementation session. Start from
-the current `main`; verify the branch, worktree, target manifest, and target
-matrix before editing. Do not rely on commit IDs or old session branches.
+Fabric has 18 exact modules from Minecraft 1.20.1 through 1.21.11.
+The modules and dependency pins are in `release/targets.json` and
+`platform/fabric/<version>/build.gradle`.
+The [target matrix](../architecture/target-matrix.md) records runtime
+evidence and current publication approvals.
 
-## Completed exact-target baseline
+This file describes the source layout. Dated acceptance results belong in the
+target matrix, so a handoff does not become a second release-status source.
 
-The exact Fabric compile-patch expansion is implemented. Fabric has one thin
-module for every released Minecraft patch from 1.20.1 through 1.21.11. The
-original twelve 1.2.0 targets all build, pass release-JAR verification, reach
-server/client bootstrap markers, and pass the four-case installed-JAR runtime
-matrix: premium, offline fallback, confirmed migration, and known-name offline
-denial. Yggdrasil, timeout/grace, negative migration, admin-command,
-addon-callback, and skin-refresh runtime cases are still pending.
+## Source layout
 
-The Fabric modules share `target-matrix.gradle`; the 1.20 modules select the
-named `legacy-1.20`, `session-profile`, `session-uuid`, `play-buffers`, and
-`play-payloads` source roots. Do not collapse the 1.20.5 typed-payload
-transition or the 1.20.2 session API transition back into runtime version
-checks.
+All targets apply `platform/fabric/common/target-matrix.gradle`.
+It includes the common implementation, the selected session and play
+networking roots, and the target's `extraSourceEras`.
+The [common source guide](../../platform/fabric/common/README.md) explains
+those roots.
 
-The historical 1.2.0 Fabric evidence is the twelve-target Fabric portion of
-`build/runtime-acceptance/20260722T114302Z/summary.tsv`. All 48 Fabric
-target/scenario pairs were rebuilt and passed fresh against the consolidated
-shared-runtime worktree. The later singleplayer/Premium-(LAN) presentation
-follow-up does not change Fabric login networking and passed shared policy
-tests, Fabric 1.20.1/1.21.11 probes, the full build, and release-JAR checks.
-The runtime harness is the only owner of
-`-PtrueuuidAcceptanceHooks=true`; it snapshots the instrumented JAR under the
-ignored run directory and removes it from the normal module output. Production
-builds use the release implementation, and
-`scripts/ci/verify-release-jar.sh` rejects instrumented JARs and packaged
-development scripts. The generated evidence and Minecraft downloads are
-regenerable and may be removed with `scripts/clean-dev.sh` after their verdict
-has been recorded.
+Keep Fabric networking and Minecraft values in the adapter.
+`shared/protocol` remains plain Java.
+`shared/presentation` owns loader-neutral status and artwork.
+Targets recompile shared source against their pinned APIs, rather than sharing
+Minecraft-dependent bytecode.
 
-The 1.21.11 target pins Loader 0.19.3, Yarn `1.21.11+build.6`, Fabric API
-`0.141.5+1.21.11`, Loom 1.13.6, and Java 21. It introduced narrow named roots
-for authlib record access, named command permission checks, `Identifier.of`,
-the 2D HUD matrix stack, and `MinecraftClient#getApiServices().sessionService()`.
-Do not recreate or fold these back into runtime version checks.
+The 1.20.2 session change and 1.20.5 typed-payload change are separate seams.
+Authlib records, the 2D HUD matrix, identifier factories, named permissions,
+and the relocated session service also have named roots.
+Do not replace compile-time composition with runtime version checks.
 
-Forge and NeoForge are useful API-era comparisons, not Fabric code templates.
-Forge 1.21.11 is a separately wrapped Gradle 9.5 build island; it is integrated
-through manifest-driven build, CI, runtime, and release adapters rather than
-through the incompatible root Gradle build.
+## Client login
 
-## Required target inventory
+The common client registration uses `ClientSession` before scheduling proof.
+It recognizes empty/development tokens and PCL2's profile-UUID placeholder.
+A failed premium call or timeout returns a proof failure, never a no-session
+answer. The server still decides offline admission and known-name denial.
+See [issue #34 and session selection](../architecture/client-session.md).
 
-One compile target now exists at each known Minecraft/API seam. Widen a
-declared Minecraft range only after a matching client and server pass on every
-patch in that range.
+## Validation
 
-| Module | Compile patch | Candidate patches after exact runtime proof |
-|---|---:|---|
-| `fabric-1.20.1` | 1.20.1 | 1.20.1 only |
-| `fabric-1.20.2` | 1.20.2 | 1.20.2 only |
-| `fabric-1.20.3` | 1.20.3 | 1.20.3 only |
-| `fabric-1.20.4` | 1.20.4 | 1.20.4 only |
-| `fabric-1.20.5` | 1.20.5 | 1.20.5 only |
-| `fabric-1.20.6` | 1.20.6 | 1.20.6 only |
-| `fabric-1.21` | 1.21 | 1.21 only |
-| `fabric-1.21.1` | 1.21.1 | 1.21.1 only |
-| `fabric-1.21.2` | 1.21.2 | 1.21.2 only |
-| `fabric-1.21.3` | 1.21.3 | 1.21.3 only |
-| `fabric-1.21.4` | 1.21.4 | 1.21.4 only |
-| `fabric-1.21.5` | 1.21.5 | 1.21.5 only |
-| `fabric-1.21.6` | 1.21.6 | 1.21.6 only |
-| `fabric-1.21.7` | 1.21.7 | 1.21.7 only |
-| `fabric-1.21.8` | 1.21.8 | 1.21.8 only |
-| `fabric-1.21.9` | 1.21.9 | 1.21.9 only |
-| `fabric-1.21.10` | 1.21.10 | 1.21.10 only |
-| `fabric-1.21.11` | 1.21.11 | 1.21.11 only |
-
-Protocol equality makes a widened range a candidate, never proof. If Fabric
-Loader or Fabric API does not support an intermediate patch, record that exact
-upstream limitation rather than silently claiming it.
-
-## Before coding
-
-Read these live files completely:
-
-```text
-AGENTS.md
-docs/architecture/target-matrix.md
-docs/architecture/version-consolidation-roadmap.md
-docs/development/adding-adapter.md
-docs/development/local-runtime-testing.md
-release/targets.json
-platform/fabric/1.20.1/
-platform/fabric/common/
-```
-
-Retrieve current Fabric Loader, Fabric API, Yarn mappings, and Loom compatibility
-from their official metadata/docs for each compile patch. Pin exact versions in
-the module; do not copy a stale version from this handoff. Gradle must launch on
-Java 21. Minecraft 1.20.1-1.20.4 targets Java 17; later Minecraft targets use
-Java 21 unless the upstream toolchain proves otherwise.
-
-## Architecture constraints
-
-- Keep one behavioural Fabric implementation in `platform/fabric/common`.
-- A version module owns only Gradle/metadata and the smallest unavoidable
-  Minecraft, Yarn, networking, HUD, command, record, or identifier seam.
-- Prefer source-set composition over copied trees. Add a named API-era source
-  root when multiple versions share the same seam.
-- `shared/protocol` stays plain Java and loader-neutral. Never move Minecraft
-  profiles, packets, text, paths, commands, or lifecycle objects into it.
-- Do not introduce runtime `if (minecraftVersion)` branches in shared behaviour.
-- Keep the client token local. Preserve bounded decoding/state, async bounded
-  verification, cancellation, allowlisted HTTPS endpoints, public-address and
-  DNS-pinning checks, hostname verification, no redirects, response limits,
-  known-name protection, and transactional migration rollback.
-- The server owns the final account status. A client payload must never be able
-  to manufacture `PREMIUM` or bypass offline policy.
-
-Known seam layout:
-
-- Fabric 1.21.11 compiles the shared login-query registration, payload-codec,
-  lifecycle, world-path, and disconnect code and has passed the four core
-  account-flow scenarios.
-- `identifier-factories` isolates `Identifier.of`.
-- `profile-record` isolates authlib 7 `GameProfile` accessors.
-- `hud-matrix-2d` isolates the JOML 2D draw stack.
-- `permission-checks` isolates the 1.21.11 named admin/owner checks.
-- `session-api-services` isolates the relocated client session service.
-- Each earlier 1.21 module records its own official dependency pins and selects
-  only the compatibility roots required by that API era.
-
-## Completed implementation order
-
-1. Completed on 2026-07-22: `fabric-1.20.2`, `fabric-1.20.4`, and
-   `fabric-1.20.6` are manifest-integrated and core accepted on their exact
-   compile patches. Exact 1.20.3 and 1.20.5 modules now select the matching
-   shared API-era roots.
-2. Completed on 2026-07-22: `fabric-1.21.1`, `fabric-1.21.3`, `fabric-1.21.4`,
-   and `fabric-1.21.5` reuse the bean-profile, numeric-permission, identifier
-   factory, typed-payload, and 4D HUD roots.
-3. Completed on 2026-07-22: `fabric-1.21.6` and `fabric-1.21.8` select the 2D
-   HUD root; `fabric-1.21.10` additionally selects authlib-record and relocated
-   session-service roots; `fabric-1.21.11` adds named permission checks.
-4. The 1.2.1 expansion adds exact 1.20.3, 1.20.5, 1.21, 1.21.2, 1.21.7, and
-   1.21.9 modules. `release/targets.json` now drives root settings, aggregate
-   builds, CI/self-test, runtime selection, and publishing.
-5. Metadata remains exact-patch; the extended feature matrix remains the next
-   evidence-expansion target after core acceptance.
-
-Keep commits reviewable and signed: one API-era scaffold or source-sharing move
-per commit, then its focused tests and documentation. Preserve archive history;
-do not create permanent per-target branches.
-
-## Immediate next-session entry point
-
-Do not recreate or reorganize the exact-target modules. The current worktree's
-no-downgrade hardening invalidates the earlier installed-JAR login evidence, so
-repeat the four core cases first. Then continue with allowed and rejected
-Yggdrasil endpoints, timeouts/disconnect cancellation, migration reject/timeout/
-rollback, admin commands, addon status/callbacks, localized feedback/HUD, and
-skin refresh. Record these as expanded evidence without retroactively claiming
-that they were part of the 1.2.0 core matrix.
-
-Keep exact-patch artifacts unless a future consolidation is backed by the same
-client/server evidence on every patch in a proposed widened range.
-
-## Validation and acceptance
-
-For each module, require:
-
-1. shared protocol tests and the module's complete `build`/`remapJar`;
-2. production-JAR metadata, entrypoint, Mixin, duplicate-class, and client/server
-   bootstrap checks;
-3. the four automated scenarios with a fresh artifact and world:
-   `premium,offline,migrate,known-deny`;
-4. allowed Yggdrasil, rejected host/private address/redirect/oversize/timeout,
-   disconnect cancellation, proof-failure/no-session separation, migration reject/timeout/rollback,
-   `/trueuuid cleanupuuid`, `/trueuuid migrateuuid`, addon status/callbacks,
-   localized feedback/HUD, and skin refresh;
-5. the same checks on every adjacent patch before widening metadata to cover it.
-
-Useful repository-wide checks after each API era:
+Use a JDK 21 Gradle launcher. Minecraft 1.20.1 through 1.20.4 use Java 17
+toolchains, and later declared Fabric targets use Java 21.
 
 ```bash
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
 PATH=/usr/lib/jvm/java-21-openjdk-amd64/bin:$PATH \
-./gradlew :shared:protocol:test :platform:<target>:build --offline --no-daemon
+./gradlew :shared:protocol:test :platform:fabric-1.20.1:build \
+  --configure-on-demand --no-daemon --max-workers=1
 
 ./scripts/release/validate-targets.sh
-python3 -m unittest scripts/tests/test_runtime_matrix.py
+python3 scripts/ci/validate-source-sharing.py
 git diff --check
 ```
 
-For the real core matrix:
+Use `--offline` only after confirming that the target's loader toolchain can
+run with cached dependencies.
 
-```bash
-TRUEUUID_PREMIUM_NAME=YourMinecraftName \
-  scripts/test-runtime-matrix.sh \
-  --targets <target> \
-  --scenarios premium,offline,migrate,known-deny
-```
+The [local runtime guide](local-runtime-testing.md) covers the installed-JAR
+matrix: premium, offline fallback, confirmed migration, and known-name denial.
+Changed client session logic needs fresh evidence, including PCL2 offline and
+expired premium sessions. Yggdrasil, cancellation, negative migration, admin
+commands, addon callbacks, HUD, and skin refresh have their own evidence gaps.
 
-Record exact target, loader build, artifact SHA-256, scenarios, and failures in
-the target matrix. Build success, a server boot, or one anchor version never
-promotes a loader family. Set `release: true` only after all applicable runtime
-features pass and a maintainer explicitly approves publication.
-
-## Completion gate
-
-The Fabric expansion is complete only when the release manifest and CI cover every
-implemented module, all exact compile patches pass the full acceptance set, all
-claimed adjacent patches have their own evidence, public docs match the actual
-ranges, and no target relies on a copied behavioural implementation that should
-live in `fabric-common`.
+A passing build or one tested anchor does not approve all Fabric versions.
+Keep metadata exact-patch until the same JAR passes on every claimed patch.
+Follow the [adapter guide](adding-adapter.md) for new targets.

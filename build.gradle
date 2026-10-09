@@ -16,6 +16,13 @@ subprojects {
         // project version so an incremental build cannot keep stale loader
         // metadata inside a newly named release JAR.
         inputs.property('trueuuidProjectVersion', providers.provider { project.version.toString() })
+        if (name == 'processResources'
+                && (project.path.startsWith(':platform:') || project.path == ':shared:presentation')) {
+            from(rootProject.file('branding/lock-icons.txt')) {
+                into 'META-INF'
+                rename { 'trueuuid-lock-icons.txt' }
+            }
+        }
     }
 }
 

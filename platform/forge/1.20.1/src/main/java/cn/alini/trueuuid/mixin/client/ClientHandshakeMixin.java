@@ -6,11 +6,13 @@ import cn.alini.trueuuid.config.TrueuuidConfig;
 import cn.alini.trueuuid.Trueuuid;
 import cn.alini.trueuuid.net.NetIds;
 import cn.alini.trueuuid.protocol.AuthMessages;
+import cn.alini.trueuuid.protocol.ClientSession;
+import cn.alini.trueuuid.protocol.ClientAuthDiagnostics;
 import cn.alini.trueuuid.protocol.AuthWireCodec;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConfirmScreen;
-import net.minecraft.client.User; // official 映射 (mapping)
+import net.minecraft.client.User;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.Connection;
 import net.minecraft.network.FriendlyByteBuf;
@@ -28,7 +30,6 @@ import java.lang.reflect.Field;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -80,9 +81,9 @@ public abstract class ClientHandshakeMixin {
             return;
         }
 
-        // dev/离线启动常见的占位 token 不可能通过 Mojang 校验，立即回失败，避免登录线程等到服务器超时。
-        if (trueuuid$isMissingSessionToken(token)) {
-            trueuuid$debug("client session token is absent or is a development placeholder");
+        // Recognize offline launcher placeholders before contacting the session service.
+        if (ClientSession.isMissing(user.getProfileId(), token)) {
+            trueuuid$debug("client has no session or uses an offline launcher placeholder");
             Trueuuid.acceptance("phase=client_missing_session_token");
             trueuuid$sendAuthAck(loginConnection, transactionId, false, "", false, true);
             ci.cancel();
@@ -111,8 +112,8 @@ public abstract class ClientHandshakeMixin {
                         // Never log the access token, profile properties, nonce, endpoint,
                         // or raw authlib response.  A small fixed category is enough to
                         // tell a stale Prism session from a connectivity/service failure.
-                        trueuuid$debug("joinServer failed: " + trueuuid$authFailureCategory(t));
-                        Trueuuid.acceptance("phase=client_joinserver_failed category={}", trueuuid$authFailureCategory(t));
+                        trueuuid$debug("joinServer failed: " + ClientAuthDiagnostics.failureCategory(t));
+                        Trueuuid.acceptance("phase=client_joinserver_failed category={}", ClientAuthDiagnostics.failureCategory(t));
                         return false;
                     }
                 })
@@ -128,27 +129,6 @@ public abstract class ClientHandshakeMixin {
                 });
 
         ci.cancel();
-    }
-
-    @Unique
-    private static boolean trueuuid$isMissingSessionToken(String token) {
-        // 这些值通常来自开发环境或离线启动器，继续请求 Mojang 只会制造无意义等待。
-        return token == null || token.isBlank() || "0".equals(token);
-    }
-
-    @Unique
-    private static String trueuuid$authFailureCategory(Throwable failure) {
-        String message = failure.getMessage();
-        String normalized = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("invalid token") || normalized.contains("invalid session")
-                || normalized.contains("unauthorized") || normalized.contains("forbidden")) {
-            return "account session rejected (refresh the launcher account)";
-        }
-        if (normalized.contains("timeout") || normalized.contains("connect")
-                || normalized.contains("unavailable") || normalized.contains("service")) {
-            return "authentication service unavailable";
-        }
-        return "authentication request rejected (" + failure.getClass().getSimpleName() + ")";
     }
 
     @Unique

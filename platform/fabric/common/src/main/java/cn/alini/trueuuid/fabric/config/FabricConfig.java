@@ -19,9 +19,9 @@ import java.util.List;
 
 /**
  * Fabric configuration surface. Fabric ships no config library, so this is a
- * plain JSON file, but the option names, grouping, and defaults deliberately
- * mirror the Forge/NeoForge {@code trueuuid-common.toml} so one documentation
- * line covers every loader.
+ * plain JSON file. Login policy and presentation options follow the
+ * Forge/NeoForge defaults. The provider allowlist is {@code auth.yggdrasilHosts},
+ * whereas TOML uses {@code auth.yggdrasil.apiRootWhitelist}.
  */
 public final class FabricConfig {
     private static final long MAX_FILE_BYTES = 1024L * 1024L;

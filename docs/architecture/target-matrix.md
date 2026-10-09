@@ -6,12 +6,19 @@ wide metadata range is not a support claim.
 
 ## Current verdict
 
-Version 1.3.0 is approved for release. Every one of the 52 declared targets
-passed the four-case installed-JAR matrix against its 1.3.0 artifact, and
-`release/targets.json` sets `release_ready` and every target-level `release`
-approval to `true`. The Spigot and Paper 1.20.1 server plugins are supported
-and approved for 1.3.0, as described below. Version 1.2.1 remains permanently
-withheld. Never create or reuse a `v1.2.1` tag.
+This checkout changes client session selection for issue #34 and corrects
+Fabric's failed-proof response. Mod publication is blocked:
+`release/targets.json` has `release_ready=false` and all 52 mod `release`
+flags are false. Fresh installed-JAR acceptance is required for the changed
+clients. See [client session selection](client-session.md).
+
+The September 2026 1.3.0 baseline passed the four-case mod matrix and received
+release approval. The tables below retain that historical runtime evidence.
+Their approval columns describe the current manifest, not the old artifacts.
+Spigot and Paper keep their separate plugin approvals. Their recorded logins
+used the earlier Fabric client, so they do not validate the changed client.
+Version 1.2.1 remains permanently withheld. Never reuse a `v1.2.1` tag.
+Version 1.3.0 is already published. Choose a new version for this change.
 
 After the mod and plugin acceptance runs, one presentation-only change added
 the bold gradient wordmark to join notices (the chat translation strings lost
@@ -21,7 +28,7 @@ terminal. Login, verification, and persistence code did not change. On
 workflow are sufficient for that change, so the installed-JAR matrix was not
 rerun on the final artifacts.
 
-The worktree declares 52 exact mod targets: 16 Forge, 18 Fabric, and 18 NeoForge.
+The manifest declares 52 exact mod targets: 16 Forge, 18 Fabric, and 18 NeoForge.
 Fabric and NeoForge now carry one exact module for every Minecraft patch from
 1.20.1 through 1.21.11. Forge carries one for every patch in that line for
 which Forge published a loader. Forge never published a 1.20.5 or 1.21.2
@@ -29,7 +36,7 @@ loader, so those two Forge targets do not exist upstream and are not omissions.
 
 ### Server plugins
 
-| Target ID | Server tested | ProtocolLib tested | Java | Runtime state | 1.3.0 approval |
+| Target ID | Server tested | ProtocolLib tested | Java | Runtime state | Current approval |
 |---|---|---|---:|---|---:|
 | `spigot-1.20.1` | Spigot 1.20.1 build 3871 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | true |
 | `paper-1.20.1` | Paper 1.20.1 build 196 | 5.4.0 | 17 | Local gate accepted (2026-09-13) | true |
@@ -63,7 +70,7 @@ any production JAR whose embedded name, license, author list, or description
 disagrees with `gradle.properties`. No adapter carries a hardcoded author,
 description, or display string.
 
-## Evidence level for 1.3.0
+## Historical evidence for the 1.3.0 baseline
 
 On 2026-09-12 and 2026-09-13, all 52 declared targets repeated the four-case
 installed-JAR matrix against their 1.3.0 artifacts: verified Mojang premium
@@ -190,64 +197,64 @@ Runtime state values:
 Every declared target now carries 1.3.0 evidence. The 1.2.0 and 1.2.1 states
 are kept only in the historical sections.
 
-The `1.3.0 approval` column mirrors `release/targets.json`. Spigot and Paper do
+The `Current approval` column mirrors `release/targets.json`. Spigot and Paper do
 not appear in this table because server plugins have their own inventory and
 table in the current verdict above.
 
-| Target ID | Loader version | Java | Runtime state | 1.3.0 approval |
+| Target ID | Loader version | Java | Runtime state | Current approval |
 |---|---:|---:|---|---:|
-| `forge-1.20.1` | Forge 47.4.10 | 17 | Core accepted (1.3.0) | true |
-| `forge-1.20.2` | Forge 48.1.0 | 17 | Core accepted (1.3.0) | true |
-| `forge-1.20.3` | Forge 49.0.2 | 17 | Core accepted (1.3.0) | true |
-| `forge-1.20.4` | Forge 49.2.8 | 17 | Core accepted (1.3.0) | true |
-| `forge-1.20.6` | Forge 50.2.9 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21` | Forge 51.0.33 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.1` | Forge 52.1.0 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.3` | Forge 53.1.0 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.4` | Forge 54.1.14 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.5` | Forge 55.1.10 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.6` | Forge 56.0.9 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.7` | Forge 57.0.3 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.8` | Forge 58.1.0 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.9` | Forge 59.0.5 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.10` | Forge 60.1.11 | 21 | Core accepted (1.3.0) | true |
-| `forge-1.21.11` | Forge 61.1.9 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.20.1` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | true |
-| `fabric-1.20.2` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | true |
-| `fabric-1.20.3` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | true |
-| `fabric-1.20.4` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | true |
-| `fabric-1.20.5` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.20.6` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.1` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.2` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.3` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.4` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.5` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.6` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.7` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.8` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.9` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.10` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `fabric-1.21.11` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.1` | NeoForge 47.1.106 | 17 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.2` | NeoForge 20.2.93 | 17 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.3` | NeoForge 20.3.8-beta | 17 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.4` | NeoForge 20.4.251 | 17 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.5` | NeoForge 20.5.21-beta | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.20.6` | NeoForge 20.6.139 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21` | NeoForge 21.0.167 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.1` | NeoForge 21.1.213 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.2` | NeoForge 21.2.1-beta | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.3` | NeoForge 21.3.56 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.4` | NeoForge 21.4.121 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.5` | NeoForge 21.5.74 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.6` | NeoForge 21.6.20-beta | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.7` | NeoForge 21.7.25-beta | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.8` | NeoForge 21.8.9 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.9` | NeoForge 21.9.16-beta | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.10` | NeoForge 21.10.64 | 21 | Core accepted (1.3.0) | true |
-| `neoforge-1.21.11` | NeoForge 21.11.44 | 21 | Core accepted (1.3.0) | true |
+| `forge-1.20.1` | Forge 47.4.10 | 17 | Core accepted (1.3.0) | false |
+| `forge-1.20.2` | Forge 48.1.0 | 17 | Core accepted (1.3.0) | false |
+| `forge-1.20.3` | Forge 49.0.2 | 17 | Core accepted (1.3.0) | false |
+| `forge-1.20.4` | Forge 49.2.8 | 17 | Core accepted (1.3.0) | false |
+| `forge-1.20.6` | Forge 50.2.9 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21` | Forge 51.0.33 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.1` | Forge 52.1.0 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.3` | Forge 53.1.0 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.4` | Forge 54.1.14 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.5` | Forge 55.1.10 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.6` | Forge 56.0.9 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.7` | Forge 57.0.3 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.8` | Forge 58.1.0 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.9` | Forge 59.0.5 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.10` | Forge 60.1.11 | 21 | Core accepted (1.3.0) | false |
+| `forge-1.21.11` | Forge 61.1.9 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.20.1` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | false |
+| `fabric-1.20.2` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | false |
+| `fabric-1.20.3` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | false |
+| `fabric-1.20.4` | Fabric Loader 0.19.3 | 17 | Core accepted (1.3.0) | false |
+| `fabric-1.20.5` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.20.6` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.1` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.2` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.3` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.4` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.5` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.6` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.7` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.8` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.9` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.10` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `fabric-1.21.11` | Fabric Loader 0.19.3 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.1` | NeoForge 47.1.106 | 17 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.2` | NeoForge 20.2.93 | 17 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.3` | NeoForge 20.3.8-beta | 17 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.4` | NeoForge 20.4.251 | 17 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.5` | NeoForge 20.5.21-beta | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.20.6` | NeoForge 20.6.139 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21` | NeoForge 21.0.167 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.1` | NeoForge 21.1.213 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.2` | NeoForge 21.2.1-beta | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.3` | NeoForge 21.3.56 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.4` | NeoForge 21.4.121 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.5` | NeoForge 21.5.74 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.6` | NeoForge 21.6.20-beta | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.7` | NeoForge 21.7.25-beta | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.8` | NeoForge 21.8.9 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.9` | NeoForge 21.9.16-beta | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.10` | NeoForge 21.10.64 | 21 | Core accepted (1.3.0) | false |
+| `neoforge-1.21.11` | NeoForge 21.11.44 | 21 | Core accepted (1.3.0) | false |
 
 Forge 1.21.11 requires ForgeGradle 7 and Gradle 9.5, so it remains a standalone
 build island with its own wrapper. The manifest marks it `standalone`, and CI,
@@ -261,17 +268,17 @@ runtime checks.
 
 The adapters share the same security and behavioural spine wherever their
 loader APIs permit it. “Implemented” is a source/build claim. “Core accepted”
-refers to the 1.3.0 artifacts of all 52 exact targets, with the evidence
+refers to the September 2026 baseline artifacts of all 52 exact targets, with the evidence
 recorded above.
 
 | Feature | Forge targets | Fabric targets | NeoForge targets | Evidence level |
 |---|---|---|---|---|
-| Mojang premium verification | yes | yes | yes | core accepted on every 1.3.0 artifact |
-| Offline fallback policy (explicit no-session client only) | yes | yes | yes | core accepted on every 1.3.0 artifact |
-| Persisted known-name denial | yes | yes | yes | core accepted on every 1.3.0 artifact |
-| Confirmed data migration | yes | yes | yes | core accepted on every 1.3.0 artifact |
-| Login gate installed before vanilla can finish login | yes | by API contract | yes | core accepted on every 1.3.0 artifact |
-| Deny on timeout, silence, malformed answer, or failed proof | yes | yes | yes | shared policy unit tests, runtime pending |
+| Mojang premium verification | yes | yes | yes | core accepted on the 1.3.0 baseline; changed clients pending |
+| Offline fallback policy (explicit no-session client only) | yes | yes | yes | core accepted on the 1.3.0 baseline; changed clients pending |
+| Persisted known-name denial | yes | yes | yes | core accepted on the 1.3.0 baseline; changed clients pending |
+| Confirmed data migration | yes | yes | yes | core accepted on the 1.3.0 baseline; changed clients pending |
+| Login gate installed before vanilla can finish login | yes | by API contract | yes | core accepted on the 1.3.0 baseline; changed clients pending |
+| Deny on timeout, silence, malformed answer, or failed proof | yes | yes | yes | shared policy/client tests; failed-proof client runtime pending |
 | Disconnect clients without TrueUUID | yes | yes | yes | build-tested, runtime pending |
 | Localized join feedback and HUD | yes | yes | yes | join observed; visual/API details not asserted on every target |
 | Three-second fading badge and pause-menu lock badge | implemented | implemented | implemented | shared fake-clock tests and full-target build; visual runtime pending |
@@ -357,26 +364,19 @@ exists. See [version consolidation](version-consolidation-roadmap.md).
 
 ## Release gate
 
-The 1.3.0 approval covers every exact target in this table and no omitted
-patch. It is bound to `release_version: 1.3.0` and was granted from the 1.3.0
-evidence recorded above.
+Approvals are bound to the exact version and login path tested. The current
+client change resets all mod approvals. September's installed-JAR results
+remain historical evidence and do not approve newly built clients.
 
-All 52 targets have historical four-case installed-JAR evidence for the login
-paths captured by those artifacts: `build/runtime-acceptance/20260728T074332Z`
-for the 16 targets added in 1.2.1, `20260728T133142Z` for the 22 whose login
-gate relocated, `20260722T114302Z` for the 12 retained Fabric targets, and
-`20260730T043305Z` for the two 1.20.1 Forge-like targets after their gate
-relocation. These results do not approve the current 1.3.0 artifacts.
-Approval still does not convert the unit-tested rows in the feature table above
-into runtime-tested claims.
+Before restoring approval, run the declared-JDK build, shared fixtures,
+focused tests, release-JAR verification, and the real client/server core
+matrix on every affected target. Add PCL2 offline and failed-premium-session
+cases for issue #34. Maintainer approval is required for publication.
 
-For future versions, bind target approvals to that repository version, run the
-declared-JDK build, shared fixtures, focused tests, release-JAR structural
-verification, the real client/server core matrix, and obtain explicit
-maintainer approval. Continue expanding runtime evidence for allowed
-Yggdrasil, denial/timeout/disconnect/grace, negative migration, commands, addon
-callbacks, HUD presentation, and skin refresh rather than silently upgrading
-their evidence level.
+Continue expanding evidence for Yggdrasil, denial/timeout/disconnect,
+negative migration, commands, addon callbacks, HUD presentation, and skin
+refresh. Build or unit-test success does not turn those rows into runtime
+claims. Reconnect grace is removed, not a pending acceptance feature.
 
 Publishing mechanics are documented in
 [release automation](../development/release-automation.md).

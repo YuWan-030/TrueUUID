@@ -4,267 +4,60 @@
 
 English | [简体中文](README_zh-CN.md)
 
-TrueUUID adds account verification to modded Minecraft servers that run in
-offline mode. A premium player's access token stays on their own computer; the
-server receives only the login proof needed to verify their UUID and skin.
+TrueUUID verifies accounts during login on offline-mode Minecraft servers.
+Premium players keep their access token on their client, which sends it only
+to their authentication service. The server checks the login proof and uses
+the verified UUID, name, and signed skin properties.
 
-The native-mod model requires TrueUUID on both client and server. Always choose
-the JAR made for the exact Minecraft version and loader.
+Forge, Fabric, and NeoForge need TrueUUID on both client and server.
+Choose the JAR for your exact loader and Minecraft version. Spigot and Paper
+1.20.1 use a server plugin with ProtocolLib 5.1.0 or newer and also accept
+unmodified premium clients.
 
-Spigot and Paper 1.20.1 servers can use the TrueUUID server plugin instead of a
-server mod. It needs ProtocolLib 5.1.0 or newer and accepts both a matching
-TrueUUID client and an unmodified premium client. The plugins ship with 1.3.0.
-Maintainers can follow the
-[server-plugin test guide](docs/development/server-plugin-1.20.1-testing.md).
+The repository has 52 exact mod targets from Minecraft 1.20.1 through 1.21.11,
+plus the two server plugins. See the
+[target matrix](docs/architecture/target-matrix.md) for versions and test evidence.
 
-> [!IMPORTANT]
-> Version 1.3.0 is a security update for every Forge, Fabric, and NeoForge
-> build, and all 52 builds passed the installed-JAR login matrix on their 1.3.0
-> artifacts. The withheld 1.2.1
-> build will never be published. Its exact-patch coverage ships with 1.3.0
-> instead: every Minecraft patch from 1.20.1 through 1.21.11 on Fabric and
-> NeoForge, plus every Forge patch for which Forge exists. Version 1.3.0 also
-> adds Spigot and Paper 1.20.1 server plugins. See the
-> [target matrix](docs/architecture/target-matrix.md).
+## Install
 
-## Quick start
-
-1. Download or build the JAR for your exact loader and Minecraft version.
-2. Put that same JAR in the client's and server's `mods` folders.
-3. Set the server to offline mode:
-
-   ```properties
-   online-mode=false
-   ```
-
-4. Start the server once to generate the TrueUUID configuration.
-5. Join with a matching modded client. The HUD shows green for a verified
-   premium login and red when the server accepts offline fallback.
-
-Do not expose a development server created by `run-dev-target.sh` to the
-internet. It deliberately binds to localhost and uses offline mode for testing.
-
-## What TrueUUID does
-
-- Verifies Mojang sessions without sending the player's access token to the
-  server.
-- Uses the verified UUID, username casing, and signed skin properties during
-  login.
-- Can allow offline players while blocking offline reuse of names that were
-  previously verified.
-- Stores known verified names in `trueuuid-registry.json`.
-- Shows localized login feedback and a small premium/offline status badge.
-- Supports bounded login timeouts, response limits, HTTPS validation, public
-  address checks, and redirect refusal.
-- Supports configured Yggdrasil/authlib-injector services on adapters that list
-  that feature in the target matrix.
-
-All 52 currently declared adapters include offline-to-verified data migration,
-admin commands, and the addon API. On the 1.3.0 artifacts, every one of them
-passed the installed-JAR matrix: premium login, offline fallback, confirmed
-migration, and known-name denial. Consult the target matrix instead of assuming
-every implemented feature or an omitted adjacent Minecraft patch was exercised.
-
-## How login verification works
-
-1. The offline-mode server sends the client a one-time login challenge.
-2. The client uses its local session to answer the challenge through Mojang's
-   `joinServer` call. Its access token never leaves the client.
-3. The server checks the result with Mojang's `hasJoined` endpoint.
-4. A successful login receives the verified UUID and signed skin properties.
-5. A failed or timed-out check is either rejected or handled by the configured
-   offline-fallback policy.
-
-For an allowed Yggdrasil provider, the same flow uses its HTTPS session
-endpoint. Custom endpoints are disabled until their host is explicitly
-allowlisted.
-
-## Installation
-
-### Server
-
-1. Install the loader and Minecraft version matching the TrueUUID filename.
-2. Copy the JAR into the server's `mods` directory.
+1. Download the JAR for your loader and exact Minecraft version.
+2. Put it in both `mods` folders. For Spigot/Paper, put the plugin and
+   ProtocolLib in the server's `plugins` folder.
 3. Set `online-mode=false` in `server.properties`.
-4. Keep the server behind a firewall while configuring and testing it.
+4. Start the server to generate the config, then join.
 
-### Prism Launcher
+The account badge shows verified or offline status. Offline players can join
+when server policy allows it. Keep known-name protection enabled to prevent
+offline reuse of a previously verified name.
 
-1. Open the instance matching the JAR's Minecraft version and loader.
-2. Select **Edit** → **Mods** → **Add file**.
-3. Select the built TrueUUID JAR from the target's `build/libs` directory.
-4. Install the same JAR on the server.
+See the [setup guide](docs/setup.md) for configuration, Prism Launcher,
+Yggdrasil providers, and confirmed player-data migration. Plugin administrators
+can use the [identity policy guide](docs/development/identity-policy-admin-guide.md).
 
-Do not use a Forge JAR in NeoForge, or a JAR built for another Minecraft patch.
-For Fabric, use the remapped JAR in `build/libs`, never the development JAR in
-`build/devlibs`.
+## Build
 
-## Configuration
-
-Forge and NeoForge generate:
-
-```text
-config/trueuuid-common.toml
-```
-
-Fabric generates:
-
-```text
-config/trueuuid.json
-```
-
-Forge and NeoForge use the TOML keys below. Fabric stores the matching login
-policy settings in the JSON `auth` object; the target matrix lists any
-adapter-specific gaps.
-
-The main policy options are:
-
-```toml
-auth.timeoutMs = 30000
-auth.allowOfflineOnFailure = true
-auth.knownPremiumDenyOffline = true
-auth.allowOfflineForUnknownOnly = true
-auth.showJoinFeedback = true
-auth.showJoinTitle = false
-auth.showAccountOverlay = true
-```
-
-`allowOfflineOnFailure` applies only when a client with TrueUUID installed
-explicitly reports that it has no local premium session, as an offline launcher
-does. Timeout, a malformed or deceptive response, authority failure, and failed
-premium verification always deny. A client without TrueUUID is disconnected
-with a message asking the player to install it.
-
-For a name that has already passed premium verification, offline fallback is
-refused while either `knownPremiumDenyOffline` or `allowOfflineForUnknownOnly`
-is true.
-
-`allowOfflineOnTimeout`, `recentIpGrace.enabled`, and
-`recentIpGrace.ttlSeconds` remain in generated config files for compatibility.
-Version 1.3.0 ignores them.
-
-The Spigot and Paper plugins have the newer admission, alias, command, and
-LuckPerms model. See the
-[identity policy administrator guide](docs/development/identity-policy-admin-guide.md).
-The loader adapters do not yet implement that entire model; the guide states the
-parity gate explicitly.
-
-All three loaders can position the account badge. Forge and NeoForge use TOML;
-Fabric uses the matching keys inside the JSON `auth` object:
-
-```toml
-auth.overlayCorner = "bottom_right"
-auth.overlayOffsetX = 0
-auth.overlayOffsetY = 0
-auth.overlayScale = 1.25
-```
-
-For Yggdrasil/authlib-injector providers, add only hosts you trust:
-
-```toml
-auth.yggdrasil.apiRootWhitelist = ["littleskin.cn"]
-```
-
-An empty allowlist keeps Mojang as the only accepted session service.
-
-## Migration and admin commands
-
-TrueUUID can back up and move same-name offline player data to a verified UUID.
-Migration requires confirmation and preserves both
-the old offline data and any existing destination data before changing files.
-
-Available admin commands:
-
-```text
-/trueuuid cleanupuuid <name>
-/trueuuid migrateuuid <name>
-```
-
-Both commands require permission level 4.
-
-## Addon API
-
-The server-side API exposes `cn.alini.trueuuid.api.TrueuuidApi`. Other mods can
-query whether a player joined as premium or through offline fallback:
-
-```java
-AccountStatus status = TrueuuidApi.getStatus(serverPlayer);
-if (status.isOffline()) {
-    // Apply your server's offline-player policy.
-}
-```
-
-The API also provides a login callback and access to the verified-name
-registry. Check the target matrix before depending on it.
-
-## Build one JAR for Prism Launcher
-
-Gradle must be launched with Java 21 for every target. Java 17 targets are
-still compiled and run with their declared Java 17 toolchain automatically.
-
-On Linux, from the repository checkout:
+Launch Gradle with JDK 21. Each target uses its declared Java toolchain.
 
 ```bash
-cd ~/TrueUUID
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export PATH="$JAVA_HOME/bin:$PATH"
-
-TARGET=neoforge-1.21.11
-./scripts/ci/build-target.sh "$TARGET"
+./scripts/ci/build-target.sh forge-1.20.1
 ```
 
-The Prism-ready JAR is then:
+The JAR is in `platform/forge/1.20.1/build/libs/`. Choose another target ID
+from `release/targets.json`. Use the remapped Fabric JAR in `build/libs`.
 
-```text
-platform/neoforge/1.21.11/build/libs/trueuuid-1.3.0-neoforge-1.21.11.jar
-```
+## Development
 
-Change `TARGET` to any ID in `release/targets.json`, such as `forge-1.20.1`
-or `fabric-1.21.11`. List every available target with:
+- [Documentation index](docs/README.md)
+- [Module boundaries and new adapters](docs/development/adding-adapter.md)
+- [Local client/server testing](docs/development/local-runtime-testing.md)
+- [Release process](docs/development/release-automation.md)
 
-```bash
-jq -r '.targets[].id' release/targets.json
-```
+## License and credits
 
-On Windows PowerShell, with Java 21 selected:
-
-```powershell
-.\gradlew.bat :platform:neoforge-1.21.11:build --no-daemon
-# Forge 1.21.11 is the standalone Gradle 9.5 target:
-.\platform\forge\1.21.11\gradlew.bat -p platform/forge/1.21.11 build --no-daemon
-```
-
-To build every target instead:
-
-```bash
-./scripts/ci/build-all-targets.sh
-```
-
-Each finished production JAR is written to:
-
-```text
-platform/<loader>/<minecraft-version>/build/libs/
-```
-
-For local client/server development runs, see
-[local runtime testing](docs/development/local-runtime-testing.md).
-
-## Privacy and security
-
-- The player's access token stays on the client.
-- The server receives a nonce result, UUID, username, and signed profile
-  properties—not the token.
-- Custom authentication endpoints must use HTTPS and pass the configured host,
-  DNS/IP, timeout, response-size, and redirect checks.
-- Offline fallback is a server policy. Keep known-name protection enabled on
-  shared servers.
-
-## License
-
-TrueUUID is licensed under the GNU LGPL 3.0.
-
-The original TrueUUID lock badge textures are Copyright (C) 2026 F1xGOD and
-are distributed with the project under the same GNU LGPL 3.0 license.
+Code: [LGPL-3.0](LICENSE). Lock icons drawn by F1xGOD:
+[noncommercial use with credit](branding/lock-icons.txt).
 
 Maintained by [@YuWan-030](https://github.com/YuWan-030),
 [@wish131400](https://github.com/wish131400), and

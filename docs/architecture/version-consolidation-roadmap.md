@@ -6,7 +6,7 @@ patches. The live target inventory and evidence are in
 
 ## Current state
 
-The withheld 1.2.1 development manifest contains 52 exact compile targets: 16 Forge, 18
+The mod manifest contains 52 exact compile targets: 16 Forge, 18
 Fabric, and 18 NeoForge. Fabric and NeoForge cover every Minecraft patch from
 1.20.1 through 1.21.11. Forge covers every patch in that line for which Forge
 published a loader; Forge has no 1.20.5 or 1.21.2 loader.
@@ -14,9 +14,9 @@ published a loader; Forge has no 1.20.5 or 1.21.2 loader.
 The exact compile-patch expansion is complete. Each artifact remains bound to
 one loader and one Minecraft version; protocol clusters below are architectural
 context, not a reason to widen metadata. A shared protocol version is exactly
-why the 1.2.1 modules stay separate: 1.20.5 and 1.20.6 share protocol 766 yet
+why the modules stay separate: 1.20.5 and 1.20.6 share protocol 766 yet
 still need their own Yarn mappings, Fabric API, and NeoForge pins. Follow the
-canonical [Fabric handoff](../development/fabric-1.20.1-1.21.11-handoff.md).
+[Fabric adapter notes](../development/fabric-1.20.1-1.21.11-handoff.md).
 Forge 1.21.11 remains a separate Gradle 9.5 build island, but its own wrapper is
 integrated into the manifest, CI, release workflow, and runtime harness.
 

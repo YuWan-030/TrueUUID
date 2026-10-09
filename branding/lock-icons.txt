@@ -1,0 +1,7 @@
+TrueUUID lock icons were drawn by F1xGOD.
+You may share or adapt them for noncommercial use with credit to F1xGOD.
+Please do not use the artwork commercially.
+
+These terms cover the lock artwork and its pixel patterns in BadgeArtwork.java.
+The code is licensed under LGPL-3.0.
+Earlier LGPL releases keep their original permissions.
