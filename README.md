@@ -4,10 +4,9 @@
 
 English | [简体中文](README_zh-CN.md)
 
-TrueUUID verifies accounts during login on offline-mode Minecraft servers.
-Premium players keep their access token on their client, which sends it only
-to their authentication service. The server checks the login proof and uses
-the verified UUID, name, and signed skin properties.
+TrueUUID verifies accounts on Minecraft servers using `online-mode=false`.
+Verified players keep their UUID, name, and skin. Access tokens go only to
+the player's authentication service, never to the Minecraft server.
 
 Forge, Fabric, and NeoForge need TrueUUID on both client and server.
 Choose the JAR for your exact loader and Minecraft version. Spigot and Paper
@@ -26,9 +25,9 @@ plus the two server plugins. See the
 3. Set `online-mode=false` in `server.properties`.
 4. Start the server to generate the config, then join.
 
-The account badge shows verified or offline status. Offline players can join
-when server policy allows it. Keep known-name protection enabled to prevent
-offline reuse of a previously verified name.
+The badge shows each player's verification status. Server owners decide
+whether players without a login session can join. Previously verified names
+are protected by default.
 
 See the [setup guide](docs/setup.md) for configuration, Prism Launcher,
 Yggdrasil providers, and confirmed player-data migration. Plugin administrators
